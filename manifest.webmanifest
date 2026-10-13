@@ -1,0 +1,30 @@
+{
+  "name": "數碼冒險：肉鴿版（非官方同人）",
+  "short_name": "數碼冒險",
+  "description": "非官方粉絲同人作品：數碼寶貝風格的肉鴿卡牌冒險遊戲",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0e1124",
+  "theme_color": "#0e1124",
+  "lang": "zh-Hant",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
