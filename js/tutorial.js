@@ -65,7 +65,7 @@ async function runTutorial() {
   // ===== 1. 探索 =====
   await enterArea({ type: 'tutorial', f: 0, i: 0 });
   G.mode = 'area';
-  await coach(null, '用 <b>方向鍵</b> 或 <b>WASD</b> 移動。<br>四周被<b>迷霧</b>籠罩，只看得到身邊幾格，敵人和寶物要走近才會出現。');
+  await coach(null, '電腦用 <b>方向鍵</b> 或 <b>WASD</b> 移動；手機<b>按住畫面左半邊拖曳</b>就會出現搖桿。<br>四周被<b>迷霧</b>籠罩，只看得到身邊幾格，敵人和寶物要走近才會出現。');
   G.mode = 'area';
   const pk = AREA.objs.find(o => o.kind === 'pickup');
   if (pk) await coach(null, '附近有閃閃發光的 <b>✨</b>，走過去碰一下就能撿起來！<br>可能是數碼幣、道具或卡片。', { wait: () => pk.done && G.mode === 'area' });

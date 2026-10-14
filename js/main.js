@@ -359,7 +359,50 @@ $('#btnQuit').onclick = () => { if (confirm('回到標題畫面？（進度會�
 
 cvs.addEventListener('pointerdown', tapArea);   // 點地圖自動走過去
 
-// ---------- 觸控用的虛擬方向鍵 ----------
+// ---------- 觸控：浮動搖桿（按在左半邊哪裡就出現在哪裡） ----------
+const JOY = { id: null, x: 0, y: 0, t: 0, moved: false, dir: null };
+const JOY_R = 52, JOY_DEAD = 14;
+function joySetDir(d) {
+  if (JOY.dir === d) return;
+  if (JOY.dir) keys.delete(JOY.dir);
+  JOY.dir = d;
+  if (d) keys.add(d);
+}
+(() => {
+  const zone = $('#joyZone'), base = $('#joyBase'), knob = $('#joyKnob');
+  const end = e => {
+    if (e.pointerId !== JOY.id) return;
+    joySetDir(null);
+    base.classList.remove('on');
+    // 很快放開又沒拖動 → 當成「點地圖自動走過去」
+    if (!JOY.moved && performance.now() - JOY.t < 300) tapArea(e);
+    JOY.id = null;
+  };
+  zone.addEventListener('pointerdown', e => {
+    if (G.mode !== 'area' || JOY.id !== null) return;
+    e.preventDefault();
+    JOY.id = e.pointerId; JOY.x = e.clientX; JOY.y = e.clientY; JOY.t = performance.now(); JOY.moved = false;
+    try { zone.setPointerCapture(e.pointerId); } catch (err) { }
+    base.style.left = e.clientX + 'px'; base.style.top = e.clientY + 'px';
+    knob.style.transform = 'translate(-50%,-50%)';
+    base.classList.add('on');
+    $('#joyHint').classList.add('hidden');
+    if (AREA) AREA.path = null;
+  });
+  zone.addEventListener('pointermove', e => {
+    if (e.pointerId !== JOY.id) return;
+    let dx = e.clientX - JOY.x, dy = e.clientY - JOY.y;
+    const d = Math.hypot(dx, dy);
+    if (d > JOY_R) { dx = dx / d * JOY_R; dy = dy / d * JOY_R; }
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    if (d < JOY_DEAD) { joySetDir(null); return; }
+    JOY.moved = true;
+    joySetDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'arrowright' : 'arrowleft') : (dy > 0 ? 'arrowdown' : 'arrowup'));
+  });
+  ['pointerup', 'pointercancel'].forEach(t => zone.addEventListener(t, end));
+})();
+
+// ---------- 觸控用的虛擬方向鍵（舊版，保留但預設隱藏） ----------
 document.querySelectorAll('#dpad [data-k]').forEach(b => {
   const k = b.dataset.k;
   const on = e => { e.preventDefault(); keys.add(k); b.classList.add('on'); };
