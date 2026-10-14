@@ -340,6 +340,12 @@ button{font-family:inherit;cursor:pointer}
 @keyframes bigShake{15%{transform:translate(-10px,6px)}30%{transform:translate(9px,-7px)}45%{transform:translate(-7px,-4px)}60%{transform:translate(6px,5px)}80%{transform:translate(-3px,2px)}}
 #domainBar{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#3b0a1ee6;border:2px solid #ef4444;color:#fecaca;border-radius:12px;padding:5px 14px;font-size:14px;z-index:3;white-space:nowrap;box-shadow:0 0 18px #ef444466}
 #domainBar b{color:#fff}
+#domainBar{cursor:pointer}
+/* v9.8：領域效果收起後的小標籤（在敵人面板右下角） */
+#domBadge{position:absolute;right:12px;bottom:-12px;z-index:2;background:#3b0a1e;border:1.5px solid #ef4444;color:#fecaca;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:800;white-space:nowrap;box-shadow:0 2px 0 #0007}
+#domBadge small{color:#fca5a5;margin-left:2px}
+#domBadge:hover{filter:brightness(1.2)}
+@media (max-width:900px),(max-height:600px){#domBadge{font-size:10px;padding:1px 8px;bottom:-10px;right:8px}}
 .piles small{color:#8b93c9}
 .piles .carry{color:#fde047}
 
@@ -394,6 +400,14 @@ button{font-family:inherit;cursor:pointer}
 #hud .hbtns{flex-wrap:wrap}
 
 .keepTag{position:absolute;bottom:4px;left:8px;font-size:11px;color:#a16207;font-weight:800}
+/* v9.7：📌 保留手牌 */
+.pinBtn{position:absolute;bottom:4px;left:4px;width:30px;height:30px;border-radius:50%;border:2px solid #fff;background:#3b4170;font-size:15px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;filter:grayscale(1) opacity(.75);box-shadow:0 2px 0 #0007;touch-action:manipulation}
+.pinBtn:hover{filter:none}
+.pinBtn.on{background:#ffcc33;filter:none;transform:rotate(-20deg)}
+.card.pinned{box-shadow:0 6px 0 #0006,0 0 0 3px #ffcc33}
+.card.disabled .pinBtn{filter:grayscale(1) opacity(.75) brightness(1.5)}
+.card.disabled .pinBtn.on{filter:brightness(1.5)}
+@media (max-width:900px),(max-height:600px){.pinBtn{width:24px;height:24px;font-size:11px;bottom:3px;left:3px;border-width:1px}}
 
 /* ===== v7：選角畫面的縮小專屬卡 / 原作搭檔 ===== */
 .kid .miniCard{display:flex;justify-content:center;height:140px;margin-top:4px}
@@ -404,7 +418,9 @@ button{font-family:inherit;cursor:pointer}
 /* =========================================================
    v8：手機版（觸控、直向／橫向）
    ========================================================= */
-html,body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+html,body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+/* v9.6：把整個頁面釘住，手機拖曳時頁面不會跟著捲動／回彈（iPhone 會讓網頁一起晃） */
+html,body{position:fixed;inset:0;width:100%;overflow:hidden}
 body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 #area{touch-action:none}
 #hudQuick{display:none}
@@ -589,3 +605,28 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
     background:radial-gradient(circle at 35% 30%,#fff6c4,#ffcc33 55%,#b8860b);box-shadow:0 4px 12px #000a}
   #joyHint{display:block;position:fixed;left:12px;bottom:max(14px,env(safe-area-inset-bottom));z-index:4;font-size:12px;color:#ffcc33cc;background:#0b0e20aa;padding:4px 10px;border-radius:10px;pointer-events:none}
 }
+
+/* ===== v10.0：商店限定卡、手牌標記、頭目說明視窗、究極之證謎語 ===== */
+.card.limited{border-color:#e6b800;box-shadow:0 6px 0 #0006,0 0 0 2px #fde68a inset}
+.limTag{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,#f59e0b,#fde047);color:#422006;font-size:10px;font-weight:900;border-radius:8px;padding:1px 8px;white-space:nowrap;box-shadow:0 2px 0 #0005}
+.cmarks{position:absolute;top:-10px;right:-8px;background:#1f1235;border:2px solid #fff;border-radius:10px;padding:0 5px;font-size:14px;line-height:20px;box-shadow:0 2px 0 #0006;white-space:nowrap}
+.cost.plus{background:radial-gradient(circle at 35% 30%,#fecaca,#ef4444 60%,#7f1d1d);color:#fff}
+.card.fogged{background:linear-gradient(160deg,#d1d5db,#9ca3af)}
+.card.fogged .cname,.card.fogged .cdesc{color:#374151}
+#bNotice,#riddleBox{position:fixed;inset:0;z-index:60;background:#0008;display:flex;align-items:center;justify-content:center;padding:16px}
+#riddleBox.hidden{display:none}
+.nBox{background:#1a1f3d;border:2px solid #ef4444;border-radius:16px;padding:18px 20px;max-width:560px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 0 30px #ef444455;text-align:left}
+#riddleBox .nBox{border-color:#fbbf24;box-shadow:0 0 30px #fbbf2455;text-align:center}
+.nBox h3{margin:0 0 12px;color:#fecaca;font-size:19px}
+#riddleBox .nBox h3{color:#fde68a}
+.nRow{margin:0 0 10px;padding:8px 10px;background:#262d5a;border-radius:10px;font-size:14px;line-height:1.55}
+.nRow b{display:block;color:#fde68a;margin-bottom:2px}
+.nRow div b{display:inline;color:#fff}
+.nFoot{font-size:12px;color:#9aa3d6;margin:6px 0 12px}
+.nBox .btn{width:100%}
+.riddle{font-size:17px;line-height:1.9;color:#fef3c7;margin:8px 0 14px;font-weight:700}
+.hr.riddle{cursor:pointer;animation:riddleGlow 1.6s ease-in-out infinite}
+@keyframes riddleGlow{50%{filter:drop-shadow(0 0 6px #fde047)}}
+#battleRelics span{cursor:default}#battleRelics .riddle{cursor:pointer}
+#svcUp small{display:block;font-size:11px;opacity:.8;font-weight:600}
+@media (max-width:900px),(max-height:600px){.cmarks{font-size:11px;line-height:16px;top:-8px;right:-4px}.limTag{font-size:9px;top:-8px}.nRow{font-size:13px}.nBox h3{font-size:16px}}

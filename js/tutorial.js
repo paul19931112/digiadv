@@ -136,7 +136,7 @@ async function tutBattle1() {
   await coach('#hand', '這些是<b>手牌</b>，卡片左上角的數字是要花的能量。<br>點卡片（或按數字鍵 1～8）就能使用。');
   const n0 = B.discard.length + B.exhaust.length;
   await coach('#hand', '試試看：點一張<b>「撞擊」</b>攻擊蛞蝓獸！', { wait: () => !B || (B.discard.length + B.exhaust.length > n0 && !B.anim) });
-  if (B && B.phase === 'player') await coach('#btnEnd', '想留著能量、或沒有能出的牌時，按<b>「結束回合」</b>（空白鍵）。<br>沒用完的能量最多可以<b>保留 2 點</b>到下回合！', { wait: () => !B || B.phase !== 'player' });
+  if (B && B.phase === 'player') await coach('#btnEnd', '想留著能量、或沒有能出的牌時，按<b>「結束回合」</b>（空白鍵）。<br>沒用完的能量最多可以<b>保留 2 點</b>到下回合！<br>卡片左下角的 <b>📌</b> 可以把牌<b>留到下回合</b>（最多 2 張），下回合會補滿到 5 張。', { wait: () => !B || B.phase !== 'player' });
   if (B) await coach(null, '接下來自己打打看，把蛞蝓獸打倒吧！打贏後可以從 3 張卡裡挑 1 張加入牌組。', { auto: 3500 });
   await p;
 }

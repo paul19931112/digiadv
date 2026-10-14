@@ -17,7 +17,8 @@ let uidSeq = 0;
 // ---------- 平衡參數 ----------
 const ATB_K = 3.5;
 const EVO_TURNS = 3;
-const HAND_SIZE = 5;
+const HAND_SIZE = 5;      // 每回合開始把手牌補到幾張
+const PIN_MAX = 2;        // 回合結束時最多能釘住（保留）幾張牌，究極技卡不算
 const ENERGY = 3;
 const CARRY_MAX = 2;      // 沒用完的能量最多保留幾點到下回合
 const COURAGE_MAX = 120;
@@ -243,11 +244,11 @@ const CARDS = {
   haste:  { name: '疾風',     cost: 1, type: 'skill', desc: u => `加速 ${u ? 4 : 3} 回合<br><small>行動條 ×1.5</small>`, fx: u => addStatus(B.p, 'haste', u ? 4 : 3) },
   heal:   { name: '回復晶片', cost: 1, type: 'skill', exhaust: true, desc: u => `回復 ${u ? 35 : 25}% HP<br><small>本場用過即移除</small>`, fx: u => healF(B.p, hpPct(B.p, u ? .35 : .25)) },
   jam:    { name: '干擾電波', cost: 1, type: 'skill', desc: u => `敵人行動條 -${u ? 70 : 50}%`, fx: u => pushGauge(B.e, u ? -70 : -50) },
-  drain:  { name: '能量吸收', cost: 1, type: 'atk',   desc: u => `造成 ${dmgTxt(u ? 8 : 5)} 傷害<br>回復一半傷害值`, fx: u => { const d = hit(u ? 8 : 5); healF(B.p, Math.ceil(d / 2)); } },
+  drain:  { name: '能量吸收', cost: 1, type: 'atk',   desc: u => `造成 ${dmgTxt(u ? 8 : 5)} 傷害<br>回復一半傷害值`, fx: u => { const d = hit(u ? 8 : 5); healF(B.p, Math.ceil(d / 2), true); } },
   scan:   { name: '數碼掃描', cost: 0, type: 'skill', desc: u => `抽 ${u ? 3 : 2} 張牌`, fx: u => drawCards(u ? 3 : 2) },
   cry:    { name: '戰鬥吶喊', cost: 1, ucost: 0, type: 'power', desc: u => '攻擊↑ 3 回合<br><small>傷害 ×1.3</small>', fx: u => addStatus(B.p, 'atkUp', 3) },
   pierce: { name: '貫穿攻擊', cost: 1, type: 'atk',   desc: u => `造成 ${dmgTxt(u ? 8 : 5)} 傷害<br>無視護盾`, fx: u => hit(u ? 8 : 5, 1, { pierce: true }) },
-  rush:   { name: '先發制人', cost: 0, type: 'skill', desc: u => `下次行動條<br>從 ${u ? 60 : 40}% 開始`, fx: u => { B.p.nextGauge = Math.min(90, (B.p.nextGauge || 0) + (u ? 60 : 40)); } },
+  rush:   { name: '先發制人', cost: 0, type: 'skill', desc: u => `下次行動條<br>從 ${u ? 60 : 40}% 開始`, fx: u => { B.p.nextGauge = Math.min(90, (B.p.nextGauge || 0) + hv(u ? 60 : 40)); } },
   crest:  { name: '勇氣徽章', cost: 1, type: 'power', desc: u => `勇氣值 +${u ? 21 : 15}`, fx: u => gainCourage(u ? 21 : 15, true) },
   hotblood: { name: '熱血吶喊', cost: 1, type: 'atk', desc: u => `造成 ${dmgTxt(u ? 7 : 5)} 傷害<br>勇氣值 +${u ? 5 : 3}`, fx: u => { hit(u ? 7 : 5); gainCourage(u ? 5 : 3, true); } },
   // 劇情獲得
@@ -259,15 +260,26 @@ const CARDS = {
   analyze:   { name: '弱點分析', cost: 0, type: 'skill', desc: u => `敵人 受傷↑ ${u ? 3 : 2} 回合<br><small>受到的傷害 ×1.3</small>`, fx: u => addStatus(B.e, 'expose', u ? 3 : 2) },
   blossom:   { name: '花之祝福', cost: 1, type: 'skill', desc: u => `勇氣值 +${u ? 12 : 8}<br>回復 ${u ? 12 : 8}% HP`, fx: u => { gainCourage(u ? 12 : 8, true); healF(B.p, hpPct(B.p, u ? .12 : .08)); } },
   prepare:   { name: '萬全準備', cost: 1, type: 'skill', desc: u => `獲得 ${blockVal(u ? 13 : 9, u ? .8 : .6)} 護盾<br>清除自己的異常狀態`, fx: u => { gainBlock(B.p, blockVal(u ? 13 : 9, u ? .8 : .6)); ['burn', 'poison', 'para'].forEach(k => delete B.p.st[k]); } },
-  hopelight: { name: '希望之光', cost: 0, type: 'power', exhaust: true, permanent: true,
+  hopelight: { name: '希望之光', cost: 0, type: 'power', exhaust: true, permanent: true, noTarget: true,
               canPlay: () => B && !B.p.dark && !B.p.noEvo && hopeTier(B.p) > B.p.tier,
               desc: u => `立刻進化到能達到的最高階段<br>不需勇氣・必定成功${u ? '<br>進化持續 +1 回合' : ''}<br><small>整局只能用一次</small>`,
               fx: u => { log('🕊️ 希望之光！奇蹟發生了！'); doEvolve(B.p, hopeTier(B.p), false); if (u) B.p.evoTurns += 1; } },
-  lightward: { name: '光之守護', cost: 1, ucost: 0, type: 'skill', desc: u => '下一次受到的攻擊<br>完全無效', fx: u => addStatus(B.p, 'ward', 9) },
-  friend:    { name: '夥伴的羈絆', cost: 1, type: 'skill', exhaust: true, desc: u => `全隊回復 ${u ? 22 : 15}% HP<br>勇氣值 +10`, fx: u => { B.fighters.forEach(f => { if (f.hp <= 0) return; if (f === B.p) healF(f, hpPct(f, u ? .22 : .15)); else f.hp = Math.min(f.maxhp, f.hp + healAmt(f.maxhp * (u ? .22 : .15))); }); gainCourage(10, true); } },
+  lightward: { name: '光之守護', cost: 2, ucost: 1, type: 'skill', noTarget: true, desc: u => '下一次受到的攻擊<br>完全無效', fx: u => addStatus(B.p, 'ward', 9) },
+  friend:    { name: '夥伴的羈絆', cost: 1, type: 'skill', exhaust: true, desc: u => `全隊回復 ${u ? 22 : 15}% HP<br>勇氣值 +10`, fx: u => { B.fighters.forEach(f => { if (f.hp <= 0) return; if (f === B.p) healF(f, hpPct(f, u ? .22 : .15)); else f.hp = Math.min(f.maxhp, f.hp + hv(healAmt(f.maxhp * (u ? .22 : .15)))); }); gainCourage(10, true); } },
+  // ---- 商店限定（只能在玩偶獸的商店買到；shop = 價格） ----
+  lovebox:   { name: '愛心大放送', cost: 1, type: 'skill', shop: 100, desc: u => `二選一：<br>復活 1 隻倒下的夥伴（${u ? 45 : 30}% HP）<br>或 全隊回復 ${u ? 15 : 10}%＋護盾`, fx: u => loveBox(u) },
+  evoext:    { name: '進化延長', cost: 1, ucost: 0, type: 'power', shop: 130, canPlay: () => B && B.p.tier > 0, desc: u => '進化中才能用<br>進化持續 +1 回合', fx: u => { B.p.evoTurns += 1; floatText(B.p, '✨ 進化延長', 'info'); log(`✨ ${B.p.name} 的進化持續時間延長了！`); } },
+  allin:     { name: '孤注一擲', cost: 0, type: 'atk', shop: 120, desc: u => `消耗全部勇氣值<br>每 10 點造成 ${dmgTxt(u ? 7 : 5)} 傷害<br><small>目前 ${Math.floor((RUN ? RUN.courage : 0) / 10)} 下</small>`, fx: u => { const n = Math.floor(RUN.courage / 10); RUN.courage = 0; updateCourageUI(); if (n) hit(u ? 7 : 5, n); else floatText(B.p, '勇氣值不夠…', 'info'); } },
+  overclock: { name: '超頻晶片', cost: 0, type: 'skill', exhaust: true, shop: 110, desc: u => `能量 +${u ? 3 : 2}<br><small>本場用過即移除</small>`, fx: u => { const n = hv(u ? 3 : 2); B.energy += n; floatText(B.p, `⚡+${n}`, 'info'); } },
+  relay:     { name: '交棒連擊', cost: 1, type: 'atk', shop: 100, desc: u => `造成 ${dmgTxt(u ? 9 : 6)} 傷害<br>這回合下一次換手不花能量`, fx: u => { hit(u ? 9 : 6); B.relayFree = true; floatText(B.p, '🔄 換手免費', 'info', 60); } },
+  notes:     { name: '戰術筆記', cost: 0, type: 'skill', shop: 90, desc: u => `這回合 📌 保留上限 +1<br>抽 ${u ? 2 : 1} 張牌`, fx: u => { B.pinBonus = 1; drawCards(u ? 2 : 1); } },
+  breaker:   { name: '破甲彈', cost: 2, type: 'atk', shop: 150, desc: u => `清除敵人的護盾<br>造成 ${dmgTxt(u ? 15 : 11)} 傷害<br><small>對頭目、精英傷害 ×1.5</small>`, fx: u => { if (B.e.block) { B.e.block = 0; floatText(B.e, '護盾粉碎！', 'info', 60); } hit((u ? 15 : 11) * (B.e.boss || B.e.elite ? 1.5 : 1)); } },
+  signal:    { name: '友好訊號', cost: 1, type: 'skill', shop: 90, desc: u => `下一次勸降的成功率 +${u ? 30 : 20}%`, fx: u => { B.e.signal = (B.e.signal || 0) + hv(u ? 30 : 20) / 100; floatText(B.e, '💗 好像願意聽了', 'info', 60); } },
+  purify:    { name: '淨化', cost: 1, ucost: 0, type: 'skill', shop: 120, noHalf: true, max: 2, desc: u => '清除手牌和出戰夥伴<br>身上的負面效果<br><small>整局最多 2 張</small>', fx: u => purifyAll() },
 };
 const TYPE_NAME = { atk: '攻擊', skill: '技能', power: '強化', sig: '必殺', ult: '究極' };
 const STARTER_DECK = ['strike', 'strike', 'strike', 'strike', 'guard', 'guard', 'guard', 'sig', 'sig', 'focus'];
+const SHOP_POOL = Object.keys(CARDS).filter(k => CARDS[k].shop);   // 商店限定卡
 const REWARD_POOL = ['double', 'heavy', 'wall', 'haste', 'heal', 'jam', 'drain', 'scan', 'cry', 'pierce', 'rush', 'sig', 'focus', 'crest', 'hotblood', 'hotblood'];
 
 function sigDef(sp, u) {
@@ -278,7 +290,7 @@ function sigDef(sp, u) {
 }
 function ultDef(sp, tier) {
   const ev = sp.evo[tier - 1], hits = ev.hits || 1, fl = flavor(sp.flavor, tier);
-  const per = Math.round(TIERS[tier].power / hits * (hits > 1 ? 1.1 : 1));
+  const per = Math.round(TIERS[tier].power / hits * (hits > 1 ? 1.1 : 1) * (RUN && has('ultboost') ? 1.25 : 1));
   return { name: ev.ult, cost: 2, type: 'ult',
     desc: () => `造成 ${dmgTxt(per, hits)} 傷害<br>${fl.desc()}`,
     fx: () => { hit(per, hits, { pierce: fl.pierce }); fl.fx && fl.fx(); } };
@@ -291,7 +303,8 @@ function cardDef(id) {
   else if (base === 'ult') { d = (B && B.p.tier > 0) ? ultDef(sp, B.p.tier) : sigDef(sp); if (B && B.p.dark) d = { ...d, name: '暴走・' + d.name }; }
   else {
     const c = CARDS[base];
-    d = { name: c.name, cost: u && c.ucost != null ? c.ucost : c.cost, type: c.type, exhaust: c.exhaust, permanent: c.permanent, canPlay: c.canPlay, desc: () => c.desc(u), fx: () => c.fx(u) };
+    d = { name: c.name, cost: u && c.ucost != null ? c.ucost : c.cost, type: c.type, exhaust: c.exhaust, permanent: c.permanent, canPlay: c.canPlay,
+          shop: c.shop, noHalf: c.noHalf, noTarget: c.noTarget, max: c.max, desc: () => c.desc(u), fx: () => c.fx(u) };
   }
   return { ...d, name: d.name + (u ? '+' : ''), u };
 }
@@ -345,6 +358,8 @@ const RELICS = {
   coin:      { name: '招財貓',   icon: '🐱', desc: '戰鬥獲得的數碼幣 +50%' },
   radar:     { name: '數碼探測器', icon: '📡', desc: '探索地圖時的視野 +2 格' },
   bigbag:    { name: '大背包',   icon: '🎒', desc: '背包上限 +1（變成 4 格）' },
+  ultboost:  { name: '究極強化', icon: '💠', desc: '所有究極技威力 +25%（商店購買）', special: true },
+  ultproof:  { name: '究極之證', icon: '🏅', desc: '進化時多拿 1 張究極技卡（隱藏獎勵）', special: true },
   darkgear:  { name: '黑色齒輪', icon: '⚙️', desc: '全隊攻擊 ×1.25，但每回合開始失去 3% HP', dark: true },
   darkpower: { name: '黑暗之力', icon: '🌑', desc: '進化所需勇氣值 -30%，全隊攻擊 ×1.2', dark: true },
 };
@@ -374,7 +389,7 @@ async function addItem(k) {
   updateHUD();
   return true;
 }
-const relicPool = () => Object.keys(RELICS).filter(k => !RELICS[k].dark && !has(k) && !(k === 'hope' && RUN.flags.hopeUsed));
+const relicPool = () => Object.keys(RELICS).filter(k => !RELICS[k].dark && !RELICS[k].special && !has(k) && !(k === 'hope' && RUN.flags.hopeUsed));
 
 // =========================================================
 //   章節
@@ -395,12 +410,32 @@ const CHAPTERS = {
 };
 // 頭目／精英的領域效果（對玩家不利）
 const DOMAINS = {
-  heat:  { name: '灼熱之軀', icon: '🔥', desc: '每回合開始，出戰夥伴會燒傷' },
-  jam:   { name: '干擾電波', icon: '📡', desc: '每回合少抽 1 張牌，換手多花 1 能量；鎖定分析：對進化中的夥伴傷害 +40%' },
-  fog:   { name: '迷霧森林', icon: '🌫️', desc: '看不到招式預告，勇氣值獲得減半；寄生之根：同一隻夥伴連續在場 3 回合以上會被越纏越緊' },
-  dark:  { name: '黑暗壓迫', icon: '🌑', desc: '進化消耗 +30%、持續回合 -1；血量剩一半時進入第二階段（黑暗衝擊、死亡宣告）' },
+  heat:  { name: '灼熱之軀', icon: '🔥', desc: '每回合開始燒傷；卡片燒傷：點燃手牌，打出燃燒的卡會受傷' },
+  jam:   { name: '干擾電波', icon: '📡', desc: '換手多花 1 能量；鎖定分析：進化中的夥伴傷害 +40%；看破手牌、召喚小齒輪' },
+  fog:   { name: '迷霧森林', icon: '🌫️', desc: '看不到招式預告，勇氣值獲得減半；寄生之根；霧化手牌、種植回血' },
+  dark:  { name: '黑暗壓迫', icon: '🌑', desc: '進化消耗 +30%、持續回合 -1；卡片汙染；血量剩一半時進入第二階段' },
   armor: { name: '暗黑之軀', icon: '🛡️', desc: '被黑色齒輪強化，受到的傷害 -15%' },
 };
+// 頭目戰開始前的說明視窗
+const BOSS_INFO = {
+  heat: [['🔥 灼熱之軀', '每回合開始，出戰夥伴會燒傷。'],
+         ['🔥 卡片燒傷', '火焰獸行動時會點燃你<b>下一手牌</b>的 1 張（血量一半以下 2 張）。打出燃燒中的卡，夥伴會受到最大 HP 6% 的傷害。卡片離開手牌後燒傷就會消失，但 📌 保留的牌會一直燒。']],
+  jam:  [['📡 干擾電波', '換手多花 1 能量。'],
+         ['🎯 鎖定分析', '對<b>進化中</b>的夥伴傷害 +40%。'],
+         ['🔍 看破', '每次行動後，你下一手牌會有 1 張能量 +1。'],
+         ['⚙️ 召喚小齒輪', '每次行動召喚 1 隻（最多 1 隻，血量一半以下最多 2 隻）。每隻小齒輪會<b>擋下一張攻擊卡</b>（必殺、究極技也算）。']],
+  fog:  [['🌫️ 迷霧森林', '看不到招式預告，勇氣值獲得減半。'],
+         ['🌱 寄生之根', '同一隻夥伴連續在場 3 回合以上，每回合受到越來越重的傷害，換手就能甩開。'],
+         ['🌫️ 霧化', '每次行動後，你下一手牌會有 1 張（沒有 📌 保留的）被迷霧籠罩，只看得到能量。'],
+         ['🌳 種植', '沒有種子時會種下一顆，2 次行動後回復最大 HP 的 5%。']],
+  dark: [['🌑 黑暗壓迫', '進化消耗 +30%、持續回合 -1。'],
+         ['☠️ 卡片汙染', '每次行動後汙染你下一手牌的 1 張（第二階段 2 張），<b>效果減半</b>，究極技也會被汙染。打出被汙染的卡，所有同名的卡 2 回合內都會效果減半。'],
+         ['💥 第二階段', '血量剩一半時：進化中的夥伴會被<b>強制退化</b>（沒進化的受到 30% 傷害），接下來 1 回合不能進化；之後每 3 次行動發動「☠️ 死亡宣告」（會先預告）。']],
+};
+// 究極之證的謎語（撿到神聖計畫時出現）
+const PROOF_RIDDLE = '當孩子懷抱著屬於自己的徽章，<br>與最初相遇的夥伴一同登上究極之巔，<br>幾乎毫髮無傷地擊倒強大的敵人——<br>那份證明，將會顯現。';
+// 孩子自己的徽章道具（太一 → 勇氣徽章…）
+const kidCrest = () => Object.keys(RELICS).find(k => RELICS[k].name === KIDS[RUN.kid].crest + '徽章');
 const NODE_INFO = {
   battle: { icon: '⚔️', name: '戰鬥' },
   elite:  { icon: '💀', name: '精英' },
@@ -453,6 +488,9 @@ function addCard(id) {
   if (RUN.deck.length >= K().deckMax) { toast(`牌組已滿（上限 ${K().deckMax} 張）`); return false; }
   RUN.deck.push(id); return true;
 }
+// 商店的卡片強化：第一次 30，之後每次 ×1.5（整局累計）
+const shopUpPrice = () => Math.round(30 * Math.pow(1.5, RUN.shopUps || 0) * K().shop);
+const ULT_BOOST_PRICE = 500;   // 究極強化（不打折）
 const healAmt = n => Math.round(n * K().heal);
 function newMember(sp, level) {
   return { uid: Date.now() + Math.random(), sp, level, exp: 0, hp: scaleStats(SPECIES[sp], level).maxhp };

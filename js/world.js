@@ -479,7 +479,8 @@ async function hatchEgg() {
 async function openShop(o) {
   if (!o.stock) {
     o.stock = {
-      cards: shuffle([...REWARD_POOL]).slice(0, 4).map(id => ({ id, price: Math.round(randInt(40, 65) * K().shop), sold: false })),
+      cards: [...shuffle([...REWARD_POOL]).slice(0, 2).map(id => ({ id, price: Math.round(randInt(40, 65) * K().shop), sold: false })),
+              ...shuffle([...SHOP_POOL]).slice(0, 2).map(id => ({ id, price: Math.round(CARDS[id].shop * K().shop), sold: false }))],   // 後 2 張是商店限定卡
       relics: shuffle(relicPool()).slice(0, 2).map(k => ({ k, price: Math.round(randInt(110, 150) * K().shop), sold: false })),
       items: shuffle(Object.keys(ITEMS)).slice(0, 3).map(k => ({ k, price: Math.round(randInt(28, 45) * K().shop), sold: false })),
       removed: false,
@@ -489,22 +490,42 @@ async function openShop(o) {
   await new Promise(res => {
     const render = () => {
       saveRun();
-      const s = o.stock, ov = $('#overlay');
+      const s = o.stock, ov = $('#overlay'), upPrice = shopUpPrice(), upN = (RUN.shopUps || 0) + 1;
+      const showUlt = RUN.chapter !== 1 && !has('ultboost');   // 究極強化：第二章以後才有
       ov.innerHTML = `<h2>🧸 玩偶獸的商店</h2><p class="sub">💰 你有 ${RUN.bits} 數碼幣</p>
         <div class="shopRow cards"></div><div class="shopRow relics"></div><div class="shopRow items"></div>
         <div class="shopRow svc">
           <button class="btn" id="svcRemove" ${s.removed || RUN.bits < 60 || RUN.deck.length <= 5 ? 'disabled' : ''}>🗑️ 刪除一張卡　💰60</button>
+          <button class="btn" id="svcUp" ${RUN.bits < upPrice || !RUN.deck.some(canUpgrade) ? 'disabled' : ''}>⬆️ 強化一張卡　💰${upPrice}<small>（第 ${upN} 次，每次 ×1.5）</small></button>
+          ${showUlt ? `<button class="btn evo" id="svcUlt" ${RUN.bits < ULT_BOOST_PRICE ? 'disabled' : ''}>💠 究極強化：所有究極技 +25%　💰${ULT_BOOST_PRICE}</button>` : ''}
           <button class="btn" id="svcHeal" ${RUN.bits < 35 ? 'disabled' : ''}>💊 全隊回復 40%　💰35</button>
         </div>
         <button class="btn primary" id="shopLeave">離開商店</button>`;
       const cr = ov.querySelector('.cards'), rr = ov.querySelector('.relics');
-      s.cards.forEach(c => { if (c.sold) return; cr.appendChild(cardEl(c.id, { price: c.price, playable: RUN.bits >= c.price, onClick: () => { if (RUN.bits < c.price || !addCard(c.id)) return; RUN.bits -= c.price; c.sold = true; render(); } })); });
+      const atMax = id => CARDS[baseId(id)] && CARDS[baseId(id)].max && RUN.deck.filter(x => baseId(x) === baseId(id)).length >= CARDS[baseId(id)].max;
+      s.cards.forEach(c => { if (c.sold) return; cr.appendChild(cardEl(c.id, { price: c.price, playable: RUN.bits >= c.price && !atMax(c.id), onClick: () => {
+        if (atMax(c.id)) { toast(`「${cardDef(c.id).name}」整局最多 ${CARDS[baseId(c.id)].max} 張`); return; }
+        if (RUN.bits < c.price || !addCard(c.id)) return; RUN.bits -= c.price; c.sold = true; render(); } })); });
       s.relics.forEach(r => { if (r.sold) return; rr.appendChild(relicEl(r.k, { price: r.price, onClick: () => { if (RUN.bits < r.price) return; RUN.bits -= r.price; RUN.relics.push(r.k); r.sold = true; render(); } })); });
       s.items.forEach(it => { if (it.sold) return; const el = document.createElement('div'); el.className = 'relic clickable';
         el.innerHTML = `<div class="ri">${ITEMS[it.k].icon}</div><div><b>${ITEMS[it.k].name}</b><div class="rd">${ITEMS[it.k].desc}</div></div><div class="cnt price">💰 ${it.price}</div>`;
         el.onclick = async () => { if (RUN.bits < it.price) return; RUN.bits -= it.price; it.sold = true; await addItem(it.k); render(); };
         ov.querySelector('.items').appendChild(el); });
       ov.querySelector('#svcRemove').onclick = async () => { const x = await chooseCardFromDeck('選一張要刪除的卡'); if (x) { RUN.deck.splice(x.i, 1); RUN.bits -= 60; s.removed = true; } render(); };
+      // 強化一張卡：可以一直買，但每次 ×1.5（整局累計）
+      ov.querySelector('#svcUp').onclick = async () => {
+        const x = await chooseCardFromDeck(`選一張卡片強化　💰${upPrice}`, canUpgrade);
+        if (x && RUN.bits >= upPrice) {
+          RUN.deck[x.i] = x.id + '+'; RUN.bits -= upPrice; RUN.shopUps = upN; sfx('levelup');
+          toast(`「${cardDef(x.id + '+').name}」強化完成！下次強化 💰${shopUpPrice()}`, 3000);
+        }
+        render();
+      };
+      if (showUlt) ov.querySelector('#svcUlt').onclick = () => {
+        if (RUN.bits < ULT_BOOST_PRICE) return;
+        RUN.bits -= ULT_BOOST_PRICE; RUN.relics.push('ultboost'); sfx('levelup');
+        toast('💠 究極強化！所有究極技的威力 +25%', 3000); render();
+      };
       ov.querySelector('#svcHeal').onclick = () => { RUN.bits -= 35; teamHeal(.4); toast('全隊回復了！'); render(); };
       ov.querySelector('#shopLeave').onclick = () => { ov.classList.add('hidden'); res(); };
       ov.classList.remove('hidden');

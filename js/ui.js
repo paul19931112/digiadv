@@ -54,16 +54,40 @@ function dpic(key, emoji, cls = '') {
 const spPic = (id, cls) => dpic(SPECIES[id].img, SPECIES[id].emoji, cls);
 function preloadLine(id) { const sp = SPECIES[id]; loadImg(sp.img); (sp.evo || []).forEach(e => loadImg(e.img)); }
 
-function cardEl(id, { playable = true, key, onClick, isStatic = false, count, price, keep } = {}) {
+function cardEl(id, { playable = true, key, onClick, isStatic = false, count, price, keep, pin, onPin, cost, marks, fog } = {}) {
   const d = cardDef(id);
   const el = document.createElement('div');
-  el.className = `card ${d.type}${playable ? '' : ' disabled'}${isStatic ? ' static' : ''}${d.u ? ' up' : ''}`;
-  el.innerHTML = `<div class="cost">${d.cost}</div><div class="ctype">${TYPE_NAME[d.type]}</div>
-    <div class="cname">${d.name}</div><div class="cdesc">${d.desc()}</div>
+  const cst = cost ?? d.cost;
+  el.className = `card ${d.type}${playable ? '' : ' disabled'}${isStatic ? ' static' : ''}${d.u ? ' up' : ''}${d.shop ? ' limited' : ''}${fog ? ' fogged' : ''}`;
+  el.innerHTML = `<div class="cost${cst > d.cost ? ' plus' : ''}">${cst}</div><div class="ctype">${TYPE_NAME[d.type]}</div>
+    ${fog ? '<div class="cname">？？？</div><div class="cdesc">🌫️ 被迷霧籠罩<br>看不清楚效果</div>' : `<div class="cname">${d.name}</div><div class="cdesc">${d.desc()}</div>`}
+    ${d.shop ? '<div class="limTag">🧸 限定</div>' : ''}${marks ? `<div class="cmarks">${marks}</div>` : ''}
     ${keep ? '<div class="keepTag">📌 保留</div>' : ''}${key ? `<div class="ckey">${key}</div>` : ''}${count ? `<div class="cnt">×${count}</div>` : ''}${price != null ? `<div class="cnt price">💰 ${price}</div>` : ''}`;
+  if (pin !== undefined) {   // 📌 圖釘：釘住的牌回合結束時會保留
+    el.classList.toggle('pinned', pin);
+    const pb = document.createElement('button');
+    pb.className = 'pinBtn' + (pin ? ' on' : '');
+    pb.textContent = '📌'; pb.title = pin ? '取消保留' : `保留到下回合（最多 ${PIN_MAX} 張）`;
+    pb.addEventListener('click', e => { e.stopPropagation(); onPin && onPin(); });
+    el.appendChild(pb);
+  }
   if (onClick) el.addEventListener('click', onClick);
   return el;
 }
+// HUD／戰鬥畫面上的徽章小圖示（神聖計畫可以點開究極之證的謎語）
+function relicIcon(k) {
+  const r = RELICS[k], rid = k === 'digivice';
+  return `<span class="hr${rid ? ' riddle' : ''}" ${rid ? 'data-riddle="1"' : ''} title="${r.name}：${r.desc}${rid ? '（點一下看謎語）' : ''}">${r.icon}</span>`;
+}
+function showRiddle() {
+  let b = $('#riddleBox');
+  if (!b) { b = document.createElement('div'); b.id = 'riddleBox'; document.body.appendChild(b); }
+  b.innerHTML = `<div class="nBox"><h3>📟 神聖計畫上浮現了文字…</h3><div class="riddle">${PROOF_RIDDLE}</div>` +
+    `<div class="nFoot">（之後點徽章欄的 📟 可以再看一次）</div><button class="btn primary">關閉</button></div>`;
+  b.classList.remove('hidden'); sfx('open');
+  b.querySelector('button').onclick = () => { b.classList.add('hidden'); sfx('close'); };
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-riddle]')) { e.stopPropagation(); showRiddle(); } });
 function relicEl(k, { onClick, price } = {}) {
   const r = RELICS[k];
   const el = document.createElement('div');

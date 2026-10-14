@@ -4,8 +4,41 @@
    runBattle(...) 回傳 Promise：'win' / 'flee'（全滅會直接結束這一局）
    ========================================================= */
 let B = null;
+// 頭目／精英的領域效果說明：開場顯示幾秒後自動收起（不然會擋住敵人），點敵人面板上的小標籤可以再叫出來
+let domainT = null;
+function showDomain(ms = 6000) { $('#domainBar').classList.remove('hidden'); clearTimeout(domainT); domainT = setTimeout(hideDomain, ms); }
+function hideDomain() { clearTimeout(domainT); $('#domainBar').classList.add('hidden'); }
+$('#domBadge').addEventListener('click', e => { e.stopPropagation(); sfx('click'); if (B && B.opt.boss && BOSS_INFO[B.dom]) { showBossInfo(); return; } $('#domainBar').classList.contains('hidden') ? showDomain() : hideDomain(); });
+$('#domainBar').addEventListener('click', hideDomain);
+
+// 被汙染的卡：效果減半（數值、回合數都減半，小數進位）。只在出牌結算的瞬間為 true
+let HALF = false;
+const hv = n => HALF ? Math.ceil(n / 2) : n;
+
+// 戰鬥中的說明視窗（頭目能力、惡魔獸第二階段）：打開時戰鬥暫停，手動按關閉
+const noticeOpen = () => !$('#bNotice').classList.contains('hidden');
+function battleNotice(title, rows, foot = '') {
+  const n = $('#bNotice');
+  n.innerHTML = `<div class="nBox"><h3>${title}</h3>${rows.map(([h, t]) => `<div class="nRow"><b>${h}</b><div>${t}</div></div>`).join('')}` +
+    `${foot ? `<div class="nFoot">${foot}</div>` : ''}<button class="btn primary" id="bNoticeOk">我知道了</button></div>`;
+  n.classList.remove('hidden');
+  sfx('open');
+  if (B) B.hold = true;
+  return new Promise(res => { n.querySelector('#bNoticeOk').onclick = () => closeNotice(res); n._res = res; });
+}
+function closeNotice(res) {
+  const n = $('#bNotice'); if (n.classList.contains('hidden')) return;
+  n.classList.add('hidden'); sfx('close');
+  if (B) B.hold = false;
+  (res || n._res || (() => {}))();
+}
+function showBossInfo() {
+  if (!B || !BOSS_INFO[B.dom]) return;
+  battleNotice(`😈 頭目 ${B.e.name} 的能力`, BOSS_INFO[B.dom], '💡 商店的「✨ 淨化」卡可以清除手牌和夥伴身上的負面效果。之後點敵人面板右下角的標籤可以再看一次。');
+}
 
 function gainCourage(n, show) {
+  n = hv(n);
   const before = Math.floor(RUN.courage);
   if (n > 0) n *= K().courage * (B && B.dom === 'fog' ? .5 : 1);
   RUN.courage = Math.min(COURAGE_MAX, RUN.courage + n);
@@ -63,13 +96,14 @@ function applyHit(att, tgt, power, opts = {}) {
 }
 function hit(power, hits = 1, opts = {}) {
   let total = 0;
+  if (HALF) power /= 2;
   for (let i = 0; i < hits; i++) { if (B.e.hp <= 0) break; total += applyHit(B.p, B.e, power, opts); }
   return total;
 }
-function gainBlock(f, n) { sfx('block'); f.block += n; floatText(f, `+${n} 🛡`, 'info'); }
-function healF(f, n) { if (f.isPlayer) n = healAmt(n); const b = f.hp; f.hp = Math.min(f.maxhp, f.hp + n); const d = f.hp - b; if (d > 0) { floatText(f, `+${d}`, 'heal'); sfx('heal'); } }
-function pushGauge(f, n) { f.gauge = clamp(f.gauge + n, 0, 99); floatText(f, n < 0 ? '行動延遲！' : '行動加快！', 'info', 60); }
-function addStatus(f, k, n) { f.st[k] = Math.max(f.st[k] || 0, n); log(`${f.name} ${STATUS[k].icon}${STATUS[k].name}了！`); }
+function gainBlock(f, n) { n = hv(n); sfx('block'); f.block += n; floatText(f, `+${n} 🛡`, 'info'); }
+function healF(f, n, raw) { if (!raw) n = hv(n); if (f.isPlayer) n = healAmt(n); const b = f.hp; f.hp = Math.min(f.maxhp, f.hp + n); const d = f.hp - b; if (d > 0) { floatText(f, `+${d}`, 'heal'); sfx('heal'); } }
+function pushGauge(f, n) { if (HALF) n /= 2; f.gauge = clamp(f.gauge + n, 0, 99); floatText(f, n < 0 ? '行動延遲！' : '行動加快！', 'info', 60); }
+function addStatus(f, k, n) { n = hv(n); f.st[k] = Math.max(f.st[k] || 0, n); log(`${f.name} ${STATUS[k].icon}${STATUS[k].name}了！`); }
 function chanceStatus(f, k, n, c) { if (Math.random() < c) addStatus(f, k, n); }
 function tickStatus(f) {
   for (const k of ['burn', 'poison']) {
@@ -85,11 +119,87 @@ function tickStatus(f) {
 }
 function gaugeRate(f) { return f.spd * ATB_K * (f.st.haste ? 1.5 : 1) * (f.st.para ? 0.5 : 1); }
 function drawCards(n) {
+  n = hv(n);
   for (let i = 0; i < n; i++) {
     if (B.hand.length >= 8) break;
     if (!B.draw.length) { if (!B.discard.length) break; B.draw = shuffle(B.discard); B.discard = []; }
-    B.hand.push(B.draw.pop());
+    const c = B.draw.pop(); c.pin = false; clearMarks(c);
+    B.hand.push(c);
   }
+}
+// 📌 釘住的牌回合結束時會留在手上（最多 PIN_MAX 張，究極技卡本來就會保留、不算在內）
+function togglePin(i) {
+  if (!B || B.phase !== 'player' || B.anim) return;
+  const c = B.hand[i]; if (!c || c.temp) return;
+  const max = PIN_MAX + (B.pinBonus || 0);
+  if (!c.pin && B.hand.filter(x => x.pin).length >= max) { floatText(B.p, `最多保留 ${max} 張`, 'info'); sfx('error'); return; }
+  c.pin = !c.pin; sfx('click');
+  renderBattle();
+}
+// ---------- 手牌上的標記：🔥 燃燒、🌫️ 霧化、☠️ 汙染、🔍 看破（卡片離開手牌就消失） ----------
+function clearMarks(c) { delete c.burn; delete c.fog; delete c.pol; delete c.seen; }
+const baseId = id => id.replace('+', '');
+const cardCost = (c, d = cardDef(c.id)) => d.cost + (c.seen ? 1 : 0);
+const isHalf = (c, d = cardDef(c.id)) => !d.noHalf && !!(c.pol || (B.spread && B.spread[baseId(c.id)] >= B.turnNo));
+// 頭目行動時先預告，等玩家下一回合抽完牌才套用到手牌上（不然只會打到保留的牌）
+function bossHandAct(e) {
+  if (!B.opt.boss) return;
+  const low = e.hp <= e.maxhp / 2, P = B.pend = B.pend || {};
+  if (B.dom === 'heat') {
+    P.burn = low ? 2 : 1;
+    floatText(e, '🔥 點燃手牌', 'info', 60); log(`🔥 ${e.name} 點燃了你的下一手牌（${P.burn} 張）！`);
+  } else if (B.dom === 'jam') {
+    P.seen = 1;
+    if ((e.gears || 0) < (low ? 2 : 1)) { e.gears = (e.gears || 0) + 1; floatText(e, '⚙️ 召喚小齒輪', 'info', 60); log(`⚙️ ${e.name} 召喚了小齒輪！（會擋下一張攻擊卡）`); }
+    else log(`🔍 ${e.name} 看破了你的下一手牌！`);
+  } else if (B.dom === 'fog') {
+    P.fog = 1;
+    if (!e.plant) { e.plant = 2; floatText(e, '🌱 種下種子', 'info', 60); log(`🌱 ${e.name} 種下了種子（2 次行動後回復 HP）`); }
+    else if (--e.plant <= 0) { delete e.plant; healF(e, Math.round(e.maxhp * .05)); log(`🌳 種子長大了！${e.name} 回復了 HP`); }
+  } else if (B.dom === 'dark') {
+    P.pol = e.phase2 ? 2 : 1;
+    floatText(e, '☠️ 汙染手牌', 'info', 60); log(`☠️ ${e.name} 汙染了你的下一手牌（${P.pol} 張）！`);
+  }
+}
+function applyBossHand() {
+  const P = B.pend; B.pend = null;
+  if (!P) return;
+  const pickN = (n, ok) => shuffle(B.hand.filter(ok)).slice(0, n);
+  const got = [];
+  if (P.burn) pickN(P.burn, c => !c.burn).forEach(c => { c.burn = true; got.push('🔥'); });
+  if (P.seen) pickN(1, c => !c.seen).forEach(c => { c.seen = true; got.push('🔍'); });
+  if (P.fog) pickN(1, c => !c.fog && !c.pin && !c.temp).forEach(c => { c.fog = true; got.push('🌫️'); });
+  if (P.pol) pickN(P.pol, c => !c.pol && !cardDef(c.id).noTarget).forEach(c => { c.pol = true; got.push('☠️'); });
+  if (got.length) floatText(B.p, got.join(' ') + ' 手牌被干擾了', 'dot', 60);
+}
+// ✨ 淨化（商店限定卡）
+function purifyAll() {
+  B.hand.forEach(clearMarks); B.spread = {};
+  ['burn', 'poison', 'para', 'root'].forEach(k => delete B.p.st[k]); B.p.stay = 0;
+  floatText(B.p, '✨ 淨化！', 'heal'); sfx('heal');
+  log('✨ 淨化！手牌和夥伴身上的負面效果都清除了');
+}
+// 🧸 愛心大放送（商店限定卡）：有夥伴倒下時可以選擇復活
+function loveBox(u) {
+  const half = HALF, k = half ? .5 : 1, dead = B.fighters.filter(f => f.hp <= 0);
+  const healMode = () => {
+    B.fighters.forEach(f => { if (f.hp > 0) f.hp = Math.min(f.maxhp, f.hp + healAmt(f.maxhp * (u ? .15 : .1) * k)); });
+    HALF = half; gainBlock(B.p, blockVal(6, .4)); HALF = false;
+    floatText(B.p, '💗 全隊回復', 'heal', 30); sfx('heal'); log('🧸 愛心大放送！全隊回復了');
+  };
+  if (!dead.length) return healMode();
+  B.anim = true;
+  const myB = B;
+  pickScreen({ title: '🧸 愛心大放送', sub: '選一個效果', allowSkip: false, items: [...dead, null], render: f => {
+    const el = document.createElement('div'); el.className = 'relic clickable';
+    el.innerHTML = f ? `<div class="ri">${dpic(f.sp.img, f.emoji, 's44')}</div><div><b>復活 ${f.sp.name}</b><div class="rd">以 ${Math.round((u ? 45 : 30) * k)}% HP 重新站起來</div></div>`
+                     : `<div class="ri">💗</div><div><b>全隊回復</b><div class="rd">活著的夥伴回復 ${Math.round((u ? 15 : 10) * k)}% HP，出戰夥伴獲得護盾</div></div>`;
+    return el; } }).then(f => {
+    if (B !== myB) return;
+    if (f) { f.hp = Math.max(1, Math.round(f.maxhp * (u ? .45 : .3) * k)); sfx('heal'); log(`🧸 愛心大放送！${f.sp.name} 重新站起來了！`); }
+    else healMode();
+    B.anim = false; renderBattle();
+  });
 }
 const removeTemp = () => { const keep = c => !c.temp; B.hand = B.hand.filter(keep); B.draw = B.draw.filter(keep); B.discard = B.discard.filter(keep); B.exhaust = B.exhaust.filter(keep); };
 
@@ -110,7 +220,7 @@ function runBattle(enemyId, lv, opt = {}) {
     if (opt.preDamage) e.hp = Math.round(e.hp * (1 - opt.preDamage));
     const dom = opt.domain || (opt.boss ? CHAPTERS[RUN.chapter].boss.domain : opt.elite ? 'armor' : null);
     B = { fighters, p: fighters[ai], e, phase: 'run', energy: 0, carry: 0, anim: false, dom, participants: new Set([ai]), opt, resolve, firstTurn: true,
-          draw: shuffle(RUN.deck.map(id => ({ uid: ++uidSeq, id }))), hand: [], discard: [], exhaust: [], log: [] };
+          draw: shuffle(RUN.deck.map(id => ({ uid: ++uidSeq, id }))), hand: [], discard: [], exhaust: [], log: [], spread: {} };
     if (!RUN.seen.includes(enemyId)) RUN.seen.push(enemyId);
     chooseIntent(e);
     G.mode = 'battle';
@@ -126,8 +236,16 @@ function runBattle(enemyId, lv, opt = {}) {
     if (RUN.stats.wins === 0) log('提示：把敵人的血量壓低，再按「🤝 勸降」就有機會讓牠加入隊伍！');
     if (has('courage')) { gainCourage(10); log('🔥 勇氣徽章發光了！勇氣值 +10'); }
     const db = $('#domainBar');
-    db.classList.toggle('hidden', !dom);
-    if (dom) { db.innerHTML = `${DOMAINS[dom].icon} <b>${DOMAINS[dom].name}</b>：${DOMAINS[dom].desc}`; log(`⚠️ 領域效果「${DOMAINS[dom].name}」：${DOMAINS[dom].desc}`); }
+    hideDomain();
+    $('#domBadge').classList.toggle('hidden', !dom);
+    closeNotice();
+    if (dom) {
+      db.innerHTML = `${DOMAINS[dom].icon} <b>${DOMAINS[dom].name}</b>：${DOMAINS[dom].desc}`;
+      $('#domBadge').innerHTML = `${DOMAINS[dom].icon} ${DOMAINS[dom].name} <small>ⓘ</small>`;
+      log(`⚠️ 領域效果「${DOMAINS[dom].name}」：${DOMAINS[dom].desc}`);
+      if (opt.boss && BOSS_INFO[dom]) showBossInfo();   // 頭目：先跳出能力說明，玩家按關閉才開始
+      else showDomain(4500);
+    }
     renderBattle();
   });
 }
@@ -178,7 +296,7 @@ function startPlayerTurn() {
   p.block = 0;
   if (has('sincerity')) gainBlock(p, 4);
   if (K().blockDef) gainBlock(p, Math.round(3 + p.def * .3));
-  B.switchedThisTurn = false;
+  B.switchedThisTurn = false; B.relayFree = false; B.pinBonus = 0;
   if (B.dom === 'heat') { p.st.burn = Math.max(p.st.burn || 0, 1); floatText(p, '🔥 灼熱！', 'dot', 40); }
   if (p.tier > 0) { p.evoTurns--; if (p.evoTurns <= 0) devolve(); }
   const carry = Math.min(CARRY_MAX, B.carry || 0);
@@ -186,7 +304,9 @@ function startPlayerTurn() {
   B.energy = ENERGY + carry + (B.firstTurn && has('light') ? 1 : 0);
   if (carry) log(`⚡ 上回合保留的 ${carry} 點能量帶過來了！`);
   B.firstTurn = false;
-  drawCards(HAND_SIZE + (has('knowledge') ? 1 : 0) + K().draw - (B.dom === 'jam' ? 1 : 0));
+  const target = HAND_SIZE + (has('knowledge') ? 1 : 0) + K().draw;
+  drawCards(target - B.hand.filter(c => !c.temp).length);
+  applyBossHand();
   banner('你的回合！');
   renderBattle();
   if (p.dark && Math.random() < .25) setTimeout(rampage, 500);
@@ -195,13 +315,13 @@ function startPlayerTurn() {
 async function playCard(i, forced) {
   if (!B || B.phase !== 'player' || (!forced && popupOpen()) || B.anim) return;
   const c = B.hand[i]; if (!c) return;
-  const d = cardDef(c.id);
+  const d = cardDef(c.id), cost = cardCost(c, d);
   if (B.p.dark && !['atk', 'sig', 'ult'].includes(d.type)) { floatText(B.p, '暴走中！只能攻擊', 'info'); return; }
   if (d.canPlay && !d.canPlay()) { floatText(B.p, '現在無法使用', 'info'); return; }
-  if (d.cost > B.energy) { floatText(B.p, '能量不足', 'info'); sfx('error'); return; }
+  if (cost > B.energy) { floatText(B.p, '能量不足', 'info'); sfx('error'); return; }
   sfx('card');
   const node = $('#hand').children[i], from = node ? node.getBoundingClientRect() : null;
-  B.energy -= d.cost;
+  B.energy -= cost;
   B.hand.splice(i, 1);
   log(`${B.p.name} 使用了「${d.name}」`);
   B.anim = true;
@@ -210,7 +330,21 @@ async function playCard(i, forced) {
   await Promise.race([cardVfx(c.id, d, from), sleep(1500)]);   // 特效打中之後才結算傷害（最多等 1.5 秒，切到別的分頁也不會卡住）
   if (B !== myB || B.phase !== 'player') return;
   B.anim = false;
-  d.fx();
+  const half = isHalf(c, d);
+  if (c.pol && !d.noHalf) { B.spread[baseId(c.id)] = B.turnNo + 2; log(`☠️ 汙染擴散！所有「${cardDef(baseId(c.id)).name}」2 回合內效果減半`); }
+  if (['atk', 'sig', 'ult'].includes(d.type) && B.e.gears > 0) {   // 機械人獸的小齒輪擋下這張攻擊卡
+    B.e.gears--; lunge(B.p); floatText(B.e, '⚙️ 小齒輪擋下了！', 'info'); sfx('block');
+    log(`⚙️ 小齒輪擋下了「${d.name}」！（還剩 ${B.e.gears} 隻）`);
+  } else {
+    if (half) floatText(B.p, '☠️ 效果減半', 'dot', 60);
+    HALF = half;
+    try { d.fx(); } finally { HALF = false; }
+  }
+  if (c.burn && B.e.hp > 0) {   // 火焰獸的卡片燒傷
+    const dd = Math.max(1, Math.round(B.p.maxhp * .06)); B.p.hp = Math.max(0, B.p.hp - dd);
+    floatText(B.p, `-${dd} 🔥`, 'dot', 30); log(`🔥 燃燒中的卡燙傷了 ${B.p.name}（${dd}）`);
+  }
+  clearMarks(c);
   if (c.temp && !B.p.tier) { /* 已經退化，臨時的究極技卡直接消失 */ }
   else if (d.exhaust) B.exhaust.push(c); else B.discard.push(c);
   if (d.permanent) { const k = RUN.deck.indexOf(c.id); if (k >= 0) RUN.deck.splice(k, 1); toast(`「${d.name}」已經用掉了（整局只能用一次）`); }
@@ -220,13 +354,17 @@ async function playCard(i, forced) {
 }
 
 function endTurn() {
-  if (!B || B.phase !== 'player' || B.anim) return;
+  if (!B || B.phase !== 'player' || B.anim || noticeOpen()) return;
   closePopups();
   B.carry = Math.min(CARRY_MAX, B.energy);
   if (B.carry) log(`⚡ 保留 ${B.carry} 點能量到下回合`);
-  // 究極技卡（進化時拿到的）會保留在手上，直到用掉或退化
-  B.discard.push(...B.hand.filter(c => !c.temp));
-  B.hand = B.hand.filter(c => c.temp);
+  // 究極技卡（進化時拿到的）和 📌 釘住的牌會保留在手上，其他的進棄牌堆
+  const kept = c => c.temp || c.pin;
+  const nPin = B.hand.filter(c => c.pin && !c.temp).length;
+  if (nPin) log(`📌 保留 ${nPin} 張牌到下回合`);
+  B.hand.filter(c => !kept(c)).forEach(clearMarks);
+  B.discard.push(...B.hand.filter(c => !kept(c)));
+  B.hand = B.hand.filter(kept);
   B.p.gauge = B.p.nextGauge || 0;
   B.p.nextGauge = 0;
   B.phase = 'run';
@@ -246,8 +384,10 @@ function enemyTurn() {
     const m = MOVES[e.intent];
     log(`${e.name} 使用了「${m.name}」！`);
     await Promise.race([enemyVfx(e.intent, m), sleep(1500)]);
+    while (noticeOpen()) await sleep(200);   // 說明視窗打開時先暫停
     if (B !== myB || B.phase !== 'enemy') return;
     const p = B.p;
+    bossHandAct(e);
     if (m.kind === 'atk') {
       for (let i = 0; i < (m.hits || 1); i++) applyHit(e, p, m.power);
       if (m.status && p.hp > 0 && Math.random() < (m.chance ?? 1)) addStatus(p, m.status[0], m.status[1]);
@@ -264,7 +404,7 @@ function enemyTurn() {
         floatText(p, '☠️ 死亡宣告', 'super'); shake(p);
         log(`☠️ ${p.name} 被死亡宣告擊中，只剩 1 HP，被強制換下場（2 回合內不能上場）！`);
         e.gauge = 0; e.p2n = (e.p2n || 0) + 1; chooseIntent(e);
-        B.discard.push(...B.hand.filter(c => !c.temp)); B.hand = []; B.carry = 0;
+        B.hand.forEach(clearMarks); B.discard.push(...B.hand.filter(c => !c.temp)); B.hand = []; B.carry = 0;
         B.phase = 'choose'; renderBattle(); openSwitch(true);
         return;
       } else {
@@ -296,10 +436,21 @@ function enterPhase2() {
   log(`🌑 ${e.name} 發出震天咆哮，黑暗的力量爆發了！（攻擊、速度提升，異常狀態解除）`);
   // 黑暗衝擊：進化中 → 強制退化；沒進化 → 受到 30% HP 傷害、行動條歸零；接下來 1 回合不能進化
   const p = B.p;
-  if (p.tier > 0) { log(`💥 黑暗衝擊！${p.name} 被強制退化了！`); devolve(true, p); floatText(p, '強制退化！', 'super'); }
-  else { const d = Math.round(p.maxhp * .3); p.hp = Math.max(1, p.hp - d); p.gauge = 0; floatText(p, `-${d} 黑暗衝擊`, 'dot'); log(`💥 黑暗衝擊！${p.name} 受到 ${d} 點傷害，行動條歸零！`); }
+  let shock;
+  if (p.tier > 0) { const was = p.name; log(`💥 黑暗衝擊！${p.name} 被強制退化了！`); devolve(true, p); floatText(p, '強制退化！', 'super'); shake(p);
+    shock = `黑暗的衝擊波打中了 <b>${was}</b>，牠被<b>強制退化</b>回 ${p.name}！（究極技卡也一起消失了）`; }
+  else { const d = Math.round(p.maxhp * .3); p.hp = Math.max(1, p.hp - d); p.gauge = 0; floatText(p, `-${d} 黑暗衝擊`, 'dot'); shake(p); log(`💥 黑暗衝擊！${p.name} 受到 ${d} 點傷害，行動條歸零！`);
+    shock = `黑暗的衝擊波打中了 <b>${p.name}</b>，受到 ${d} 點傷害，行動條歸零！`; }
   B.sealTurn = B.turnNo + 1;
   e.p2n = 0;
+  sfx('wrongevo');
+  battleNotice(`🌑 ${e.name} 進入第二階段！`, [
+    ['💥 黑暗衝擊', shock],
+    ['🔒 黑暗封印', '接下來 1 回合<b>無法進化</b>。'],
+    ['☠️ 死亡宣告', '之後每 3 次行動發動一次（前一次行動時頭上會預告）。出戰夥伴會被打到 1 HP 並強制換下，2 回合內不能上場；沒有夥伴可以換的話改成受到 40% 傷害。'],
+    ['☠️ 汙染加強', '卡片汙染變成每次 2 張。'],
+    ['💢 黑暗爆發', '惡魔獸的攻擊、速度提升，身上的異常狀態全部解除。'],
+  ]);
 }
 // 被死亡宣告換下的夥伴，幾回合內不能上場
 const isLocked = f => f.lockUntil && f.lockUntil >= B.turnNo;
@@ -353,6 +504,7 @@ function doEvolve(f, tier, dark) {
   Object.assign(f, { name: form.name, img: form.img, darkTint: form.tint, dark, tier, evoTurns: evoTurnsNow() });
   removeTemp();
   B.hand.push({ uid: ++uidSeq, id: 'ult', temp: true }, { uid: ++uidSeq, id: 'ult', temp: true });
+  if (has('ultproof')) B.hand.push({ uid: ++uidSeq, id: 'ult', temp: true });   // 🏅 究極之證
   B.energy += T.energy;
   closePopups();
   sfx(dark ? 'wrongevo' : 'evolve');
@@ -458,6 +610,7 @@ function useItem(i) {
 
 // ---------- 換手 / 逃跑 ----------
 function switchCost() {
+  if (B && B.relayFree) return 0;   // 交棒連擊
   let c = 1;
   if (K().freeSwitch) c = B && B.switchedThisTurn ? 1 : 0;   // 大和：每回合第一次免費
   else if (has('friendship')) c = 0;
@@ -470,6 +623,7 @@ function switchTo(i, forced) {
   if (!forced) {
     if (B.phase !== 'player' || B.energy < switchCost()) return;
     B.energy -= switchCost();
+    B.relayFree = false;
     if (K().freeSwitch && !B.switchedThisTurn && has('friendship')) { drawCards(1); log('🤝 友情徽章：抽 1 張牌'); }
     B.switchedThisTurn = true;
   }
@@ -514,7 +668,7 @@ function faint() {
   const p = B.p;
   devolve(true, p);
   log(`${p.name} 倒下了！選擇下一隻夥伴`);
-  B.discard.push(...B.hand); B.hand = [];
+  B.hand.forEach(clearMarks); B.discard.push(...B.hand); B.hand = [];
   B.carry = 0;
   p.gauge = 0;
   B.phase = 'choose';
@@ -533,6 +687,7 @@ function persuadeChance(e = B.e) {
   c -= Math.max(0, e.lvl - B.p.lvl) * .05;
   c += K().persuade;
   if (e.elite) c *= .5;
+  c += e.signal || 0;   // 友好訊號
   c -= (e.pfail || 0) * .15;
   return clamp(c, 0, .9);
 }
@@ -571,6 +726,7 @@ function doPersuade(opt) {
   closePopups();
   const e = B.e, ch = persuadeChance();
   opt.pay();
+  delete e.signal;
   log(`${KIDS[RUN.kid].name}：「${e.sp.name}，別再被黑暗控制了！跟我們一起走吧！」（成功率 ${Math.round(ch * 100)}%）`);
   if (Math.random() < ch) {
     floatText(e, '💗 被說服了！', 'heal');
@@ -590,6 +746,10 @@ function doPersuade(opt) {
 function win() {
   B.phase = 'end';
   const e = B.e, opt = B.opt, persuaded = !!B.persuaded;
+  // 🏅 究極之證：原作搭檔的究極體、帶著自己的徽章、HP 80% 以上，擊倒精英或頭目
+  const p = B.p, proof = (opt.boss || opt.elite) && !persuaded && !has('ultproof') && p.tier === 3 && !p.dark &&
+    p.hp >= p.maxhp * .8 && p.m.sp === KIDS[RUN.kid].partner && has(kidCrest());
+  if (proof) RUN.relics.push('ultproof');
   syncTeamHp();
   if (has('love')) teamHeal(.1);
   if (K().winHeal) teamHeal(K().winHeal);
@@ -630,6 +790,11 @@ function win() {
   setTimeout(async () => {
     B = null;
     await battleReward(msgs, persuaded ? e : null, opt);
+    if (proof) {
+      showEvoFlash('', '', '究極之證覺醒！', null, '🏅');
+      await sleep(1200);
+      await say(null, `✨ <b>究極之證覺醒！</b><br>${KIDS[RUN.kid].nick}的徽章和夥伴的心完全共鳴了！<br>獲得 <b>🏅 究極之證</b>：之後每次進化都會多拿 1 張究極技卡。`);
+    }
     res('win');
   }, 1200);
 }
@@ -746,6 +911,7 @@ function renderFighter(f) {
   blk.textContent = `🛡${f.block}`;
   el.querySelector('.statuses').innerHTML =
     (f.tier ? `<span class="st">✨ ${TIERS[f.tier].name} 剩 ${f.evoTurns} 回合</span>` : '') +
+    (f.gears ? `<span class="st">⚙️ 小齒輪 ×${f.gears}</span>` : '') + (f.plant ? `<span class="st">🌱 種子 ${f.plant}</span>` : '') +
     Object.entries(f.st).map(([k, n]) => `<span class="st">${STATUS[k].icon} ${STATUS[k].name} ${n}</span>`).join('');
 }
 
@@ -761,7 +927,7 @@ function renderBattle() {
   p.el.querySelector('.bench').innerHTML = B.fighters.length > 1 ? B.fighters.map(f =>
     `<div class="tm ${f === p ? 'lead' : ''} ${f.hp <= 0 || isLocked(f) ? 'dead' : ''}" title="${f.sp.name}${isLocked(f) ? '（封印中）' : ''}">${dpic(f.sp.img, f.emoji, 's32')}
      <div class="hpb"><i style="width:${f.hp / f.maxhp * 100}%"></i></div></div>`).join('') : '';
-  $('#battleRelics').innerHTML = RUN.relics.map(k => `<span title="${RELICS[k].name}：${RELICS[k].desc}">${RELICS[k].icon}</span>`).join('');
+  $('#battleRelics').innerHTML = RUN.relics.map(k => relicIcon(k)).join('');
   updateCourageUI();
   const orb = $('#orb');
   orb.textContent = my ? B.energy : '–';
@@ -773,7 +939,8 @@ function renderBattle() {
   if (my) {
     B.hand.forEach((c, i) => {
       const d = cardDef(c.id);
-      hand.appendChild(cardEl(c.id, { playable: d.cost <= B.energy && !(p.dark && !['atk', 'sig', 'ult'].includes(d.type)) && (!d.canPlay || d.canPlay()), key: i + 1, keep: c.temp, onClick: () => playCard(i) }));
+      const marks = (c.burn ? '🔥' : '') + (isHalf(c, d) ? '☠️' : '') + (c.seen ? '🔍' : '') + (c.fog ? '🌫️' : '');
+      hand.appendChild(cardEl(c.id, { cost: cardCost(c, d), marks, fog: c.fog, playable: cardCost(c, d) <= B.energy && !(p.dark && !['atk', 'sig', 'ult'].includes(d.type)) && (!d.canPlay || d.canPlay()), key: i + 1, keep: c.temp, pin: c.temp ? undefined : !!c.pin, onPin: () => togglePin(i), onClick: () => playCard(i) }));
     });
     if (!B.hand.length) hand.innerHTML = '<div class="waiting">沒有手牌了，按「結束回合」</div>';
   } else if (B.phase === 'choose') {
@@ -806,7 +973,7 @@ function updateGauges() {
 
 // ---------- 彈出面板 ----------
 const POPUPS = ['#evoPanel', '#switchPanel', '#bagPanel', '#persuadePanel'];
-const popupOpen = () => POPUPS.some(k => !$(k).classList.contains('hidden'));
+const popupOpen = () => POPUPS.some(k => !$(k).classList.contains('hidden')) || noticeOpen() || !$('#overlay').classList.contains('hidden');
 function closePopups() { POPUPS.forEach(k => $(k).classList.add('hidden')); }
 function openEvo() {
   if (!B || B.phase !== 'player' || B.anim) return;
@@ -821,7 +988,7 @@ function openEvo() {
     el.className = 'evoOpt' + (why ? ' off' : '') + (force ? ' force' : '');
     el.innerHTML = `${dpic(ev.img, f.emoji, 's64')}
       <div><div class="nm">${force ? '⚠️ 強行' : ''}${T.verb} → ${ev.name}<span class="tierTag">${T.name}</span></div>
-      <div class="info">能力 ×${T.m.atk}　｜　能量 +${T.energy}　｜　究極技「${ev.ult}」×2　｜　持續 ${evoTurnsNow()} 回合</div>
+      <div class="info">能力 ×${T.m.atk}　｜　能量 +${T.energy}　｜　究極技「${ev.ult}」×${has('ultproof') ? 3 : 2}　｜　持續 ${evoTurnsNow()} 回合</div>
       ${force ? `<div class="odds"><span class="ok">成功 ${pct(o.total)}%</span>${o.wrong > 0 ? `<span class="bad">（其中失控 ${pct(o.wrong)}%）</span>` : ''}<span class="fail">失敗 ${pct(o.fail)}%</span>${o.charm ? '<span>🧿 護符生效</span>' : ''}</div>` : ''}
       ${why ? `<div class="why">${why}</div>` : ''}</div>
       <div class="cost">🔥 ${force ? `${Math.floor(RUN.courage)}/${cost}<br><small>全部用掉</small>` : cost}</div>`;

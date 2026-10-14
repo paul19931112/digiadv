@@ -174,7 +174,9 @@ function updateHUD() {
     return `<div class="tm ${i === 0 ? 'lead' : ''}" title="${t.name} Lv.${m.level}">${dpic(t.img, t.emoji, 's32')}<div class="hpb"><i style="width:${m.hp / ms.maxhp * 100}%"></i></div></div>`;
   }).join('');
   $('#hudItems').innerHTML = `<span class="mini2">🎒</span>` + (RUN.items.length ? RUN.items.map(k => `<span class="hr" title="${ITEMS[k].name}：${ITEMS[k].desc}">${ITEMS[k].icon}</span>`).join('') : '<span class="mini2">背包是空的</span>') + `<span class="mini2">（${RUN.items.length}/${bagMax()}）</span>`;
-  $('#hudRelics').innerHTML = RUN.relics.length ? RUN.relics.map(k => `<span class="hr" title="${RELICS[k].name}：${RELICS[k].desc}">${RELICS[k].icon}</span>`).join('') : '<span class="mini2">還沒有徽章道具</span>';
+  $('#hudRelics').innerHTML = RUN.relics.length ? RUN.relics.map(k => relicIcon(k)).join('') : '<span class="mini2">還沒有徽章道具</span>';
+  // 第一次拿到神聖計畫：跳出究極之證的謎語
+  if (has('digivice') && !RUN.flags.riddle && !G.tutorial) { RUN.flags.riddle = true; setTimeout(showRiddle, 500); }
   $('#btnDeck').textContent = `🃏 牌組 ${RUN.deck.length} (C)`;
   $('#btnTeam').textContent = `👥 隊伍 ${RUN.team.length}/${teamMax()} (T)`;
   updateCourageUI();
@@ -258,7 +260,9 @@ async function useFieldItem(i) {
 const HELP = [
   ['⏳ 行動條', '雙方的行動條同時往上漲，集滿就輪到誰行動。速度越快集得越快。輪到你的時候時間會暫停。'],
   ['⚡ 能量', '每回合 3 點，出牌要花能量（卡片左上角的數字）。沒用完的能量最多保留 2 點到下回合。'],
-  ['🃏 手牌', '每回合抽 5 張，回合結束時沒用的牌進棄牌堆。牌庫抽完會把棄牌洗回去。'],
+  ['🃏 手牌', '每回合開始把手牌補到 5 張。回合結束時沒用的牌進棄牌堆，但按卡片左下角的 📌（或 Shift＋數字鍵）可以把牌留到下回合，最多 2 張（究極技卡不算）。留越多，新抽的就越少。牌庫抽完會把棄牌洗回去。'],
+  ['😈 頭目的干擾', '頭目會在你的手牌上留下標記：🔥 燃燒（打出時受到 6% 傷害）、🌫️ 霧化（看不到效果）、☠️ 汙染（效果減半）、🔍 看破（能量 +1）。卡片離開手牌後標記就會消失（📌 保留的牌會留著）。商店的「✨ 淨化」可以清除。點敵人面板右下角的標籤可以看頭目的能力。'],
+  ['🧸 商店', '商店的 4 張卡裡有 2 張是只能在這裡買到的「限定卡」。強化一張卡可以一直買，第一次 30，之後每次 ×1.5。第二章以後還會賣「💠 究極強化」。'],
   ['⚔️ 敵人預告', '敵人頭上會顯示下一招和大概的傷害。看到大招可以先防禦，或用干擾類卡片拖慢牠。'],
   ['🔥 勇氣值', '全隊共用。出攻擊卡、必殺卡、被攻擊都會增加，勇氣卡增加最多。戰鬥結束後，40 以下完全保留，超過 40 的部分減半。'],
   ['✨ 進化', '按 E 選擇強度：成熟期 30、完全體 60（Lv.4）、究極體 100（Lv.7）。持續 3 回合，送 2 張究極技卡；究極技卡在進化期間會保留在手上，用掉或退化才會消失。'],
@@ -321,6 +325,7 @@ document.addEventListener('keydown', e => {
   } else if (G.mode === 'modal') {
     if (k === 'escape' || k === 'c' || k === 't' || k === 'i' || k === 'h') closeModal();
   } else if (G.mode === 'battle' && B) {
+    if (noticeOpen()) { if (k === ' ' || k === 'enter' || k === 'escape') { e.preventDefault(); closeNotice(); } return; }
     if (k === 'escape') { if (B.phase !== 'choose') closePopups(); }
     else if (popupOpen()) {
       const opts = [...document.querySelectorAll('.popup:not(.hidden) .evoOpt, .popup:not(.hidden) .swOpt')];
@@ -328,6 +333,7 @@ document.addEventListener('keydown', e => {
       else if (k === 'e' && !$('#evoPanel').classList.contains('hidden')) closePopups();
       else if (k === 'q' && !$('#switchPanel').classList.contains('hidden') && B.phase !== 'choose') closePopups();
     }
+    else if (e.shiftKey && /^Digit[1-8]$/.test(e.code)) togglePin(+e.code.slice(5) - 1);   // Shift＋數字：📌 保留那張牌
     else if (/^[1-8]$/.test(k)) playCard(+k - 1);
     else if (k === ' ' || k === 'enter') { e.preventDefault(); endTurn(); }
     else if (k === 'e') openEvo();
@@ -410,6 +416,11 @@ function joySetDir(d) {
     joySetDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'arrowright' : 'arrowleft') : (dy > 0 ? 'arrowdown' : 'arrowup'));
   });
   ['pointerup', 'pointercancel'].forEach(t => zone.addEventListener(t, end));
+  // 擋掉瀏覽器自己的捲動／回彈／放大鏡：不然拖搖桿時整個網頁會跟著晃
+  const stop = e => { if (G.mode === 'area' && e.cancelable) e.preventDefault(); };
+  zone.addEventListener('touchstart', stop, { passive: false });
+  zone.addEventListener('touchmove', stop, { passive: false });
+  document.addEventListener('touchmove', e => { if (JOY.id !== null && e.cancelable) e.preventDefault(); }, { passive: false });
 })();
 
 // ---------- 觸控用的虛擬方向鍵（舊版，保留但預設隱藏） ----------
