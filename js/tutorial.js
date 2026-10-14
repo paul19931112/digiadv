@@ -126,17 +126,25 @@ async function runTutorial() {
 // 教學的第一場戰鬥：行動條、能量、出牌、預告
 async function tutBattle1() {
   const p = runBattle('numemon', 1, { tutorial: 1, noFlee: true });
-  B.hold = true; await sleep(500);
-  await coach('#pPanel .bar.atb', '這是你的<b>行動條</b>。時間會一直流動，<b>集滿就輪到你行動</b>！<br>夥伴的速度越快，集得越快。');
-  await coach('#ePanel .bar.atb', '敵人也有行動條，集滿就會攻擊你。<br>所以這是一場「比快」的戰鬥！');
-  await coach('#ePanel .intent', '敵人頭上會<b>預告</b>下一招和大概的傷害。<br>看到大招就先防禦，沒威脅就全力攻擊！');
-  B.hold = false;
-  await waitFor(isPlayerTurn);
-  await coach('#orb', '輪到你了！你的回合<b>時間會暫停</b>，慢慢想沒關係。<br>這顆是<b>能量</b>，每回合有 3 點。');
-  await coach('#hand', '這些是<b>手牌</b>，卡片左上角的數字是要花的能量。<br>點卡片（或按數字鍵 1～8）就能使用。');
-  const n0 = B.discard.length + B.exhaust.length;
-  await coach('#hand', '試試看：點一張<b>「撞擊」</b>攻擊蛞蝓獸！', { wait: () => !B || (B.discard.length + B.exhaust.length > n0 && !B.anim) });
-  if (B && B.phase === 'player') await coach('#btnEnd', '想留著能量、或沒有能出的牌時，按<b>「結束回合」</b>（空白鍵）。<br>沒用完的能量最多可以<b>保留 2 點</b>到下回合！<br>卡片左下角的 <b>📌</b> 可以把牌<b>留到下回合</b>（最多 2 張），下回合會補滿到 5 張。', { wait: () => !B || B.phase !== 'player' });
-  if (B) await coach(null, '接下來自己打打看，把蛞蝓獸打倒吧！打贏後可以從 3 張卡裡挑 1 張加入牌組。', { auto: 3500 });
+  // 說明跳出來的時候卡片還是能點：玩家可能在說明講完前就把敵人打倒，所以每一步都要先確認戰鬥還在
+  const watch = setInterval(() => { if (!B) { const b = document.querySelector('#coachTip:not(.hidden) button'); if (b) b.click(); } }, 200);   // 戰鬥結束了，剩下的說明自動關掉
+  try {
+    B.hold = true; await sleep(500);
+    await coach('#pPanel .bar.atb', '這是你的<b>行動條</b>。時間會一直流動，<b>集滿就輪到你行動</b>！<br>夥伴的速度越快，集得越快。');
+    await coach('#ePanel .bar.atb', '敵人也有行動條，集滿就會攻擊你。<br>所以這是一場「比快」的戰鬥！');
+    await coach('#ePanel .intent', '敵人頭上會<b>預告</b>下一招和大概的傷害。<br>看到大招就先防禦，沒威脅就全力攻擊！');
+    if (B) B.hold = false;
+    await waitFor(isPlayerTurn);
+    if (B) await coach('#orb', '輪到你了！你的回合<b>時間會暫停</b>，慢慢想沒關係。<br>這顆是<b>能量</b>，每回合有 3 點。');
+    if (B) await coach('#hand', '這些是<b>手牌</b>，卡片左上角的數字是要花的能量。<br>點卡片（或按數字鍵 1～8）就能使用。');
+    const n0 = B ? B.discard.length + B.exhaust.length : 0;
+    if (B) await coach('#hand', '試試看：點一張<b>「撞擊」</b>攻擊蛞蝓獸！', { wait: () => !B || (B.discard.length + B.exhaust.length > n0 && !B.anim) });
+    if (B && B.phase === 'player') await coach('#btnEnd', '想留著能量、或沒有能出的牌時，按<b>「結束回合」</b>（空白鍵）。<br>沒用完的能量最多可以<b>保留 2 點</b>到下回合！<br>卡片左下角的 <b>📌</b> 可以把牌<b>留到下回合</b>（最多 2 張），下回合會補滿到 5 張。', { wait: () => !B || B.phase !== 'player' });
+    if (B) await coach(null, '接下來自己打打看，把蛞蝓獸打倒吧！打贏後可以從 3 張卡裡挑 1 張加入牌組。', { auto: 3500 });
+  } catch (err) {   // 萬一還是出錯，也不要讓教學卡住
+    console.error(err);
+    $('#coachRing').classList.add('hidden'); $('#coachTip').classList.add('hidden');
+  }
+  clearInterval(watch);
   await p;
 }
