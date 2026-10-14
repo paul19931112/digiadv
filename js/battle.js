@@ -304,7 +304,7 @@ function startPlayerTurn() {
   B.energy = ENERGY + carry + (B.firstTurn && has('light') ? 1 : 0);
   if (carry) log(`⚡ 上回合保留的 ${carry} 點能量帶過來了！`);
   B.firstTurn = false;
-  const target = HAND_SIZE + (has('knowledge') ? 1 : 0) + K().draw;
+  const target = HAND_SIZE + (has('knowledge') ? 1 : 0) + K().draw - (B.dom === 'jam' ? 1 : 0);   // 干擾電波：少補 1 張
   drawCards(target - B.hand.filter(c => !c.temp).length);
   applyBossHand();
   banner('你的回合！');
