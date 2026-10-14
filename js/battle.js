@@ -41,6 +41,7 @@ function applyHit(att, tgt, power, opts = {}) {
   let d = calcRaw(att, tgt, power) * rand(.9, 1.1);
   if (tgt.st.expose) d *= 1.3;
   if (tgt.isPlayer) d *= K().taken;
+  if (tgt.isPlayer && B.dom === 'jam' && tgt.tier > 0) d *= 1.4;   // 機械人獸：鎖定分析
   if (att.isPlayer && K().lowHpPenalty && tgt.hp < tgt.maxhp * .2) d *= .9;
   if (!tgt.isPlayer && B.dom === 'armor') d *= .85;
   const crit = Math.random() < .08;
@@ -50,7 +51,7 @@ function applyHit(att, tgt, power, opts = {}) {
   if (!opts.pierce && tgt.block > 0) { blocked = Math.min(tgt.block, d); tgt.block -= blocked; d -= blocked; }
   tgt.hp = Math.max(0, tgt.hp - d);
   if (tgt === B.e && (B.opt.tutorial === 3 || (B.opt.tutorial === 2 && !B.p.tier))) tgt.hp = Math.max(1, tgt.hp);   // 教學：要照步驟學會進化、勸降
-  if (tgt === B.e && B.dom === 'dark' && !tgt.phase2 && tgt.hp > 0 && tgt.hp <= tgt.maxhp / 2) enterPhase2();
+  if (tgt === B.e) checkPhase2();
   lunge(att);
   floatText(tgt, d > 0 ? `-${d}` : '🛡 擋下', crit ? 'crit' : 'dmg');
   sfx(d === 0 ? 'block' : crit ? 'crit' : 'hit');
@@ -80,6 +81,7 @@ function tickStatus(f) {
     }
   }
   for (const k in f.st) { f.st[k]--; if (f.st[k] <= 0) delete f.st[k]; }
+  if (B && f === B.e) checkPhase2();
 }
 function gaugeRate(f) { return f.spd * ATB_K * (f.st.haste ? 1.5 : 1) * (f.st.para ? 0.5 : 1); }
 function drawCards(n) {
@@ -139,6 +141,7 @@ function chooseIntent(e) {
 function intentText(e) {
   if (B.dom === 'fog') return '❓ ？？？';
   const m = MOVES[e.intent];
+  if (m.kind === 'doom') return '☠️ 死亡宣告（出戰夥伴會被打到 1 血並強制換下）';
   if (m.kind === 'atk') {
     const est = Math.max(1, Math.round(calcRaw(e, B.p, m.power)));
     const st = m.status ? ` ${STATUS[m.status[0]].icon}` : '';
@@ -161,7 +164,15 @@ function startPlayerTurn() {
   const p = B.p;
   p.gauge = 100;
   B.phase = 'player';
+  B.turnNo = (B.turnNo || 0) + 1;
+  p.stay = (p.stay || 0) + 1;
   tickStatus(p);
+  // 樹人獸：寄生之根（同一隻夥伴連續在場 3 回合以上，越纏越緊）
+  if (B.dom === 'fog' && p.stay >= 3) {
+    const lv = p.stay - 2, d = Math.max(2, Math.round(p.maxhp * .04 * lv));
+    p.hp = Math.max(0, p.hp - d); p.st.root = lv;
+    floatText(p, `-${d} 🌱`, 'dot', 40); log(`🌱 寄生之根越纏越緊（第 ${lv} 層），${p.name} 受到 ${d} 傷害！換手可以甩開它`);
+  }
   if (has('darkgear')) { const d = Math.max(1, Math.round(p.maxhp * .03)); p.hp = Math.max(0, p.hp - d); floatText(p, `-${d} ⚙️`, 'dot'); }
   if (checkEnd()) return;
   p.block = 0;
@@ -200,7 +211,8 @@ async function playCard(i, forced) {
   if (B !== myB || B.phase !== 'player') return;
   B.anim = false;
   d.fx();
-  if (d.exhaust) B.exhaust.push(c); else B.discard.push(c);
+  if (c.temp && !B.p.tier) { /* 已經退化，臨時的究極技卡直接消失 */ }
+  else if (d.exhaust) B.exhaust.push(c); else B.discard.push(c);
   if (d.permanent) { const k = RUN.deck.indexOf(c.id); if (k >= 0) RUN.deck.splice(k, 1); toast(`「${d.name}」已經用掉了（整局只能用一次）`); }
   if (d.type === 'atk') gainCourage(1); else if (d.type === 'sig') gainCourage(3);
   if (checkEnd()) return;
@@ -245,9 +257,26 @@ function enemyTurn() {
       addStatus(e, m.status[0], m.status[1]);
     } else if (m.kind === 'heal') {
       healF(e, Math.round(e.maxhp * m.heal));
+    } else if (m.kind === 'doom') {
+      if (p.st.ward) { delete p.st.ward; floatText(p, '✨ 守護！', 'heal'); log('✨ 光之守護擋下了死亡宣告！'); }
+      else if (B.fighters.some(f => f !== p && f.hp > 0 && !isLocked(f))) {
+        p.hp = 1; devolve(true, p); p.lockUntil = B.turnNo + 2;
+        floatText(p, '☠️ 死亡宣告', 'super'); shake(p);
+        log(`☠️ ${p.name} 被死亡宣告擊中，只剩 1 HP，被強制換下場（2 回合內不能上場）！`);
+        e.gauge = 0; e.p2n = (e.p2n || 0) + 1; chooseIntent(e);
+        B.discard.push(...B.hand.filter(c => !c.temp)); B.hand = []; B.carry = 0;
+        B.phase = 'choose'; renderBattle(); openSwitch(true);
+        return;
+      } else {
+        const d = Math.round(p.maxhp * .4); p.hp = Math.max(0, p.hp - d);
+        floatText(p, `-${d} ☠️`, 'crit'); shake(p); log(`☠️ 死亡宣告！沒有夥伴可以替換，${p.name} 受到 ${d} 點傷害！`);
+      }
     }
     e.gauge = 0;
-    chooseIntent(e);
+    if (e.phase2) e.p2n = (e.p2n || 0) + 1;
+    // 第二階段：每 3 次行動發動一次死亡宣告（前一次行動時就會預告）
+    if (e.phase2 && e.p2n % 3 === 2) { e.intent = 'deathmark'; log(`⚠️ ${e.name} 正在準備「死亡宣告」！`); }
+    else chooseIntent(e);
     if (checkEnd()) return;
     renderBattle();
     setTimeout(() => { if (B === myB && B.phase === 'enemy') { B.phase = 'run'; renderBattle(); } }, 450);
@@ -265,7 +294,16 @@ function enterPhase2() {
   banner(`${e.name} 進入第二階段！`);
   floatText(e, '💢 黑暗爆發！', 'super');
   log(`🌑 ${e.name} 發出震天咆哮，黑暗的力量爆發了！（攻擊、速度提升，異常狀態解除）`);
+  // 黑暗衝擊：進化中 → 強制退化；沒進化 → 受到 30% HP 傷害、行動條歸零；接下來 1 回合不能進化
+  const p = B.p;
+  if (p.tier > 0) { log(`💥 黑暗衝擊！${p.name} 被強制退化了！`); devolve(true, p); floatText(p, '強制退化！', 'super'); }
+  else { const d = Math.round(p.maxhp * .3); p.hp = Math.max(1, p.hp - d); p.gauge = 0; floatText(p, `-${d} 黑暗衝擊`, 'dot'); log(`💥 黑暗衝擊！${p.name} 受到 ${d} 點傷害，行動條歸零！`); }
+  B.sealTurn = B.turnNo + 1;
+  e.p2n = 0;
 }
+// 被死亡宣告換下的夥伴，幾回合內不能上場
+const isLocked = f => f.lockUntil && f.lockUntil >= B.turnNo;
+function checkPhase2() { const e = B.e; if (B.dom === 'dark' && !e.phase2 && e.hp > 0 && e.hp <= e.maxhp / 2) enterPhase2(); }
 
 // ---------- 進化 ----------
 const evoTurnsNow = () => Math.max(1, EVO_TURNS + (has('digivice') ? 1 : 0) - (B && B.dom === 'dark' ? 1 : 0));
@@ -277,6 +315,7 @@ function evoCost(f, tier) {
 }
 function evoBlock(f, tier) {
   if (f.noEvo) return '這場戰鬥無法再進化';
+  if (B && B.sealTurn && B.turnNo <= B.sealTurn) return '被黑暗封印，暫時無法進化';
   if (f.dark) return '暴走中，無法控制';
   if (tier <= f.tier) return f.tier === tier ? '目前型態' : '已經超越';
   if (f.m.level < TIERS[tier].lv) return `需要 Lv.${TIERS[tier].lv}`;
@@ -426,7 +465,8 @@ function switchCost() {
 }
 function switchTo(i, forced) {
   const nf = B.fighters[i];
-  if (!nf || nf === B.p || nf.hp <= 0) return;
+  if (!nf || nf === B.p || nf.hp <= 0 || (isLocked(nf) && !B.ignoreLock)) return;
+  B.ignoreLock = false;
   if (!forced) {
     if (B.phase !== 'player' || B.energy < switchCost()) return;
     B.energy -= switchCost();
@@ -435,6 +475,7 @@ function switchTo(i, forced) {
   }
   const old = B.p;
   devolve(true, old);
+  old.stay = 0; nf.stay = 0; delete old.st.root;
   nf.gauge = forced ? 50 : old.gauge;
   B.p = nf;
   B.participants.add(i);
@@ -718,7 +759,7 @@ function renderBattle() {
   intent.classList.toggle('hidden', B.phase === 'end');
   intent.textContent = intentText(e);
   p.el.querySelector('.bench').innerHTML = B.fighters.length > 1 ? B.fighters.map(f =>
-    `<div class="tm ${f === p ? 'lead' : ''} ${f.hp <= 0 ? 'dead' : ''}" title="${f.sp.name}">${dpic(f.sp.img, f.emoji, 's32')}
+    `<div class="tm ${f === p ? 'lead' : ''} ${f.hp <= 0 || isLocked(f) ? 'dead' : ''}" title="${f.sp.name}${isLocked(f) ? '（封印中）' : ''}">${dpic(f.sp.img, f.emoji, 's32')}
      <div class="hpb"><i style="width:${f.hp / f.maxhp * 100}%"></i></div></div>`).join('') : '';
   $('#battleRelics').innerHTML = RUN.relics.map(k => `<span title="${RELICS[k].name}：${RELICS[k].desc}">${RELICS[k].icon}</span>`).join('');
   updateCourageUI();
@@ -744,7 +785,7 @@ function renderBattle() {
   $('#btnEnd').disabled = !my;
   $('#btnFlee').disabled = !my || noFlee;
   $('#btnFlee').textContent = noFlee ? '無法逃跑' : '逃跑';
-  $('#btnSwitch').disabled = !my || B.energy < switchCost() || !B.fighters.some(f => f !== p && f.hp > 0);
+  $('#btnSwitch').disabled = !my || B.energy < switchCost() || !B.fighters.some(f => f !== p && f.hp > 0 && !isLocked(f));
   $('#btnBag').disabled = !my;
   $('#btnBag').textContent = `🎒 道具 ${RUN.items.length}`;
   const pb = $('#btnPersuade'), why = persuadeBlock(), hard = persuadeHard();
@@ -792,18 +833,20 @@ function openEvo() {
 }
 function openSwitch(forced) {
   if (!B) return;
+  B.ignoreLock = forced && !B.fighters.some(f => f !== B.p && f.hp > 0 && !isLocked(f));
   if (!forced && (B.phase !== 'player' || B.anim || B.energy < switchCost())) return;
   if (!forced && !$('#switchPanel').classList.contains('hidden')) { closePopups(); return; }
   closePopups();
   const panel = $('#switchPanel');
   panel.innerHTML = `<h3><span>${forced ? '派出下一隻夥伴' : `換手（消耗 ${switchCost()} 能量）`}</span>${forced ? '' : '<button class="btn" id="swClose">取消</button>'}</h3>`;
   B.fighters.forEach((f, i) => {
-    const off = f === B.p || f.hp <= 0;
+    const locked = isLocked(f) && !B.ignoreLock;
+    const off = f === B.p || f.hp <= 0 || locked;
     const el = document.createElement('div');
     el.className = 'swOpt' + (off ? ' off' : '');
     el.innerHTML = `${dpic(f.sp.img, f.emoji, 's44')}<div class="grow"><b>${f.sp.name}</b>　Lv.${f.lvl}　${ATTR_ICON[f.attr]}
       <div class="bar hp" style="width:200px"><i style="width:${f.hp / f.maxhp * 100}%"></i></div></div>
-      <span>${f.hp <= 0 ? '倒下' : f === B.p ? '出戰中' : `${f.hp}/${f.maxhp}`}</span>`;
+      <span>${f.hp <= 0 ? '倒下' : f === B.p ? '出戰中' : locked ? `☠️ 封印中（${f.lockUntil - B.turnNo + 1} 回合）` : `${f.hp}/${f.maxhp}`}</span>`;
     if (!off) el.onclick = () => switchTo(i, forced);
     panel.appendChild(el);
   });

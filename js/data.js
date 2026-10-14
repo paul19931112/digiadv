@@ -48,6 +48,7 @@ const STATUS = {
   atkUp:  { name: '攻擊↑', icon: '💪' },
   expose: { name: '受傷↑', icon: '🎯' },
   ward:   { name: '光之守護', icon: '✨' },
+  root:   { name: '寄生之根', icon: '🌱' },
 };
 
 // =========================================================
@@ -322,6 +323,7 @@ const MOVES = {
   deathclaw:{ name: '死亡之手', kind: 'atk', power: 16, status: ['para', 2], chance: .5, w: 2 },
   darkwing: { name: '黑暗之翼', kind: 'atk', power: 6, hits: 2, w: 3 },
   regen:    { name: '黑暗再生', kind: 'heal', heal: .12, w: 1 },
+  deathmark:{ name: '死亡宣告', kind: 'doom', w: 0 },
 };
 
 // =========================================================
@@ -394,9 +396,9 @@ const CHAPTERS = {
 // 頭目／精英的領域效果（對玩家不利）
 const DOMAINS = {
   heat:  { name: '灼熱之軀', icon: '🔥', desc: '每回合開始，出戰夥伴會燒傷' },
-  jam:   { name: '干擾電波', icon: '📡', desc: '每回合少抽 1 張牌，換手多花 1 能量' },
-  fog:   { name: '迷霧森林', icon: '🌫️', desc: '看不到敵人的招式預告，勇氣值獲得減半' },
-  dark:  { name: '黑暗壓迫', icon: '🌑', desc: '進化消耗 +30%、持續回合 -1；血量剩一半時進入第二階段' },
+  jam:   { name: '干擾電波', icon: '📡', desc: '每回合少抽 1 張牌，換手多花 1 能量；鎖定分析：對進化中的夥伴傷害 +40%' },
+  fog:   { name: '迷霧森林', icon: '🌫️', desc: '看不到招式預告，勇氣值獲得減半；寄生之根：同一隻夥伴連續在場 3 回合以上會被越纏越緊' },
+  dark:  { name: '黑暗壓迫', icon: '🌑', desc: '進化消耗 +30%、持續回合 -1；血量剩一半時進入第二階段（黑暗衝擊、死亡宣告）' },
   armor: { name: '暗黑之軀', icon: '🛡️', desc: '被黑色齒輪強化，受到的傷害 -15%' },
 };
 const NODE_INFO = {

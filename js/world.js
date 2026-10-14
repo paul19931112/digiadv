@@ -229,6 +229,28 @@ function reveal() {
     if (Math.hypot(x - A.x, y - A.y) <= R + .5) A.seen[y * COLS + x] = 1;
 }
 
+// ---------- 存檔：把目前的節點地圖存起來（關掉網頁再回來會回到同一個地方） ----------
+function serializeArea(A) {
+  return { T: A.T, objs: A.objs, start: A.start, exit: A.exit, theme: A.theme, nd: { f: A.nd.f, i: A.nd.i, type: A.nd.type },
+           x: A.mv.moving ? A.mv.toX : A.x, y: A.mv.moving ? A.mv.toY : A.y, facing: A.facing, seen: Array.from(A.seen), introDone: !!A.introDone };
+}
+function restoreArea(d) {
+  const nd = (RUN.route && RUN.route[d.nd.f] && RUN.route[d.nd.f][d.nd.i]) || d.nd;
+  return { T: d.T, objs: d.objs, start: d.start, exit: d.exit, theme: d.theme, nd, x: d.x, y: d.y, facing: d.facing || 1,
+           mv: { moving: false, t: 0 }, seen: Uint8Array.from(d.seen), introDone: d.introDone };
+}
+async function resumeArea(data) {
+  AREA = restoreArea(data);
+  setTimeout(layoutArea, 0);
+  G.screen = 'area'; G.mode = 'area';
+  showScreen('#areaScreen');
+  $('#hud').classList.remove('hidden');
+  AREA.objs.forEach(o => o.sp && loadImg(SPECIES[o.sp].img));
+  updateHUD();
+  toast('從上次離開的地方繼續冒險', 2500);
+  if (AREA.nd.type === 'boss' && !AREA.introDone) { await bossIntro(); AREA.introDone = true; saveRun(); }
+}
+
 async function enterArea(nd) {
   AREA = genArea(nd);
   setTimeout(layoutArea, 0);
@@ -243,7 +265,8 @@ async function enterArea(nd) {
   const hint = { battle: '打倒守在出口的數碼寶貝才能離開', elite: '出口被暗黑化的強敵擋住了！', event: '好像有誰在等你…去跟牠說說話',
                  rest: '找到回復泉了', shop: '玩偶獸開了一家商店', egg: '附近有一顆數碼蛋', treasure: '這裡散落著寶箱！', tutorial: '長老獸的訓練場', puzzle: '發現了一座古代遺跡，石碑上刻著謎題', boss: '強大的氣息…頭目就在出口前' }[nd.type];
   toast(hint, 3000);
-  if (nd.type === 'boss') await bossIntro();
+  saveRun();   // 一進節點就存檔：商店的貨、寶箱、敵人都固定下來，不能用重開來刷
+  if (nd.type === 'boss') { await bossIntro(); AREA.introDone = true; saveRun(); }
 }
 
 function leaveArea() {
@@ -348,6 +371,7 @@ function backToArea() {
   showScreen('#areaScreen');
   $('#hud').classList.remove('hidden');
   updateHUD();
+  saveRun();   // 戰鬥、事件、寶箱結束後存檔（經驗值、道具不會不見）
 }
 
 // ---------- 觸控：點地圖自動走過去 ----------
@@ -464,6 +488,7 @@ async function openShop(o) {
   }
   await new Promise(res => {
     const render = () => {
+      saveRun();
       const s = o.stock, ov = $('#overlay');
       ov.innerHTML = `<h2>🧸 玩偶獸的商店</h2><p class="sub">💰 你有 ${RUN.bits} 數碼幣</p>
         <div class="shopRow cards"></div><div class="shopRow relics"></div><div class="shopRow items"></div>

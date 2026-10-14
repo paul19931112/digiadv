@@ -14,7 +14,15 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } },
   del(k) { try { localStorage.removeItem(k); } catch (e) { } },
 };
-function saveRun() { if (RUN) store.set(RUN_KEY, RUN); }
+function saveRun() {
+  if (!RUN || G.tutorial) return;   // 教學不存檔
+  RUN.area = (AREA && G.screen === 'area') ? serializeArea(AREA) : null;
+  store.set(RUN_KEY, RUN);
+}
+// 自動存檔：每 5 秒，以及切到別的 App／關閉網頁的時候
+setInterval(() => { if (RUN && !G.tutorial && ['area', 'route'].includes(G.mode)) saveRun(); }, 5000);
+document.addEventListener('visibilitychange', () => { if (document.hidden && RUN && !G.tutorial && G.mode !== 'battle') saveRun(); });
+addEventListener('pagehide', () => { if (RUN && !G.tutorial && G.mode !== 'battle') saveRun(); });
 function clearRun() { store.del(RUN_KEY); }
 function saveMeta() { store.set(META_KEY, META); }
 function loadMeta() {
@@ -126,7 +134,8 @@ function continueRun() {
   if (!RUN) return;
   RUN.items = RUN.items || [];
   RUN.team.forEach(m => preloadLine(m.sp));
-  showRoute();
+  if (RUN.area) resumeArea(RUN.area);   // 上次在節點裡面關掉 → 回到同一個節點
+  else showRoute();
 }
 
 function gameOver() {
@@ -180,7 +189,8 @@ function evoPathHTML(sp, level) {
   }).join('');
 }
 function openModal(html) { sfx('open'); const m = $('#modal'); m.innerHTML = html; m.classList.remove('hidden'); G.modalFrom = G.mode; G.mode = 'modal'; return m; }
-function closeModal() { sfx('close'); $('#modal').classList.add('hidden'); if (G.mode === 'modal') G.mode = G.modalFrom || 'area'; }
+function closeModal() {
+  if (RUN && !G.tutorial && ['area', 'route'].includes(G.modalFrom)) setTimeout(saveRun, 0); sfx('close'); $('#modal').classList.add('hidden'); if (G.mode === 'modal') G.mode = G.modalFrom || 'area'; }
 function openTeam() {
   if (!RUN || !['area', 'route'].includes(G.mode)) return;
   const m = openModal(`<h2>我的隊伍（${RUN.team.length}/${teamMax()}）</h2>
@@ -226,7 +236,7 @@ function openBagField() {
       <div class="col2"><button class="btn primary" ${field ? '' : 'disabled'}>${field ? '使用' : '戰鬥中用'}</button><button class="btn">丟棄</button></div>`;
     const [useB, dropB] = el.querySelectorAll('button');
     useB.onclick = () => useFieldItem(i);
-    dropB.onclick = () => { RUN.items.splice(i, 1); toast(`丟掉了 ${it.name}`); updateHUD(); closeModal(); openBagField(); };
+    dropB.onclick = () => { RUN.items.splice(i, 1); toast(`丟掉了 ${it.name}`); updateHUD(); saveRun(); closeModal(); openBagField(); };
     list.appendChild(el);
   });
   m.querySelector('#mClose').onclick = closeModal;

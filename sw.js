@@ -1,6 +1,6 @@
 // 離線快取：玩過一次之後，沒有網路也能玩
 // 更新遊戲時，VERSION 要跟 js/version.js 的 GAME_VERSION 一起改
-const VERSION = 'digimon-rogue-9.3';
+const VERSION = 'digimon-rogue-9.5';
 const FILES = [
 "./",
 "index.html",
@@ -136,8 +136,9 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   const isImage = req.destination === 'image';
   if (isImage) {
-    e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return res; })));
+    e.respondWith(caches.match(req, { ignoreSearch: true }).then(r => r || fetch(req).then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return res; })));
   } else {
-    e.respondWith(fetch(req).then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return res; }).catch(() => caches.match(req).then(r => r || caches.match('index.html'))));
+    // cache: 'no-cache'：每次都跟伺服器確認是不是最新版，避免新舊程式混在一起
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return res; }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
   }
 });
