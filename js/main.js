@@ -386,19 +386,31 @@ function joySetDir(d) {
 }
 (() => {
   const zone = $('#joyZone'), base = $('#joyBase'), knob = $('#joyKnob');
+  // 平常半透明地待在左下角（像傳說對決）；按下時移到手指的位置，放開後滑回來
+  const home = () => {
+    if (JOY.id !== null) return;
+    base.style.left = '82px';
+    base.style.top = (window.innerHeight - (window.innerHeight > window.innerWidth ? 112 : 92)) + 'px';
+    knob.style.transform = 'translate(-50%,-50%)';
+  };
+  home();
+  addEventListener('resize', home);
   const end = e => {
     if (e.pointerId !== JOY.id) return;
     joySetDir(null);
     base.classList.remove('on');
+    base.classList.add('glide'); setTimeout(() => base.classList.remove('glide'), 250);
     // 很快放開又沒拖動 → 當成「點地圖自動走過去」
     if (!JOY.moved && performance.now() - JOY.t < 300) tapArea(e);
     JOY.id = null;
+    home();
   };
   zone.addEventListener('pointerdown', e => {
     if (G.mode !== 'area' || JOY.id !== null) return;
     e.preventDefault();
     JOY.id = e.pointerId; JOY.x = e.clientX; JOY.y = e.clientY; JOY.t = performance.now(); JOY.moved = false;
     try { zone.setPointerCapture(e.pointerId); } catch (err) { }
+    base.classList.remove('glide');
     base.style.left = e.clientX + 'px'; base.style.top = e.clientY + 'px';
     knob.style.transform = 'translate(-50%,-50%)';
     base.classList.add('on');

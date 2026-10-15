@@ -13,17 +13,24 @@ function coach(sel, html, opt = {}) {
     tip.className = '';
     if (el) {
       const r = el.getBoundingClientRect();
+      tip.style.right = 'auto';
       Object.assign(ring.style, { left: r.left - 8 + 'px', top: r.top - 8 + 'px', width: r.width + 16 + 'px', height: r.height + 16 + 'px' });
       ring.classList.remove('hidden');
       const below = r.top < window.innerHeight / 2;
       tip.style.left = clamp(r.left + r.width / 2 - 190, 16, window.innerWidth - 396) + 'px';
       tip.style.top = below ? (r.bottom + 18) + 'px' : 'auto';
       tip.style.bottom = below ? 'auto' : (window.innerHeight - r.top + 18) + 'px';
-    } else {   // 沒有目標：放在畫面上方中間，不遮住地圖
+    } else {   // 沒有目標：放在畫面中間的上方；手機直向探索地圖時，地圖在上半部，改放到下面的空白處
       ring.classList.add('hidden');
       tip.classList.add('top');
-      Object.assign(tip.style, { left: '50%', top: '14px', bottom: 'auto' });
+      const low = G.mode === 'area' && window.innerHeight > window.innerWidth;
+      if (low) {   // 左下角是搖桿，說明框放在它的右邊
+        tip.classList.remove('top'); tip.classList.add('low');
+        Object.assign(tip.style, { left: 'auto', right: '10px', top: 'auto', bottom: 'max(14px, env(safe-area-inset-bottom))' });
+      } else Object.assign(tip.style, { left: '50%', right: 'auto', top: '14px', bottom: 'auto' });
     }
+    // 「照著做」的說明不會擋住手指：可以直接在說明框上拖曳搖桿、點地圖
+    tip.classList.toggle('passthru', !!opt.wait);
     tip.innerHTML = `<div class="ctitle">👴 長老獸的教學</div><div class="ct">${html}</div>` +
       (opt.wait ? '<div class="cw">👉 照著做就會繼續</div>' : opt.auto ? '' : '<button class="btn primary">知道了</button>');
     tip.classList.remove('hidden');
