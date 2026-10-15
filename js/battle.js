@@ -905,7 +905,10 @@ function renderFighter(f) {
   hb.style.width = (r * 100) + '%';
   hb.style.background = r > .5 ? '#4ade80' : r > .25 ? '#facc15' : '#ef4444';
   el.querySelector('.hptxt').textContent = `${f.hp} / ${f.maxhp}`;
-  el.querySelector('.spdtxt').textContent = `速度 ${f.spd}${f.st.haste ? ' 💨' : ''}${f.st.para ? ' ⚡' : ''}`;
+  // 顯示實際速度（加速 ×1.5、麻痺 ×0.5 都算進去），有變化時標顏色
+  const effSpd = +(f.spd * (f.st.haste ? 1.5 : 1) * (f.st.para ? .5 : 1)).toFixed(1);
+  el.querySelector('.spdtxt').innerHTML = effSpd === f.spd ? `速度 ${f.spd}` :
+    `速度 <b class="${effSpd > f.spd ? 'spdUp' : 'spdDown'}">${effSpd}</b>${f.st.haste ? ' 💨' : ''}${f.st.para ? ' ⚡' : ''}`;
   const blk = el.querySelector('.block');
   blk.classList.toggle('hidden', f.block <= 0);
   blk.textContent = `🛡${f.block}`;

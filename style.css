@@ -634,3 +634,6 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 #battleRelics span{cursor:default}#battleRelics .riddle{cursor:pointer}
 #svcUp small{display:block;font-size:11px;opacity:.8;font-weight:600}
 @media (max-width:900px),(max-height:600px){.cmarks{font-size:11px;line-height:16px;top:-8px;right:-4px}.limTag{font-size:9px;top:-8px}.nRow{font-size:13px}.nBox h3{font-size:16px}}
+
+/* v10.6：加速／麻痺時的實際速度 */
+.spdUp{color:#4ade80}.spdDown{color:#f87171}
