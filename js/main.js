@@ -243,17 +243,24 @@ function openBagField() {
   });
   m.querySelector('#mClose').onclick = closeModal;
 }
-async function useFieldItem(i) {
-  const k = RUN.items[i];
+// 戰鬥外使用道具（背包、撿到道具但背包滿了的時候）：用掉了回傳 true
+async function applyFieldItem(k) {
   if (k === 'potion') {
-    closeModal();
     const mem = await pickScreen({ title: '💊 要給哪一隻夥伴用？', sub: '回復 30% HP', skip: '取消', items: RUN.team.slice(),
       render: m => { const s = SPECIES[m.sp], ms = memberStats(m), el = document.createElement('div'); el.className = 'pickMon';
         el.innerHTML = `${spPic(m.sp, 's80')}<b>${s.name}</b><span>Lv.${m.level}　HP ${m.hp}/${ms.maxhp}</span>`; return el; } });
-    if (mem) { const ms = memberStats(mem); mem.hp = Math.min(ms.maxhp, mem.hp + healAmt(ms.maxhp * .3)); RUN.items.splice(i, 1); toast(`${SPECIES[mem.sp].name} 回復了！`); }
-    updateHUD(); openBagField(); return;
+    if (!mem) return false;
+    const ms = memberStats(mem); mem.hp = Math.min(ms.maxhp, mem.hp + healAmt(ms.maxhp * .3)); toast(`${SPECIES[mem.sp].name} 回復了！`); sfx('heal');
+    return true;
   }
-  if (k === 'juice') { gainCourage(25); RUN.items.splice(i, 1); toast('🔥 勇氣值 +25'); updateHUD(); closeModal(); openBagField(); }
+  if (k === 'juice') { gainCourage(25); toast('🔥 勇氣值 +25'); return true; }
+  return false;
+}
+async function useFieldItem(i) {
+  const k = RUN.items[i];
+  closeModal();
+  if (await applyFieldItem(k)) RUN.items.splice(i, 1);
+  updateHUD(); saveRun(); openBagField();
 }
 
 // 戰鬥中隨時可以叫出的規則說明

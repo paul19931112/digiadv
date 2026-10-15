@@ -379,15 +379,33 @@ const ITEMS = {
 // 拿到新道具：背包滿了就讓玩家選一個丟掉（也可以丟掉新的）
 async function addItem(k) {
   if (RUN.items.length < bagMax()) { sfx('pickup'); RUN.items.push(k); toast(`獲得 ${ITEMS[k].icon} ${ITEMS[k].name}`); updateHUD(); return true; }
-  const items = [...RUN.items.map((id, i) => ({ id, i })), { id: k, i: -1 }];
-  const drop = await pickScreen({ title: '🎒 背包滿了！', sub: `撿到了 ${ITEMS[k].icon} ${ITEMS[k].name}。選一個要<b>丟掉</b>的道具`, items, allowSkip: false,
-    render: x => { const it = ITEMS[x.id], el = document.createElement('div'); el.className = 'relic clickable' + (x.i < 0 ? ' newItem' : '');
-      el.innerHTML = `<div class="ri">${it.icon}</div><div><b>${it.name}${x.i < 0 ? '（新撿到的）' : ''}</b><div class="rd">${it.desc}</div></div><div class="cnt price">丟掉</div>`; return el; } });
-  if (drop.i < 0) { toast(`丟掉了 ${ITEMS[k].name}`); return false; }
-  RUN.items.splice(drop.i, 1, k);
-  toast(`丟掉 ${ITEMS[drop.id].name}，換成 ${ITEMS[k].icon} ${ITEMS[k].name}`);
-  updateHUD();
-  return true;
+  // 背包滿了：選一個道具「使用」（回復藥、勇氣飲料可以當場用掉）或「丟掉」，空出位置給新道具
+  for (;;) {
+    const items = [...RUN.items.map((id, i) => ({ id, i })), { id: k, i: -1 }];
+    const act = await new Promise(res => {
+      const o = $('#overlay');
+      o.innerHTML = `<h2>🎒 背包滿了！</h2><p class="sub">撿到了 ${ITEMS[k].icon} ${ITEMS[k].name}。回復藥、勇氣飲料可以<b>當場使用</b>，或選一個<b>丟掉</b></p><div class="relicList bagList"></div>`;
+      const list = o.querySelector('.bagList');
+      items.forEach(x => {
+        const it = ITEMS[x.id], field = FIELD_ITEMS.includes(x.id), el = document.createElement('div');
+        el.className = 'relic' + (x.i < 0 ? ' newItem' : '');
+        el.innerHTML = `<div class="ri">${it.icon}</div><div style="flex:1"><b>${it.name}${x.i < 0 ? '（新撿到的）' : ''}</b><div class="rd">${it.desc}</div></div>
+          <div class="col2">${field ? '<button class="btn primary">使用</button>' : ''}<button class="btn">丟掉</button></div>`;
+        const bs = el.querySelectorAll('button');
+        if (field) bs[0].onclick = () => { o.classList.add('hidden'); res({ x, use: true }); };
+        bs[bs.length - 1].onclick = () => { o.classList.add('hidden'); res({ x, use: false }); };
+        list.appendChild(el);
+      });
+      o.classList.remove('hidden');
+      sfx('open');
+    });
+    if (act.use && !(await applyFieldItem(act.x.id))) continue;   // 取消使用 → 回到選單
+    if (act.x.i < 0) { if (!act.use) toast(`丟掉了 ${ITEMS[k].name}`); updateHUD(); return false; }
+    RUN.items.splice(act.x.i, 1, k);
+    toast(`${act.use ? '用掉' : '丟掉'} ${ITEMS[act.x.id].name}，放進 ${ITEMS[k].icon} ${ITEMS[k].name}`);
+    updateHUD();
+    return true;
+  }
 }
 const relicPool = () => Object.keys(RELICS).filter(k => !RELICS[k].dark && !RELICS[k].special && !has(k) && !(k === 'hope' && RUN.flags.hopeUsed));
 
