@@ -487,7 +487,7 @@ function evoOdds(f, tier) {
   let share = force ? Math.min(1, sh + K().forceWrong) : 0;   // 成功之後失控的比例
   if (hasDark()) share = Math.min(1, share + .5);              // 🌑 黑暗徽章：失控 +50%
   if (has('pureheart')) share /= 2;
-  if (K().noWrong || charm) share = 0;                          // 小光、🧿 護符：不會失控
+  if (K().noWrong || charm) share = 0;                          // 嘉兒、🧿 護符：不會失控
   const wrong = total * share;
   return { success: total - wrong, wrong, fail, total, force, charm };
 }
@@ -668,6 +668,12 @@ function flee() {
 
 function checkEnd() {
   if (B.e.hp <= 0) { win(); return true; }
+  if (B.p.hp <= 0 && K().loveGuard && !B.loveUsed) {   // 素娜：愛的守護（每場戰鬥一次，以 1 HP 撐住）
+    B.loveUsed = true; B.p.hp = 1;
+    floatText(B.p, '💗 愛的守護！', 'heal', 30); sfx('heal');
+    log(`💗 愛的守護！${B.p.name} 以 1 HP 撐住了！（這場戰鬥只能發動一次）`);
+    renderBattle();
+  }
   if (B.p.hp <= 0) {
     if (B.fighters.some(f => f.hp > 0)) faint(); else lose();
     return true;

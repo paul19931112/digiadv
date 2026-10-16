@@ -283,19 +283,19 @@ function leaveArea() {
 const keys = new Set();
 const DIRS = { arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1], arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0] };
 const STEP_TIME = 0.14;
-function lastDir() { let d = null; for (const k of keys) if (DIRS[k]) d = k; return d; }
+// 目前按住的方向（可以同時按兩個方向 → 斜著走）
+function heldVec() { let x = 0, y = 0; for (const k of keys) if (DIRS[k]) { x += DIRS[k][0]; y += DIRS[k][1]; } x = Math.sign(x); y = Math.sign(y); return x || y ? [x, y] : null; }
 const objAt = (x, y) => AREA.objs.find(o => !o.done && o.x === x && o.y === y);
 
 function updateArea(dt) {
   const A = AREA, m = A.mv;
   if (m.moving) {
-    m.t += dt / STEP_TIME;
+    m.t += dt / (STEP_TIME * (m.len || 1));   // 斜走一步比較遠（×1.4）
     if (m.t >= 1) { m.moving = false; A.x = m.toX; A.y = m.toY; reveal(); }
   }
   if (!m.moving && G.mode === 'area') {
-    const dir = lastDir();
-    let vec = dir ? DIRS[dir] : null;
-    if (dir) A.path = null;   // 有按方向鍵就取消自動走路
+    let vec = heldVec();
+    if (vec) A.path = null;   // 有按方向鍵就取消自動走路
     else if (A.path && A.path.length) {
       const n = A.path.shift();
       vec = [n.x - A.x, n.y - A.y];
@@ -304,13 +304,21 @@ function updateArea(dt) {
     if (vec) {
       const [dx, dy] = vec;
       if (dx) A.facing = dx;
-      const nx = A.x + dx, ny = A.y + dy;
-      if (nx === A.exit.x && ny === A.exit.y) { A.path = null; tryExit(); }
-      else {
+      // 往某一格走一步：出口、碰到東西、空地才走得動；回傳有沒有成功
+      const step = (sx, sy) => {
+        const nx = A.x + sx, ny = A.y + sy;
+        if (nx === A.exit.x && ny === A.exit.y) { A.path = null; tryExit(); return true; }
         const o = objAt(nx, ny);
-        if (o) { A.path = null; interact(o); }
-        else if (!SOLID.has(A.T[ny][nx])) Object.assign(m, { fromX: A.x, fromY: A.y, toX: nx, toY: ny, t: 0, moving: true });
-      }
+        if (o) { A.path = null; interact(o); return true; }
+        if (SOLID.has(A.T[ny][nx])) return false;
+        Object.assign(m, { fromX: A.x, fromY: A.y, toX: nx, toY: ny, t: 0, moving: true, len: sx && sy ? 1.41 : 1 });
+        return true;
+      };
+      const free = (x, y) => !SOLID.has(A.T[y][x]) && !objAt(x, y);
+      if (dx && dy) {
+        // 斜著走：旁邊兩格都是空地才能過（不能穿過牆角）；過不去就沿著牆滑
+        if (!(free(A.x + dx, A.y) && free(A.x, A.y + dy) && step(dx, dy))) { if (!step(dx, 0)) step(0, dy); }
+      } else step(dx, dy);
     }
   }
   // 遊蕩的敵人

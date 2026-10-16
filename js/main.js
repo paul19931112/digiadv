@@ -474,11 +474,11 @@ cvs.addEventListener('pointerdown', tapArea);   // 點地圖自動走過去
 // ---------- 觸控：浮動搖桿（按在左半邊哪裡就出現在哪裡） ----------
 const JOY = { id: null, x: 0, y: 0, t: 0, moved: false, dir: null };
 const JOY_R = 52, JOY_DEAD = 14;
-function joySetDir(d) {
+function joySetDir(d) {   // d：一個或兩個方向鍵（用空白隔開），斜著推就同時按兩個
   if (JOY.dir === d) return;
-  if (JOY.dir) keys.delete(JOY.dir);
+  if (JOY.dir) JOY.dir.split(' ').forEach(k => keys.delete(k));
   JOY.dir = d;
-  if (d) keys.add(d);
+  if (d) d.split(' ').forEach(k => keys.add(k));
 }
 (() => {
   const zone = $('#joyZone'), base = $('#joyBase'), knob = $('#joyKnob');
@@ -521,7 +521,9 @@ function joySetDir(d) {
     knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
     if (d < JOY_DEAD) { joySetDir(null); return; }
     JOY.moved = true;
-    joySetDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'arrowright' : 'arrowleft') : (dy > 0 ? 'arrowdown' : 'arrowup'));
+    // 8 個方向：每 45 度一格
+    const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * Math.PI / 4, sx = Math.round(Math.cos(a)), sy = Math.round(Math.sin(a));
+    joySetDir([sx > 0 ? 'arrowright' : sx < 0 ? 'arrowleft' : '', sy > 0 ? 'arrowdown' : sy < 0 ? 'arrowup' : ''].filter(Boolean).join(' '));
   });
   ['pointerup', 'pointercancel'].forEach(t => zone.addEventListener(t, end));
   // 擋掉瀏覽器自己的捲動／回彈／放大鏡：不然拖搖桿時整個網頁會跟著晃

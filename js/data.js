@@ -98,7 +98,7 @@ const SPECIES = {
           { name: '赫拉克比多獸', img: 'Herakle_Kabuterimon', ult: '雷電加農炮' }] },
   plotmon: { name: '小狗獸', img: 'Plotmon', emoji: '🐶', attr: 'vaccine', hp: 56, atk: 12, def: 8, spd: 12, starter: true,
     flavor: 'holy', desc: '神聖之力能淨化敵人的強化與護盾', sig: { name: '幼犬之吼', power: 9 }, dark: { name: '黑迪路獸', img: 'Black_Tailmon' },
-    unlock: '解鎖八神光後可選',
+    unlock: '解鎖八神嘉兒後可選',
     evo: [{ name: '迪路獸', img: 'Tailmon', ult: '迪路貓拳', hits: 3 },
           { name: '天女獸', img: 'Angewomon', ult: '神聖之箭' },
           { name: '聖龍獸', img: 'Holydramon', ult: '神聖火焰' }] },
@@ -488,8 +488,8 @@ const KIDS = {
               card: 'reckless', line: '好！不管遇到什麼，衝就對了！', mods: { atk: 1.2, taken: 1.15, forceSuccess: .15, forceWrong: .1 }, partner: 'agumon' },
   yamato:   { name: '石田大和', nick: '大和',   crest: '友情', icon: '🤝', color: '#3b82f6', plus: '每回合第一次換手不消耗能量，候補也拿全額經驗，隊伍上限 7 隻；第 4 隻起每隻攻擊 +2%（最多 +5%）', minus: '隊伍少於 3 隻時，夥伴攻擊 -15%',
               card: 'friendship', line: '…我會保護好大家的。', mods: { freeSwitch: true, benchFull: true, teamPlus: 1, teamAtk: true }, partner: 'gabumon' },
-  sora:     { name: '武之內素娜', nick: '素娜', crest: '愛心', icon: '💗', color: '#ef4444', plus: '勝利後全隊回復 15% HP，勸降成功率 +15%', minus: '夥伴的攻擊 -10%，對 HP 低於 20% 的敵人傷害再 -10%',
-              card: 'tender', line: '大家都不要受傷喔，我會照顧好每一個人。', mods: { winHeal: .15, persuade: .15, atk: .9, lowHpPenalty: true }, partner: 'piyomon' },
+  sora:     { name: '武之內素娜', nick: '素娜', crest: '愛心', icon: '💗', color: '#ef4444', plus: '愛的守護：每場戰鬥中，夥伴第一次被打倒時會以 1 HP 撐住；勝利後全隊回復 15% HP，勸降成功率 +15%', minus: '夥伴的攻擊 -10%',
+              card: 'tender', line: '大家都不要受傷喔，我會照顧好每一個人。', mods: { winHeal: .15, persuade: .15, atk: .9, loveGuard: true }, partner: 'piyomon' },
   koushiro: { name: '泉光子郎', nick: '光子郎',   crest: '知識', icon: '📘', color: '#a855f7', plus: '每回合多抽 1 張牌、商店 85 折、探索視野 +2', minus: '全隊 HP -15%',
               card: 'analyze', line: '這個世界的構造…真是太有意思了！', mods: { draw: 1, shop: .85, hp: .85, sight: 2 }, partner: 'tentomon' },
   mimi:     { name: '太刀川美美', nick: '美美', crest: '純真', icon: '🌟', color: '#22c55e', plus: '勇氣值累積 +40%', minus: '數碼幣收入 -30%',
@@ -498,10 +498,10 @@ const KIDS = {
               card: 'prepare', line: '等、等一下！我們先擬定計畫再出發比較安全！', mods: { blockDef: true, spd: .9 }, partner: 'gomamon', unlock: '抵達第三章後解鎖' },
   takeru:   { name: '高石武', nick: '阿武',     crest: '希望', icon: '🕊️', color: '#facc15', plus: '每局可以復活一次（全隊 40% HP），強行進化失敗不受反噬', minus: '進化消耗的勇氣值 +20%',
               card: 'hopelight', line: '只要不放棄，一定會有希望的！', mods: { revive: true, evo: 1.2, noRecoil: true }, partner: 'patamon', unlock: '達成任一結局後解鎖' },
-  hikari:   { name: '八神光', nick: '小光',     crest: '光明', icon: '☀️', color: '#f9a8d4', plus: '所有回復效果 +50%，強行進化成功時不會失控', minus: '牌組上限 20 張',
+  hikari:   { name: '八神嘉兒', nick: '嘉兒',     crest: '光明', icon: '☀️', color: '#f9a8d4', plus: '所有回復效果 +50%，強行進化成功時不會失控', minus: '牌組上限 20 張',
               card: 'lightward', line: '…我感覺得到，數碼寶貝們在呼喚我們。', mods: { heal: 1.5, deckMax: 20, noWrong: true }, partner: 'plotmon', unlock: '收集 2 種結局後解鎖' },
 };
-const KID_DEFAULT = { teamPlus: 0, teamAtk: false, lowHpPenalty: false, blockDef: false, forceSuccess: 0, forceWrong: 0, noWrong: false, noRecoil: false, sight: 0, atk: 1, taken: 1, courage: 1, bits: 1, shop: 1, hp: 1, spd: 1, heal: 1, evo: 1, draw: 0, block: 0, persuade: 0, winHeal: 0, deckMax: 99 };
+const KID_DEFAULT = { teamPlus: 0, teamAtk: false, lowHpPenalty: false, loveGuard: false, blockDef: false, forceSuccess: 0, forceWrong: 0, noWrong: false, noRecoil: false, sight: 0, atk: 1, taken: 1, courage: 1, bits: 1, shop: 1, hp: 1, spd: 1, heal: 1, evo: 1, draw: 0, block: 0, persuade: 0, winHeal: 0, deckMax: 99 };
 function K() { return { ...KID_DEFAULT, ...((typeof RUN !== 'undefined' && RUN && KIDS[RUN.kid]) ? KIDS[RUN.kid].mods : {}) }; }
 function gainBits(n) { const v = Math.round(n * K().bits); RUN.bits += v; return v; }
 function addCard(id) {
