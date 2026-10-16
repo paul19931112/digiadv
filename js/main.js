@@ -293,50 +293,72 @@ const HELP = [
   ['⌨️ 快捷鍵', '1～8 出牌｜空白鍵 結束回合｜E 進化｜Q 換手｜R 勸降｜B 道具｜H 說明｜M 音效開關'],
 ];
 // ---------- 存檔備份：把存檔變成一串代碼，換裝置或換 App 時貼上就能帶過去 ----------
-const SAVE_PREFIX = 'DGADV1:';
-function encodeSave(obj) {
-  const bytes = new TextEncoder().encode(JSON.stringify(obj));
-  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
-  return SAVE_PREFIX + btoa(bin);
+// 代碼只用英文字母、數字、- 和 _（手機輸入法不會亂改），開頭是 DG2，後面帶檢查碼，能壓縮就壓縮
+const b64url = bytes => { let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b)); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64url = str => { str = str.replace(/-/g, '+').replace(/_/g, '/'); while (str.length % 4) str += '='; return Uint8Array.from(atob(str), c => c.charCodeAt(0)); };
+const saveHash = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36).padStart(7, '0').slice(-7); };
+async function pipeBytes(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+async function encodeSave(obj) {
+  let bytes = new TextEncoder().encode(JSON.stringify(obj)), flag = 'p';
+  if (typeof CompressionStream !== 'undefined') { try { bytes = await pipeBytes(bytes, new CompressionStream('deflate-raw')); flag = 'z'; } catch (e) { } }
+  const data = b64url(bytes);
+  return 'DG2' + flag + saveHash(data) + data;
 }
-function decodeSave(code) {
-  code = (code || '').replace(/\s+/g, '');
-  if (!code.startsWith(SAVE_PREFIX)) throw new Error('不是這個遊戲的存檔代碼');
-  const bin = atob(code.slice(SAVE_PREFIX.length));
-  const data = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
-  if (!data || !data.meta) throw new Error('代碼不完整');
-  return data;
+async function decodeSave(code) {
+  code = code || '';
+  const i = code.toUpperCase().indexOf('DG2');
+  if (i < 0) {   // 舊格式（v10.9）
+    const j = code.indexOf('DGADV1');
+    if (j < 0) throw new Error('找不到存檔代碼（開頭應該是 DG2）');
+    const body = code.slice(j + 6).replace(/^[:：\s]+/, '').replace(/\s/g, '+').replace(/[^A-Za-z0-9+/=]/g, '');
+    return checkSave(JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(body), c => c.charCodeAt(0)))));
+  }
+  const rest = code.slice(i + 3).replace(/[^A-Za-z0-9_-]/g, '');   // 空白、換行、全形符號都略過
+  const flag = rest[0], hash = rest.slice(1, 8), data = rest.slice(8);
+  if (saveHash(data) !== hash) throw new Error(`代碼不完整或被改動了（收到 ${data.length} 字），請重新完整複製一次`);
+  let bytes = unb64url(data);
+  if (flag === 'z') {
+    if (typeof DecompressionStream === 'undefined') throw new Error('這個瀏覽器太舊，無法讀取這份代碼');
+    bytes = await pipeBytes(bytes, new DecompressionStream('deflate-raw'));
+  }
+  return checkSave(JSON.parse(new TextDecoder().decode(bytes)));
 }
+function checkSave(data) { if (!data || !data.meta) throw new Error('代碼裡沒有存檔資料'); return data; }
 function saveSummary(run, meta) {
   const kid = run && KIDS[run.kid], ch = run && CHAPTERS[run.chapter];
   return `${run ? `進行中的冒險：${kid ? kid.name : ''}・${ch ? ch.title.replace('　', ' ') : ''}` : '沒有進行中的冒險'}<br>` +
     `永久紀錄：結局 ${(meta && meta.endings || []).length} / 3、孩子 ${(meta && meta.kids || []).length} 位、夥伴 ${(meta && meta.unlocked || []).length} 隻`;
 }
-function openSaveTransfer() {
+async function openSaveTransfer() {
   const run = store.get(RUN_KEY), meta = store.get(META_KEY) || META;
-  const code = encodeSave({ v: GAME_VERSION, t: Date.now(), run, meta });
+  const code = await encodeSave({ v: GAME_VERSION, t: Date.now(), run, meta });
   const m = openModal(`<h2>💾 備份／匯入存檔</h2>
     <p class="sub">iPhone 的 Safari、Chrome、加到主畫面的 App 存檔是分開的。在舊的地方複製代碼，到新的地方貼上就能把進度帶過去。</p>
     <div class="saveBox"><h3>📤 備份（這台裝置目前的存檔）</h3>
       <div class="mini2">${saveSummary(run, meta)}</div>
-      <textarea id="saveCode" readonly>${code}</textarea>
-      <button class="btn primary" id="btnCopySave">📋 複製代碼</button></div>
+      <textarea id="saveCode" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">${code}</textarea>
+      <button class="btn primary" id="btnCopySave">📋 複製代碼（${code.length} 字）</button></div>
     <div class="saveBox"><h3>📥 匯入（會覆蓋這裡現在的存檔）</h3>
-      <textarea id="loadCode" placeholder="把備份的代碼貼在這裡"></textarea>
-      <button class="btn evo" id="btnLoadSave">匯入存檔</button></div>
+      <textarea id="loadCode" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="把備份的代碼貼在這裡（開頭是 DG2）"></textarea>
+      <div class="col2"><button class="btn" id="btnPasteSave">📋 從剪貼簿貼上</button><button class="btn evo" id="btnLoadSave">匯入存檔</button></div></div>
     <button class="btn" id="mClose">關閉</button>`);
   m.querySelector('#mClose').onclick = closeModal;
+  const ta = m.querySelector('#saveCode'), la = m.querySelector('#loadCode');
+  ta.addEventListener('input', () => { ta.value = code; });   // 不讓備份的代碼被改到
   m.querySelector('#btnCopySave').onclick = async () => {
-    const ta = m.querySelector('#saveCode');
     let ok = false;
     try { await navigator.clipboard.writeText(code); ok = true; } catch (e) { }
     if (!ok) { ta.focus(); ta.select(); ta.setSelectionRange(0, code.length); try { ok = document.execCommand('copy'); } catch (e) { } }
     toast(ok ? '📋 已複製！到新的地方按「匯入存檔」貼上' : '請長按上面的代碼，全選後複製', 3500);
   };
-  m.querySelector('#btnLoadSave').onclick = () => {
+  m.querySelector('#btnPasteSave').onclick = async () => {
+    try { la.value = await navigator.clipboard.readText(); toast(`已貼上 ${la.value.length} 字`); }
+    catch (e) { toast('瀏覽器不允許讀取剪貼簿，請長按下面的框貼上', 3000); la.focus(); }
+  };
+  m.querySelector('#btnLoadSave').onclick = async () => {
     let data;
-    try { data = decodeSave(m.querySelector('#loadCode').value); }
-    catch (e) { toast('❌ 代碼不正確，請確認有完整複製', 3000); sfx('error'); return; }
+    try { data = await decodeSave(la.value); }
+    catch (e) { toast(`❌ ${e.message || '代碼不正確'}`, 4000); sfx('error'); return; }
     if (!confirm(`要匯入這份存檔嗎？\n這裡現在的存檔會被覆蓋。\n\n${saveSummary(data.run, data.meta).replace('<br>', '\n')}`)) return;
     store.set(META_KEY, data.meta);
     if (data.run) store.set(RUN_KEY, data.run); else store.del(RUN_KEY);
@@ -378,6 +400,7 @@ function openDeck() {
 //   輸入
 // =========================================================
 document.addEventListener('keydown', e => {
+  if (e.target && /^(TEXTAREA|INPUT)$/.test(e.target.tagName)) return;   // 在輸入框打字時不觸發快捷鍵
   const k = e.key.toLowerCase();
   if (k === 'm' && !e.repeat) { toggleSound(); return; }
   if (G.dialog) {
