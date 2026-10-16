@@ -225,12 +225,12 @@ function openTeam() {
   m.querySelector('#mClose').onclick = closeModal;
 }
 // 戰鬥外的背包：可以使用回復藥、勇氣飲料，也可以丟棄道具
-const FIELD_ITEMS = ['potion', 'juice'];
+const FIELD_ITEMS = ['potion', 'juice', 'scanner'];
 function openBagField() {
   if (!RUN || !['area', 'route'].includes(G.mode)) return;
-  const m = openModal(`<h2>🎒 背包（${RUN.items.length}/${bagMax()}）</h2><p class="sub">回復藥、勇氣飲料在戰鬥外也能用；其他道具只能在戰鬥中使用</p><div class="relicList bagList"></div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
+  const m = openModal(`<h2>🎒 背包（${RUN.items.length}/${bagMax()}）</h2><p class="sub">回復藥、勇氣飲料、數據掃描器在戰鬥外也能用；其他道具只能在戰鬥中使用</p><div class="relicList bagList"></div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
   const list = m.querySelector('.bagList');
-  if (!RUN.items.length) list.innerHTML = '<p class="sub">背包是空的。探索地圖撿 ✨、開寶箱、逛商店都能拿到道具。</p>';
+  if (!RUN.items.length) list.innerHTML = '<p class="sub">背包是空的。探索地圖撿數據碎片、開寶箱、逛商店都能拿到道具。</p>';
   RUN.items.forEach((k, i) => {
     const it = ITEMS[k], field = FIELD_ITEMS.includes(k), el = document.createElement('div');
     el.className = 'relic';
@@ -254,13 +254,24 @@ async function applyFieldItem(k) {
     return true;
   }
   if (k === 'juice') { gainCourage(25); toast('🔥 勇氣值 +25'); return true; }
+  if (k === 'scanner') {   // 數據掃描器：標出這張地圖所有還沒撿的數據碎片
+    if (!AREA || G.screen !== 'area') { toast('🔍 要在探索地圖時才能用'); return false; }
+    const n = AREA.objs.filter(o => o.kind === 'pickup' && !o.done).length;
+    if (!n) { toast('🔍 這張地圖已經沒有數據碎片了，先留著吧'); return false; }
+    if (AREA.scanned) { toast('🔍 這張地圖已經掃描過了'); return false; }
+    AREA.scanned = true; sfx('pickup');
+    toast(`🔍 掃描完成！這張地圖還有 ${n} 個數據碎片，已經標在地圖上`, 3500);
+    return true;
+  }
   return false;
 }
 async function useFieldItem(i) {
   const k = RUN.items[i];
   closeModal();
-  if (await applyFieldItem(k)) RUN.items.splice(i, 1);
-  updateHUD(); saveRun(); openBagField();
+  const used = await applyFieldItem(k);
+  if (used) RUN.items.splice(i, 1);
+  updateHUD(); saveRun();
+  if (!(used && k === 'scanner')) openBagField();   // 用完掃描器直接回到地圖看標記
 }
 
 // 戰鬥中隨時可以叫出的規則說明
@@ -281,6 +292,60 @@ const HELP = [
   ['🌑 領域效果', '頭目和精英怪會帶來對你不利的效果，顯示在戰鬥畫面上方。'],
   ['⌨️ 快捷鍵', '1～8 出牌｜空白鍵 結束回合｜E 進化｜Q 換手｜R 勸降｜B 道具｜H 說明｜M 音效開關'],
 ];
+// ---------- 存檔備份：把存檔變成一串代碼，換裝置或換 App 時貼上就能帶過去 ----------
+const SAVE_PREFIX = 'DGADV1:';
+function encodeSave(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+  return SAVE_PREFIX + btoa(bin);
+}
+function decodeSave(code) {
+  code = (code || '').replace(/\s+/g, '');
+  if (!code.startsWith(SAVE_PREFIX)) throw new Error('不是這個遊戲的存檔代碼');
+  const bin = atob(code.slice(SAVE_PREFIX.length));
+  const data = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+  if (!data || !data.meta) throw new Error('代碼不完整');
+  return data;
+}
+function saveSummary(run, meta) {
+  const kid = run && KIDS[run.kid], ch = run && CHAPTERS[run.chapter];
+  return `${run ? `進行中的冒險：${kid ? kid.name : ''}・${ch ? ch.title.replace('　', ' ') : ''}` : '沒有進行中的冒險'}<br>` +
+    `永久紀錄：結局 ${(meta && meta.endings || []).length} / 3、孩子 ${(meta && meta.kids || []).length} 位、夥伴 ${(meta && meta.unlocked || []).length} 隻`;
+}
+function openSaveTransfer() {
+  const run = store.get(RUN_KEY), meta = store.get(META_KEY) || META;
+  const code = encodeSave({ v: GAME_VERSION, t: Date.now(), run, meta });
+  const m = openModal(`<h2>💾 備份／匯入存檔</h2>
+    <p class="sub">iPhone 的 Safari、Chrome、加到主畫面的 App 存檔是分開的。在舊的地方複製代碼，到新的地方貼上就能把進度帶過去。</p>
+    <div class="saveBox"><h3>📤 備份（這台裝置目前的存檔）</h3>
+      <div class="mini2">${saveSummary(run, meta)}</div>
+      <textarea id="saveCode" readonly>${code}</textarea>
+      <button class="btn primary" id="btnCopySave">📋 複製代碼</button></div>
+    <div class="saveBox"><h3>📥 匯入（會覆蓋這裡現在的存檔）</h3>
+      <textarea id="loadCode" placeholder="把備份的代碼貼在這裡"></textarea>
+      <button class="btn evo" id="btnLoadSave">匯入存檔</button></div>
+    <button class="btn" id="mClose">關閉</button>`);
+  m.querySelector('#mClose').onclick = closeModal;
+  m.querySelector('#btnCopySave').onclick = async () => {
+    const ta = m.querySelector('#saveCode');
+    let ok = false;
+    try { await navigator.clipboard.writeText(code); ok = true; } catch (e) { }
+    if (!ok) { ta.focus(); ta.select(); ta.setSelectionRange(0, code.length); try { ok = document.execCommand('copy'); } catch (e) { } }
+    toast(ok ? '📋 已複製！到新的地方按「匯入存檔」貼上' : '請長按上面的代碼，全選後複製', 3500);
+  };
+  m.querySelector('#btnLoadSave').onclick = () => {
+    let data;
+    try { data = decodeSave(m.querySelector('#loadCode').value); }
+    catch (e) { toast('❌ 代碼不正確，請確認有完整複製', 3000); sfx('error'); return; }
+    if (!confirm(`要匯入這份存檔嗎？\n這裡現在的存檔會被覆蓋。\n\n${saveSummary(data.run, data.meta).replace('<br>', '\n')}`)) return;
+    store.set(META_KEY, data.meta);
+    if (data.run) store.set(RUN_KEY, data.run); else store.del(RUN_KEY);
+    loadMeta();
+    closeModal();
+    toast('✅ 匯入完成！', 3000);
+    showTitle();
+  };
+}
 function openAbout() {
   const m = openModal(`<h2>ⓘ 關於本作／版權聲明</h2>
     <div class="about">
@@ -376,6 +441,7 @@ $('#btnTutorial').onclick = () => runTutorial();   // 教學不會動到冒險�
 $('#btnHelp').onclick = openHelp;
 document.querySelectorAll('.soundBtn').forEach(b => { b.textContent = SFX.on ? '🔊' : '🔇'; b.onclick = e => { e.stopPropagation(); toggleSound(); }; });
 $('#btnAbout').onclick = () => { G.mode = 'title'; openAbout(); };
+$('#btnSave').onclick = () => { G.mode = 'title'; openSaveTransfer(); };
 $('#btnContinue').onclick = continueRun;
 $('#btnBackTitle').onclick = showKidSelect;
 $('#btnQuit').onclick = () => { if (confirm('回到標題畫面？（進度會保留在最後經過的節點）')) showTitle(); };

@@ -75,7 +75,7 @@ async function runTutorial() {
   await coach(null, '電腦用 <b>方向鍵</b> 或 <b>WASD</b> 移動；手機<b>按住畫面左半邊拖曳</b>就會出現搖桿。<br>四周被<b>迷霧</b>籠罩，只看得到身邊幾格，敵人和寶物要走近才會出現。');
   G.mode = 'area';
   const pk = AREA.objs.find(o => o.kind === 'pickup');
-  if (pk) await coach(null, '附近有閃閃發光的 <b>✨</b>，走過去碰一下就能撿起來！<br>可能是數碼幣、道具或卡片。', { wait: () => pk.done && G.mode === 'area' });
+  if (pk) await coach(null, '附近掉了一塊<b>數據碎片</b>（藍色的 01 方塊），走過去碰一下就能撿起來！<br>可能是數碼幣、道具或卡片。碎片要走進視野內才看得到喔。', { wait: () => pk.done && G.mode === 'area' });
   await coach(null, '右邊那道<b>光柱</b>就是出口。不過出口被打著 <b>❗</b> 的數碼寶貝守住了。<br>走過去碰到牠，就會開始戰鬥！', { wait: () => TUT.b1done && G.mode === 'area' });
   await coach(null, '打贏了！出口的鎖解開了，往<b>光柱</b>走過去離開這張地圖吧。', { wait: () => TUT.exited });
 

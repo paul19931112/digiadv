@@ -76,7 +76,7 @@ async function stoneTablet() {
     if (pool.length) { const k = pick(pool); RUN.relics.push(k); await say(null, `全部答對！石碑打開了，裡面藏著 <b>${RELICS[k].icon} ${RELICS[k].name}</b>：${RELICS[k].desc}`); }
     else { const b = gainBits(60); await say(null, `全部答對！石碑裡藏著 💰 ${b} 數碼幣！`); }
   } else if (right === 2) {
-    const k = pick(Object.keys(ITEMS)); await addItem(k); const b = gainBits(15);
+    const k = pick(RANDOM_ITEMS); await addItem(k); const b = gainBits(15);
     await say(null, `答對 2 題！石碑掉出了 ${ITEMS[k].icon} ${ITEMS[k].name} 和 💰 ${b} 數碼幣。`);
   } else if (right === 1) {
     const b = gainBits(25); await say(null, `答對 1 題。石碑縫隙裡掉出了 💰 ${b} 數碼幣。`);

@@ -63,7 +63,7 @@ const EVENTS = {
     await say('partner', '那是黑色齒輪！再拿下去會被控制的！');
     const c = await ask('gottsumon', '可、可是…這力量好舒服喔…你們想要嗎？', [
       { text: '把齒輪砸碎！', note: '勇氣值 +20' },
-      { text: '收下黑色齒輪', note: '全隊攻擊 ×1.25，但每回合扣血' },
+      { text: '收下黑色齒輪', note: '全隊攻擊 ×1.25，但每回合扣血、進化容易失控；帶著它到最後會走向黑暗結局' },
       { text: '勸牠丟掉就離開', note: '' },
     ]);
     if (c === 0) { gainCourage(20); addFlag('light'); await say('gottsumon', '啊…頭腦突然變清醒了。謝謝你們！'); }
@@ -216,7 +216,7 @@ const EVENTS = {
     await say('devimon_voice', '你身上…有黑色齒輪的味道。你也渴望力量吧？');
     await say('devimon_voice', '接受黑暗吧。我可以讓你的夥伴，輕易得到究極的力量…');
     const c = await ask('partner', '不要聽牠的！我們靠自己的力量就夠了！', [
-      { text: '接受黑暗之力', note: '進化消耗 -30%、攻擊 ×1.2……但會付出代價' },
+      { text: '接受黑暗之力', note: '進化消耗 -30%、攻擊 ×1.2……但進化容易失控；帶著它到最後會走向黑暗結局' },
       { text: '拒絕！我相信夥伴！', note: '勇氣值 +30' },
     ]);
     if (c === 0) { F().darkAccepted = true; addFlag('dark', 2); await giveRelic('darkpower'); await say('partner', '…你的眼神，好像變得有點可怕…'); }
@@ -342,7 +342,8 @@ const ENDINGS = {
   dark:   { name: '黑暗結局「力量的代價」', icon: '🌑' },
 };
 async function ending() {
-  const kind = (F().darkAccepted || (F().wrongEvo || 0) >= 3) ? 'dark' : (F().saved || 0) >= 4 ? 'hidden' : 'light';
+  // 黑暗結局：打倒惡魔獸時身上還有黑暗徽章（黑色齒輪／黑暗之力），或錯誤進化 3 次以上
+  const kind = (has('darkgear') || has('darkpower') || (F().wrongEvo || 0) >= 3) ? 'dark' : (F().saved || 0) >= 4 ? 'hidden' : 'light';
   const sp = SPECIES[RUN.team[0].sp], mega = sp.evo[2];
   await say(null, '惡魔獸發出最後的慘叫，化成無數的黑色碎片…');
   if (kind === 'light') {

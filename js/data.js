@@ -360,8 +360,8 @@ const RELICS = {
   bigbag:    { name: '大背包',   icon: '🎒', desc: '背包上限 +1（變成 4 格）' },
   ultboost:  { name: '究極強化', icon: '💠', desc: '所有究極技威力 +25%（商店購買）', special: true },
   ultproof:  { name: '究極之證', icon: '🏅', desc: '進化時多拿 1 張究極技卡（隱藏獎勵）', special: true },
-  darkgear:  { name: '黑色齒輪', icon: '⚙️', desc: '全隊攻擊 ×1.25，但每回合開始失去 3% HP', dark: true },
-  darkpower: { name: '黑暗之力', icon: '🌑', desc: '進化所需勇氣值 -30%，全隊攻擊 ×1.2', dark: true },
+  darkgear:  { name: '黑色齒輪', icon: '⚙️', desc: '全隊攻擊 ×1.25，但每回合開始失去 3% HP、進化失控機率 +50%；帶著它打倒惡魔獸會走向黑暗結局（回復泉可以淨化）', dark: true },
+  darkpower: { name: '黑暗之力', icon: '🌑', desc: '進化所需勇氣值 -30%，全隊攻擊 ×1.2，但進化失控機率 +50%；帶著它打倒惡魔獸會走向黑暗結局（回復泉可以淨化）', dark: true },
 };
 const has = k => RUN.relics.includes(k);
 
@@ -373,9 +373,11 @@ const ITEMS = {
   potion: { name: '回復藥',   icon: '💊', desc: '一隻夥伴回復 30% HP（戰鬥中給出戰夥伴，戰鬥外可以自己選）' },
   juice:  { name: '勇氣飲料', icon: '🧃', desc: '勇氣值 +25' },
   smoke:  { name: '煙霧彈',   icon: '💨', desc: '一般戰鬥 100% 逃跑成功' },
-  charm:  { name: '數碼護符', icon: '🧿', desc: '這場戰鬥的下一次強行進化必定成功' },
+  charm:  { name: '數碼護符', icon: '🧿', desc: '守護下一次進化：不會失控；強行進化成功率 +20%、失敗不受反噬' },
   chip:   { name: '能量晶片', icon: '⚡', desc: '這回合能量 +2' },
+  scanner:{ name: '數據掃描器', icon: '🔍', desc: '探索地圖時使用：標出這張地圖所有的數據碎片（只在商店販售）', shopOnly: true },
 };
+const RANDOM_ITEMS = Object.keys(ITEMS).filter(k => !ITEMS[k].shopOnly);   // 寶箱、地上撿到的道具（不含商店限定）
 // 拿到新道具：背包滿了就讓玩家選一個丟掉（也可以丟掉新的）
 async function addItem(k) {
   if (RUN.items.length < bagMax()) { sfx('pickup'); RUN.items.push(k); toast(`獲得 ${ITEMS[k].icon} ${ITEMS[k].name}`); updateHUD(); return true; }

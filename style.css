@@ -637,3 +637,9 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 
 /* v10.6：加速／麻痺時的實際速度 */
 .spdUp{color:#4ade80}.spdDown{color:#f87171}
+
+/* v10.9：存檔備份 */
+.saveBox{background:#262d5a;border-radius:12px;padding:10px 12px;margin:0 0 12px;text-align:left}
+.saveBox h3{margin:0 0 6px;font-size:15px;color:#fde68a}
+.saveBox textarea{width:100%;height:76px;margin:8px 0;border-radius:8px;border:1px solid #4b5394;background:#0e1124;color:#cbd5ff;font:11px/1.4 monospace;padding:6px;resize:vertical;word-break:break-all;-webkit-user-select:text;user-select:text}
+.saveBox .btn{width:100%}

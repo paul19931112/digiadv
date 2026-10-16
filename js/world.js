@@ -193,7 +193,7 @@ function genArea(nd) {
       break;
     case 'tutorial': {
       const near = free(2).filter(p => dist[p.y][p.x] >= 2 && dist[p.y][p.x] <= 4);
-      place({ kind: 'pickup' }, near.length ? near : free(2));
+      place({ kind: 'pickup', show: true }, near.length ? near : free(2));
       place({ ...enemy('guard', 'numemon', 1), tut: 1 }, nearExit());
       break;
     }
@@ -232,12 +232,12 @@ function reveal() {
 // ---------- 存檔：把目前的節點地圖存起來（關掉網頁再回來會回到同一個地方） ----------
 function serializeArea(A) {
   return { T: A.T, objs: A.objs, start: A.start, exit: A.exit, theme: A.theme, nd: { f: A.nd.f, i: A.nd.i, type: A.nd.type },
-           x: A.mv.moving ? A.mv.toX : A.x, y: A.mv.moving ? A.mv.toY : A.y, facing: A.facing, seen: Array.from(A.seen), introDone: !!A.introDone };
+           x: A.mv.moving ? A.mv.toX : A.x, y: A.mv.moving ? A.mv.toY : A.y, facing: A.facing, seen: Array.from(A.seen), introDone: !!A.introDone, scanned: !!A.scanned };
 }
 function restoreArea(d) {
   const nd = (RUN.route && RUN.route[d.nd.f] && RUN.route[d.nd.f][d.nd.i]) || d.nd;
   return { T: d.T, objs: d.objs, start: d.start, exit: d.exit, theme: d.theme, nd, x: d.x, y: d.y, facing: d.facing || 1,
-           mv: { moving: false, t: 0 }, seen: Uint8Array.from(d.seen), introDone: d.introDone };
+           mv: { moving: false, t: 0 }, seen: Uint8Array.from(d.seen), introDone: d.introDone, scanned: d.scanned };
 }
 async function resumeArea(data) {
   AREA = restoreArea(data);
@@ -419,7 +419,7 @@ async function openChest(rich) {
     const b = gainBits(randInt(20, 40) * (rich ? 2 : 1));
     await say(null, `寶箱裡有 💰 ${b} 數碼幣！`);
   } else if (r < .65) {
-    const k = pick(Object.keys(ITEMS));
+    const k = pick(RANDOM_ITEMS);
     await say(null, `寶箱裡有 ${ITEMS[k].icon} ${ITEMS[k].name}！`);
     await addItem(k);
   } else if (r < .88) {
@@ -433,15 +433,15 @@ async function openChest(rich) {
 async function openPickup() {
   sfx('pickup');
   const r = Math.random();
-  if (r < .45) { const b = gainBits(randInt(10, 25)); toast(`✨ 撿到了 💰 ${b} 數碼幣`); }
-  else if (r < .85) await addItem(pick(Object.keys(ITEMS)));
+  if (r < .45) { const b = gainBits(randInt(10, 25)); toast(`💾 解析數據碎片：💰 ${b} 數碼幣`); }
+  else if (r < .85) await addItem(pick(RANDOM_ITEMS));
   else if (r < .95) {
-    const id = await pickScreen({ title: '✨ 地上有一張發光的卡片', sub: '選一張加入牌組', items: shuffle([...REWARD_POOL]).slice(0, 3), render: id => cardEl(id) });
+    const id = await pickScreen({ title: '💾 數據碎片裡藏著卡片的資料', sub: '選一張加入牌組', items: shuffle([...REWARD_POOL]).slice(0, 3), render: id => cardEl(id) });
     if (id) addCard(id);
   } else if (relicPool().length) {
     const k = pick(relicPool()); RUN.relics.push(k);
-    await say(null, `草叢裡藏著一個道具！獲得 <b>${RELICS[k].icon} ${RELICS[k].name}</b>：${RELICS[k].desc}`);
-  } else { const b = gainBits(40); toast(`✨ 撿到了 💰 ${b} 數碼幣`); }
+    await say(null, `數據碎片解析出一個道具！獲得 <b>${RELICS[k].icon} ${RELICS[k].name}</b>：${RELICS[k].desc}`);
+  } else { const b = gainBits(40); toast(`💾 解析數據碎片：💰 ${b} 數碼幣`); }
   updateHUD();
 }
 async function restSpot() {
@@ -451,7 +451,16 @@ async function restSpot() {
     { text: '特訓', note: '強化一張卡片', disabled: !RUN.deck.some(canUpgrade) },
     { text: '冥想', note: '勇氣值 +30' },
     { text: '先不要', note: '待會再來' },
+    ...(hasDark() ? [{ text: '💧 淨化黑暗', note: '丟掉 1 個黑暗徽章（不能回血）' }] : []),
   ]);
+  if (c === 4) {   // 淨化黑暗：一個回復泉只能淨化 1 個
+    const darks = RUN.relics.filter(k => RELICS[k].dark);
+    const k = darks.length > 1 ? await pickScreen({ title: '💧 要淨化哪一個？', sub: '回復泉只能洗掉 1 個黑暗徽章', items: darks, render: k => relicEl(k), skip: '取消' }) : darks[0];
+    if (!k) return false;
+    RUN.relics = RUN.relics.filter(x => x !== k);
+    await say(null, `泉水洗去了 ${RELICS[k].icon} ${RELICS[k].name} 的黑暗…夥伴的眼神清澈了起來。`);
+    return true;
+  }
   if (c === 0) { teamHeal(amt); toast('💗 全隊回復了！'); return true; }
   if (c === 1) { const x = await chooseCardFromDeck('選一張卡片強化', canUpgrade); if (!x) return false; RUN.deck[x.i] = x.id + '+'; toast(`「${cardDef(x.id + '+').name}」強化完成！`); return true; }
   if (c === 2) { gainCourage(30); toast('🔥 勇氣值 +30'); return true; }
@@ -482,7 +491,8 @@ async function openShop(o) {
       cards: [...shuffle([...REWARD_POOL]).slice(0, 2).map(id => ({ id, price: Math.round(randInt(40, 65) * K().shop), sold: false })),
               ...shuffle([...SHOP_POOL]).slice(0, 2).map(id => ({ id, price: Math.round(CARDS[id].shop * K().shop), sold: false }))],   // 後 2 張是商店限定卡
       relics: shuffle(relicPool()).slice(0, 2).map(k => ({ k, price: Math.round(randInt(110, 150) * K().shop), sold: false })),
-      items: shuffle(Object.keys(ITEMS)).slice(0, 3).map(k => ({ k, price: Math.round(randInt(28, 45) * K().shop), sold: false })),
+      items: [...shuffle([...RANDOM_ITEMS]).slice(0, 3).map(k => ({ k, price: Math.round(randInt(28, 45) * K().shop), sold: false })),
+              { k: 'scanner', price: Math.round(25 * K().shop), sold: false }],   // 數據掃描器：每間商店都有
       removed: false,
     };
     await say('monzaemon', '歡迎光臨～！玩偶獸的愛心商店，什麼都有喔！');
@@ -539,6 +549,17 @@ async function openShop(o) {
 //   繪圖
 // =========================================================
 const cvs = $('#area'), ctx = cvs.getContext('2d');
+// 數據碎片：藍綠色的 01 方塊，底下有一圈光（不閃爍）
+function drawFragment(cx, cy, t) {
+  ctx.save();
+  ctx.fillStyle = `rgba(34,211,238,${.22 + Math.sin(t * 2) * .06})`; ctx.beginPath(); ctx.arc(cx, cy + 3, 15, 0, 7); ctx.fill();
+  ctx.translate(cx, cy + 1 + Math.sin(t * 2.5) * 1.5); ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = '#0e7490'; ctx.fillRect(-8, -8, 16, 16);
+  ctx.strokeStyle = '#a5f3fc'; ctx.lineWidth = 2; ctx.strokeRect(-8, -8, 16, 16);
+  ctx.rotate(-Math.PI / 4);
+  ctx.fillStyle = '#ecfeff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('01', 0, 1);
+  ctx.restore();
+}
 const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
 const hash = (x, y) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
 const PALETTE = {
@@ -639,7 +660,7 @@ function drawArea(t) {
   // 物件：敵人要在視野內才看得到；寶箱、NPC 這些看過一次就會記住
   for (const o of A.objs) {
     if (o.done) continue;
-    if (o.kind === 'enemy' ? !inSight(o.x, o.y) : !A.seen[o.y * COLS + o.x]) continue;
+    if (o.kind === 'enemy' || (o.kind === 'pickup' && !o.show) ? !inSight(o.x, o.y) : !A.seen[o.y * COLS + o.x]) continue;   // 敵人、數據碎片：要在視野內才看得到
     const cx = o.x * TS + 16, cy = o.y * TS + 14, bob = Math.sin(t * 3 + o.x) * 1.5;
     if (o.kind === 'enemy') {
       if (o.role === 'elite' || o.role === 'boss') {
@@ -664,7 +685,7 @@ function drawArea(t) {
     } else if (o.kind === 'egg') {
       emojiAt('🥚', cx + Math.sin(t * 8) * 1.5, cy + 2, 26);
     } else if (o.kind === 'pickup') {
-      ctx.globalAlpha = .7 + Math.sin(t * 5 + o.x) * .3; emojiAt('✨', cx, cy + 2 + bob, 20); ctx.globalAlpha = 1;
+      drawFragment(cx, cy, t + o.x);
     } else if (o.kind === 'stone') {
       ctx.fillStyle = `rgba(253,224,71,${.25 + Math.sin(t * 3) * .12})`; ctx.beginPath(); ctx.arc(cx, cy + 2, 17, 0, 7); ctx.fill();
       emojiAt('🗿', cx, cy + 2, 26);
@@ -687,6 +708,13 @@ function drawArea(t) {
     const d = Math.hypot(x - rx, y - ry), base = A.seen[y * COLS + x] ? .58 : .97;
     const a = d <= R - 1.2 ? 0 : d <= R ? base * (d - (R - 1.2)) / 1.2 : base;
     if (a > 0) { ctx.fillStyle = `rgba(6,8,22,${a})`; ctx.fillRect(x * TS, y * TS, TS, TS); }
+  }
+  // 用過數據掃描器：還沒撿的碎片在迷霧裡也會標出位置
+  if (A.scanned) for (const o of A.objs) {
+    if (o.kind !== 'pickup' || o.done || inSight(o.x, o.y)) continue;
+    const px = o.x * TS + 16, py = o.y * TS + 16, k = (t * .8 + o.x * .3) % 1;
+    ctx.strokeStyle = `rgba(34,211,238,${.9 - k * .7})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 5 + k * 9, 0, 7); ctx.stroke();
+    ctx.fillStyle = '#22d3ee'; ctx.beginPath(); ctx.moveTo(px, py - 5); ctx.lineTo(px + 5, py); ctx.lineTo(px, py + 5); ctx.lineTo(px - 5, py); ctx.fill();
   }
   // 出口光柱：從遠處就看得到方向
   const beam = ctx.createLinearGradient(0, 0, 0, ey);

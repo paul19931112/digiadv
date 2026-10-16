@@ -473,18 +473,23 @@ function evoBlock(f, tier) {
   if (RUN.courage < evoCost(f, tier) && RUN.courage < FORCE_MIN) return `勇氣值不足（強行進化至少要 ${FORCE_MIN}）`;
   return null;
 }
-// 勇氣值不夠時的強行進化機率：缺越多越危險
-function forceOdds(f, tier) {
-  if (B.charm) return { success: 1, wrong: 0, fail: 0, total: 1, charm: true };
-  const cost = evoCost(f, tier), sh = clamp((cost - RUN.courage) / cost, 0, 1);   // sh = 缺少比例
-  let total = Math.min(.95, Math.max(.1, 1 - sh) + (has('digivice') ? .1 : 0) + K().forceSuccess);
-  let fail = 1 - total;
-  if (has('will')) { fail /= 2; total = 1 - fail; }
-  let share = Math.min(1, sh + K().forceWrong);   // 成功之後失控的比例
+// 進化的機率：勇氣值不夠就是強行進化（缺越多越危險）；身上有黑暗徽章時，連正常進化也可能失控
+const hasDark = () => has('darkgear') || has('darkpower');
+function evoOdds(f, tier) {
+  const cost = evoCost(f, tier), force = RUN.courage < cost, charm = !!B.charm;
+  const sh = force ? clamp((cost - RUN.courage) / cost, 0, 1) : 0;   // sh = 缺少比例
+  let total = 1, fail = 0;
+  if (force) {
+    total = Math.min(.95, Math.max(.1, 1 - sh) + (has('digivice') ? .1 : 0) + K().forceSuccess + (charm ? .2 : 0));   // 🧿 護符：成功率 +20%
+    fail = 1 - total;
+    if (has('will')) { fail /= 2; total = 1 - fail; }
+  }
+  let share = force ? Math.min(1, sh + K().forceWrong) : 0;   // 成功之後失控的比例
+  if (hasDark()) share = Math.min(1, share + .5);              // 🌑 黑暗徽章：失控 +50%
   if (has('pureheart')) share /= 2;
-  if (K().noWrong) share = 0;
+  if (K().noWrong || charm) share = 0;                          // 小光、🧿 護符：不會失控
   const wrong = total * share;
-  return { success: total - wrong, wrong, fail, total };
+  return { success: total - wrong, wrong, fail, total, force, charm };
 }
 const pct = x => Math.round(x * 100);
 
@@ -520,23 +525,27 @@ function doEvolve(f, tier, dark) {
 function evolveTo(tier) {
   const f = B?.p;
   if (!f || B.phase !== 'player' || B.anim || evoBlock(f, tier)) return;
-  const cost = evoCost(f, tier);
-  if (RUN.courage >= cost) { RUN.courage -= cost; doEvolve(f, tier, false); updateCourageUI(); return; }
-  // ---- 強行進化：勇氣值全部用掉，結果看運氣 ----
-  const o = forceOdds(f, tier);
-  RUN.courage = 0;
-  if (o.charm) { B.charm = false; log('🧿 數碼護符發出光芒！'); }
-  log(`⚠️ ${KIDS[RUN.kid].nick}：「拜託了…${f.name}，進化吧——！」（成功 ${pct(o.success)}%）`);
+  const cost = evoCost(f, tier), o = evoOdds(f, tier);
+  if (o.charm) { B.charm = false; log('🧿 數碼護符發出光芒，守護了這次進化！'); }   // 下一次進化就用掉
+  if (!o.force) RUN.courage -= cost;
+  else {   // ---- 強行進化：勇氣值全部用掉，結果看運氣 ----
+    RUN.courage = 0;
+    log(`⚠️ ${KIDS[RUN.kid].nick}：「拜託了…${f.name}，進化吧——！」（成功 ${pct(o.success)}%）`);
+  }
   const r = Math.random();
   if (r < o.success) doEvolve(f, tier, false);
   else if (r < o.success + o.wrong) {
     RUN.flags.wrongEvo = (RUN.flags.wrongEvo || 0) + 1;
     addFlag('dark');
+    if (hasDark()) log('🌑 黑暗徽章的力量滲進了進化…');
     doEvolve(f, tier, true);
   } else {
     closePopups();
-    if (!K().noRecoil) { const d = Math.max(1, Math.round(f.maxhp * .15)); f.hp = Math.max(1, f.hp - d); floatText(f, `-${d} 反噬`, 'dot'); }
-    addStatus(f, 'para', 2);
+    if (o.charm) floatText(f, '🧿 護符擋下了反噬', 'info');   // 護符：失敗也不受反噬
+    else {
+      if (!K().noRecoil) { const d = Math.max(1, Math.round(f.maxhp * .15)); f.hp = Math.max(1, f.hp - d); floatText(f, `-${d} 反噬`, 'dot'); }
+      addStatus(f, 'para', 2);
+    }
     showEvoFlash('', '', '進化失敗…', null, '💔', true);
     sfx('fail');
     log(`💔 進化失敗了！${f.name} 承受不住力量的反噬…`);
@@ -572,6 +581,7 @@ async function rampage() {
 function itemBlock(k) {
   if (k === 'smoke' && (B.opt.boss || B.opt.elite || B.opt.noFlee)) return '這場戰鬥逃不掉';
   if (k === 'charm' && B.charm) return '已經在生效中';
+  if (k === 'scanner') return '探索地圖時才能用';
   return null;
 }
 function openBag() {
@@ -986,13 +996,14 @@ function openEvo() {
   panel.innerHTML = `<h3><span>選擇進化的強度　🔥 勇氣值 ${Math.floor(RUN.courage)}</span><button class="btn" id="evoClose">關閉</button></h3>`;
   [1, 2, 3].forEach(t => {
     const T = TIERS[t], ev = f.sp.evo[t - 1], why = evoBlock(f, t), cost = Math.max(0, evoCost(f, t));
-    const force = !why && RUN.courage < cost, o = force ? forceOdds(f, t) : null;
+    const o = why ? null : evoOdds(f, t), force = !!(o && o.force), risky = !!(o && !force && o.wrong > 0);
     const el = document.createElement('div');
     el.className = 'evoOpt' + (why ? ' off' : '') + (force ? ' force' : '');
     el.innerHTML = `${dpic(ev.img, f.emoji, 's64')}
       <div><div class="nm">${force ? '⚠️ 強行' : ''}${T.verb} → ${ev.name}<span class="tierTag">${T.name}</span></div>
       <div class="info">能力 ×${T.m.atk}　｜　能量 +${T.energy}　｜　究極技「${ev.ult}」×${has('ultproof') ? 3 : 2}　｜　持續 ${evoTurnsNow()} 回合</div>
       ${force ? `<div class="odds"><span class="ok">成功 ${pct(o.total)}%</span>${o.wrong > 0 ? `<span class="bad">（其中失控 ${pct(o.wrong)}%）</span>` : ''}<span class="fail">失敗 ${pct(o.fail)}%</span>${o.charm ? '<span>🧿 護符生效</span>' : ''}</div>` : ''}
+      ${risky ? `<div class="odds"><span class="bad">🌑 黑暗徽章：失控 ${pct(o.wrong)}%</span></div>` : ''}${o && !force && o.charm ? '<div class="odds"><span>🧿 護符生效：這次不會失控</span></div>' : ''}
       ${why ? `<div class="why">${why}</div>` : ''}</div>
       <div class="cost">🔥 ${force ? `${Math.floor(RUN.courage)}/${cost}<br><small>全部用掉</small>` : cost}</div>`;
     if (!why) el.onclick = () => evolveTo(t);
