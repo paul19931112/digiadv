@@ -184,7 +184,7 @@ function loveBox(u) {
   const half = HALF, k = half ? .5 : 1, dead = B.fighters.filter(f => f.hp <= 0);
   const healMode = () => {
     B.fighters.forEach(f => { if (f.hp > 0) f.hp = Math.min(f.maxhp, f.hp + healAmt(f.maxhp * (u ? .15 : .1) * k)); });
-    HALF = half; gainBlock(B.p, blockVal(6, .4)); HALF = false;
+    HALF = half; gainBlock(B.p, blockVal(6, .08)); HALF = false;
     floatText(B.p, '💗 全隊回復', 'heal', 30); sfx('heal'); log('🧸 愛心大放送！全隊回復了');
   };
   if (!dead.length) return healMode();
@@ -291,11 +291,11 @@ function startPlayerTurn() {
     p.hp = Math.max(0, p.hp - d); p.st.root = lv;
     floatText(p, `-${d} 🌱`, 'dot', 40); log(`🌱 寄生之根越纏越緊（第 ${lv} 層），${p.name} 受到 ${d} 傷害！換手可以甩開它`);
   }
-  if (has('darkgear')) { const d = Math.max(1, Math.round(p.maxhp * .03)); p.hp = Math.max(0, p.hp - d); floatText(p, `-${d} ⚙️`, 'dot'); }
+  if (has('darkgear') && p.hp > 1) { const d = Math.min(p.hp - 1, Math.max(1, Math.round(p.maxhp * .03))); p.hp -= d; floatText(p, `-${d} ⚙️`, 'dot'); }   // 黑色齒輪：最多扣到剩 1 HP
   if (checkEnd()) return;
   p.block = 0;
   if (has('sincerity')) gainBlock(p, 4);
-  if (K().blockDef) gainBlock(p, Math.round(3 + p.def * .3));
+  if (K().blockDef) gainBlock(p, Math.round(3 + p.maxhp * .05));   // 阿丈：每回合護盾
   B.switchedThisTurn = false; B.relayFree = false; B.pinBonus = 0;
   if (B.dom === 'heat') { p.st.burn = Math.max(p.st.burn || 0, 1); floatText(p, '🔥 灼熱！', 'dot', 40); }
   if (p.tier > 0) { p.evoTurns--; if (p.evoTurns <= 0) devolve(); }
@@ -466,6 +466,7 @@ function evoCost(f, tier) {
 }
 function evoBlock(f, tier) {
   if (f.noEvo) return '這場戰鬥無法再進化';
+  if (B && f.sealUntil >= B.turnNo) return '筋疲力盡，這回合無法進化';   // 錯誤進化退化後封印 1 回合
   if (B && B.sealTurn && B.turnNo <= B.sealTurn) return '被黑暗封印，暫時無法進化';
   if (f.dark) return '暴走中，無法控制';
   if (tier <= f.tier) return f.tier === tier ? '目前型態' : '已經超越';
@@ -486,6 +487,7 @@ function evoOdds(f, tier) {
   }
   let share = force ? Math.min(1, sh + K().forceWrong) : 0;   // 成功之後失控的比例
   if (hasDark()) share = Math.min(1, share + .5);              // 🌑 黑暗徽章：失控 +50%
+  if (B.wrongN) share = Math.min(1, share + .05 * B.wrongN);   // 這場戰鬥每錯誤進化 1 次，之後失控 +5%
   if (has('pureheart')) share /= 2;
   if (K().noWrong || charm) share = 0;                          // 嘉兒、🧿 護符：不會失控
   const wrong = total * share;
@@ -536,6 +538,7 @@ function evolveTo(tier) {
   if (r < o.success) doEvolve(f, tier, false);
   else if (r < o.success + o.wrong) {
     RUN.flags.wrongEvo = (RUN.flags.wrongEvo || 0) + 1;
+    B.wrongN = (B.wrongN || 0) + 1;
     addFlag('dark');
     if (hasDark()) log('🌑 黑暗徽章的力量滲進了進化…');
     doEvolve(f, tier, true);
@@ -560,9 +563,9 @@ function devolve(silent, f = B.p) {
   f.hp = ratio <= 0 ? 0 : Math.max(1, Math.round(f.maxhp * ratio));
   removeTemp();
   if (wasDark) {
-    f.noEvo = true;
+    f.sealUntil = B.turnNo + (B.phase === 'player' ? 0 : 1);   // 封印 1 回合（回合開始時退化 → 這回合不能進化）
     if (!silent && f.hp > 0) { const d = Math.max(1, Math.round(f.maxhp * .2)); f.hp = Math.max(1, f.hp - d); floatText(f, `-${d}`, 'dot'); }
-    if (!silent) log(`${evName} 的黑暗力量消散了…${f.name} 筋疲力盡，這場戰鬥無法再進化`);
+    if (!silent) log(`${evName} 的黑暗力量消散了…${f.name} 筋疲力盡，這回合無法進化`);
     return;
   }
   if (!silent) log(`${evName} 退化回 ${f.name} 了`);
@@ -1009,7 +1012,7 @@ function openEvo() {
       <div><div class="nm">${force ? '⚠️ 強行' : ''}${T.verb} → ${ev.name}<span class="tierTag">${T.name}</span></div>
       <div class="info">能力 ×${T.m.atk}　｜　能量 +${T.energy}　｜　究極技「${ev.ult}」×${has('ultproof') ? 3 : 2}　｜　持續 ${evoTurnsNow()} 回合</div>
       ${force ? `<div class="odds"><span class="ok">成功 ${pct(o.total)}%</span>${o.wrong > 0 ? `<span class="bad">（其中失控 ${pct(o.wrong)}%）</span>` : ''}<span class="fail">失敗 ${pct(o.fail)}%</span>${o.charm ? '<span>🧿 護符生效</span>' : ''}</div>` : ''}
-      ${risky ? `<div class="odds"><span class="bad">🌑 黑暗徽章：失控 ${pct(o.wrong)}%</span></div>` : ''}${o && !force && o.charm ? '<div class="odds"><span>🧿 護符生效：這次不會失控</span></div>' : ''}
+      ${risky ? `<div class="odds"><span class="bad">⚠️ 失控 ${pct(o.wrong)}%（${[hasDark() ? '🌑 黑暗徽章' : '', B.wrongN ? `💢 這場已失控 ${B.wrongN} 次` : ''].filter(Boolean).join('、')}）</span></div>` : ''}${o && !force && o.charm ? '<div class="odds"><span>🧿 護符生效：這次不會失控</span></div>' : ''}
       ${why ? `<div class="why">${why}</div>` : ''}</div>
       <div class="cost">🔥 ${force ? `${Math.floor(RUN.courage)}/${cost}<br><small>全部用掉</small>` : cost}</div>`;
     if (!why) el.onclick = () => evolveTo(t);

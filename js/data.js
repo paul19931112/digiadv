@@ -205,7 +205,7 @@ function flavor(kind, t) {
   switch (kind) {
     case 'burn':   return t === 0 ? { desc: () => '40% 燒傷 2 回合', fx: () => chanceStatus(B.e, 'burn', 2, .4) }
                                   : { desc: () => `燒傷 ${t + 1} 回合`, fx: () => addStatus(B.e, 'burn', t + 1) };
-    case 'shield': { const v = () => blockVal(3 + t * 4, .3 + t * .15); return { desc: () => `獲得 ${v()} 護盾`, fx: () => gainBlock(B.p, v()) }; }
+    case 'shield': { const v = () => blockVal(3 + t * 4, .04 + t * .02); return { desc: () => `獲得 ${v()} 護盾`, fx: () => gainBlock(B.p, v()) }; }
     case 'haste':  { const n = 2 + Math.floor(t / 2); return { desc: () => `加速 ${n} 回合`, fx: () => addStatus(B.p, 'haste', n) }; }
     case 'heal':   { const pc = [5, 10, 14, 18][t]; return { desc: () => `回復 ${pc}% HP`, fx: () => healF(B.p, Math.round(B.p.maxhp * pc / 100)) }; }
     case 'holy':   return { desc: () => t === 0 ? '淨化：解除敵人的攻擊↑' : `淨化：解除攻擊↑和護盾<br>受傷↑ ${t} 回合`,
@@ -227,7 +227,9 @@ function friendHits() { const n = B ? B.fighters.filter(f => f.hp > 0).length : 
 // 希望之光能進化到的最高階段
 const hopeTier = f => f.m.level >= TIERS[3].lv ? 3 : f.m.level >= TIERS[2].lv ? 2 : 1;
 const hpPct = (f, pc) => Math.round(f.maxhp * pc);
-function blockVal(base, mult) { return Math.round(base + curDef() * mult); }
+// 護盾量 = 基礎值 ＋ 出戰夥伴最大 HP × 比例（進化後 HP 變大，護盾也跟著變大）
+function curMaxHp() { return B ? B.p.maxhp : (RUN && RUN.team[0]) ? memberStats(RUN.team[0]).maxhp : 60; }
+function blockVal(base, pct) { return Math.round(base + curMaxHp() * pct); }
 function dmgTxt(power, hits = 1) {
   const s = (B && B.e) ? `<b>${Math.max(1, Math.round(calcRaw(B.p, B.e, power)))}</b>` : `威力${power}`;
   return hits > 1 ? `${s} ×${hits}` : s;
@@ -236,11 +238,11 @@ function dmgTxt(power, hits = 1) {
 // ---------- 通用卡片（u = 是否強化過，強化後名稱多一個 +） ----------
 const CARDS = {
   strike: { name: '撞擊',     cost: 1, type: 'atk',   desc: u => `造成 ${dmgTxt(u ? 9 : 6)} 傷害`, fx: u => hit(u ? 9 : 6) },
-  guard:  { name: '防禦',     cost: 1, type: 'skill', desc: u => `獲得 ${blockVal(u ? 8 : 5, u ? .5 : .4)} 護盾`, fx: u => gainBlock(B.p, blockVal(u ? 8 : 5, u ? .5 : .4)) },
+  guard:  { name: '防禦',     cost: 1, type: 'skill', desc: u => `獲得 ${blockVal(u ? 8 : 5, u ? .13 : .10)} 護盾`, fx: u => gainBlock(B.p, blockVal(u ? 8 : 5, u ? .13 : .10)) },
   focus:  { name: '鼓起勇氣', cost: 0, type: 'skill', desc: u => `勇氣值 +${u ? 12 : 8}<br>抽 1 張牌`, fx: u => { gainCourage(u ? 12 : 8, true); drawCards(1); } },
   double: { name: '連續攻擊', cost: 1, type: 'atk',   desc: u => `造成 ${dmgTxt(4, u ? 3 : 2)} 傷害`, fx: u => hit(4, u ? 3 : 2) },
   heavy:  { name: '全力衝撞', cost: 2, type: 'atk',   desc: u => `造成 ${dmgTxt(u ? 22 : 16)} 傷害`, fx: u => hit(u ? 22 : 16) },
-  wall:   { name: '鐵壁',     cost: 2, type: 'skill', desc: u => `獲得 ${blockVal(u ? 16 : 12, u ? 1 : .8)} 護盾`, fx: u => gainBlock(B.p, blockVal(u ? 16 : 12, u ? 1 : .8)) },
+  wall:   { name: '鐵壁',     cost: 2, type: 'skill', desc: u => `獲得 ${blockVal(u ? 16 : 12, u ? .26 : .20)} 護盾`, fx: u => gainBlock(B.p, blockVal(u ? 16 : 12, u ? .26 : .20)) },
   haste:  { name: '疾風',     cost: 1, type: 'skill', desc: u => `加速 ${u ? 4 : 3} 回合<br><small>行動條 ×1.5</small>`, fx: u => addStatus(B.p, 'haste', u ? 4 : 3) },
   heal:   { name: '回復晶片', cost: 1, type: 'skill', exhaust: true, desc: u => `回復 ${u ? 35 : 25}% HP<br><small>本場用過即移除</small>`, fx: u => healF(B.p, hpPct(B.p, u ? .35 : .25)) },
   jam:    { name: '干擾電波', cost: 1, type: 'skill', desc: u => `敵人行動條 -${u ? 70 : 50}%`, fx: u => pushGauge(B.e, u ? -70 : -50) },
@@ -256,12 +258,12 @@ const CARDS = {
   // 孩子的專屬起始卡
   reckless:  { name: '捨身衝撞', cost: 1, type: 'atk', desc: u => `造成 ${dmgTxt(u ? 19 : 14)} 傷害<br>自己失去 8% HP`, fx: u => { hit(u ? 19 : 14); const d = Math.max(1, Math.round(B.p.maxhp * .08)); B.p.hp = Math.max(1, B.p.hp - d); floatText(B.p, `-${d}`, 'dot'); } },
   friendship:{ name: '友情之力', cost: 1, type: 'atk', desc: u => `造成 ${dmgTxt(u ? 7 : 5, friendHits())} 傷害<br><small>每 2 隻能戰鬥的夥伴多打 1 下</small>`, fx: u => hit(u ? 7 : 5, friendHits()) },
-  tender:    { name: '溫柔守護', cost: 1, type: 'skill', desc: u => `獲得 ${blockVal(u ? 8 : 5, u ? .4 : .3)} 護盾<br>回復 ${u ? 12 : 8}% HP`, fx: u => { gainBlock(B.p, blockVal(u ? 8 : 5, u ? .4 : .3)); healF(B.p, hpPct(B.p, u ? .12 : .08)); } },
+  tender:    { name: '溫柔守護', cost: 1, type: 'skill', desc: u => `獲得 ${blockVal(u ? 8 : 5, u ? .10 : .08)} 護盾<br>回復 ${u ? 12 : 8}% HP`, fx: u => { gainBlock(B.p, blockVal(u ? 8 : 5, u ? .10 : .08)); healF(B.p, hpPct(B.p, u ? .12 : .08)); } },
   analyze:   { name: '弱點分析', cost: 0, type: 'skill', desc: u => `敵人 受傷↑ ${u ? 3 : 2} 回合<br><small>受到的傷害 ×1.3</small>`, fx: u => addStatus(B.e, 'expose', u ? 3 : 2) },
   blossom:   { name: '花之祝福', cost: 1, type: 'skill', desc: u => `勇氣值 +${u ? 12 : 8}<br>回復 ${u ? 12 : 8}% HP`, fx: u => { gainCourage(u ? 12 : 8, true); healF(B.p, hpPct(B.p, u ? .12 : .08)); } },
-  prepare:   { name: '萬全準備', cost: 1, type: 'skill', desc: u => `獲得 ${blockVal(u ? 13 : 9, u ? .8 : .6)} 護盾<br>清除自己的異常狀態`, fx: u => { gainBlock(B.p, blockVal(u ? 13 : 9, u ? .8 : .6)); ['burn', 'poison', 'para'].forEach(k => delete B.p.st[k]); } },
+  prepare:   { name: '萬全準備', cost: 1, type: 'skill', desc: u => `獲得 ${blockVal(u ? 13 : 9, u ? .20 : .15)} 護盾<br>清除自己的異常狀態`, fx: u => { gainBlock(B.p, blockVal(u ? 13 : 9, u ? .20 : .15)); ['burn', 'poison', 'para'].forEach(k => delete B.p.st[k]); } },
   hopelight: { name: '希望之光', cost: 0, type: 'power', exhaust: true, permanent: true, noTarget: true,
-              canPlay: () => B && !B.p.dark && !B.p.noEvo && hopeTier(B.p) > B.p.tier,
+              canPlay: () => B && !B.p.dark && !B.p.noEvo && !(B.p.sealUntil >= B.turnNo) && hopeTier(B.p) > B.p.tier,
               desc: u => `立刻進化到能達到的最高階段<br>不需勇氣・必定成功${u ? '<br>進化持續 +1 回合' : ''}<br><small>整局只能用一次</small>`,
               fx: u => { log('🕊️ 希望之光！奇蹟發生了！'); doEvolve(B.p, hopeTier(B.p), false); if (u) B.p.evoTurns += 1; } },
   lightward: { name: '光之守護', cost: 2, ucost: 1, type: 'skill', noTarget: true, desc: u => '下一次受到的攻擊<br>完全無效', fx: u => addStatus(B.p, 'ward', 9) },
@@ -494,7 +496,7 @@ const KIDS = {
               card: 'analyze', line: '這個世界的構造…真是太有意思了！', mods: { draw: 1, shop: .85, hp: .85, sight: 2 }, partner: 'tentomon' },
   mimi:     { name: '太刀川美美', nick: '美美', crest: '純真', icon: '🌟', color: '#22c55e', plus: '勇氣值累積 +40%', minus: '數碼幣收入 -30%',
               card: 'blossom', line: '哇～好多可愛的數碼寶貝！大家一起加油吧！', mods: { courage: 1.4, bits: .7 }, partner: 'palmon', unlock: '通過第一章後解鎖' },
-  jou:      { name: '城戶丈', nick: '阿丈',     crest: '誠實', icon: '💧', color: '#94a3b8', plus: '每回合開始獲得護盾（3＋防禦×0.3）', minus: '速度 -10%',
+  jou:      { name: '城戶丈', nick: '阿丈',     crest: '誠實', icon: '💧', color: '#94a3b8', plus: '每回合開始獲得護盾（3＋最大 HP×5%）', minus: '速度 -10%',
               card: 'prepare', line: '等、等一下！我們先擬定計畫再出發比較安全！', mods: { blockDef: true, spd: .9 }, partner: 'gomamon', unlock: '抵達第三章後解鎖' },
   takeru:   { name: '高石武', nick: '阿武',     crest: '希望', icon: '🕊️', color: '#facc15', plus: '每局可以復活一次（全隊 40% HP），強行進化失敗不受反噬', minus: '進化消耗的勇氣值 +20%',
               card: 'hopelight', line: '只要不放棄，一定會有希望的！', mods: { revive: true, evo: 1.2, noRecoil: true }, partner: 'patamon', unlock: '達成任一結局後解鎖' },
