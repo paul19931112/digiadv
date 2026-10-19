@@ -12,7 +12,7 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>數碼冒險：肉鴿版</title>
-<link rel="stylesheet" href="style.css?v=10.13">
+<link rel="stylesheet" href="style.css?v=12.3">
 </head>
 <body>
 
@@ -105,11 +105,15 @@
   <button class="btn soundBtn" id="btnSoundBattle" title="音效開關（M）">🔊</button>
   <div id="domainBar" class="hidden"></div>
   <div id="bNotice" class="hidden"></div>
-  <div class="arena">
+  <div class="arena" id="arena">
+    <canvas id="arenaBg"></canvas>
+    <div class="unit bench" id="bUnit2"><div class="ring"></div><div class="shadow"></div><div class="sprite"><span class="emo"></span></div><div class="miniHp"><i></i></div></div>
+    <div class="unit bench" id="bUnit1"><div class="ring"></div><div class="shadow"></div><div class="sprite"><span class="emo"></span></div><div class="miniHp"><i></i></div></div>
+    <div class="unit foe" id="eUnit"><div class="ring"></div><div class="shadow"></div><div class="sprite"><span class="emo"></span></div><div class="miniHp"><i></i></div></div>
+    <div class="unit mine" id="pUnit"><div class="ring"></div><div class="shadow"></div><div class="sprite"><span class="emo"></span></div><div class="miniHp"><i></i></div></div>
     <div class="fighter" id="pPanel">
       <div class="block hidden"></div>
       <div class="fhead"><span><span class="fname"></span> <span class="flv"></span></span><span class="fattr"></span></div>
-      <div class="sprite"><span class="emo"></span></div>
       <div class="row"><span>HP</span><span class="hptxt"></span></div>
       <div class="bar hp"><i></i></div>
       <div class="row"><span>行動條</span><span class="spdtxt"></span></div>
@@ -119,21 +123,20 @@
       <div class="statuses"></div>
       <div class="bench"></div>
     </div>
-    <div class="vs">VS</div>
     <div class="fighter" id="ePanel">
       <div class="intent"></div>
       <button id="domBadge" class="hidden" title="查看領域效果"></button>
       <div class="block hidden"></div>
       <div class="fhead"><span><span class="fname"></span> <span class="flv"></span></span><span class="fattr"></span></div>
-      <div class="sprite"><span class="emo"></span></div>
       <div class="row"><span>HP</span><span class="hptxt"></span></div>
       <div class="bar hp"><i></i></div>
       <div class="row"><span>行動條</span><span class="spdtxt"></span></div>
       <div class="bar atb enemy" title="敵人的行動條：集滿就會攻擊你"><i></i></div>
       <div class="statuses"></div>
     </div>
+    <div class="log" id="log"></div>
+    <div class="vignette"></div>
   </div>
-  <div class="log" id="log"></div>
   <div class="handbar">
     <div class="energy"><div class="orb" id="orb" title="能量：出牌要花能量，沒用完的最多保留 2 點到下回合">3</div><div class="piles" id="piles"></div></div>
     <div class="hand" id="hand"></div>
@@ -168,17 +171,18 @@
 <div id="verTag"></div>
 <div id="updateBar" class="hidden">🆕 有新版本了！點這裡更新（存檔會保留）</div>
 
-<script src="js/version.js?v=10.13"></script>
-<script src="js/data.js?v=10.13"></script>
-<script src="js/ui.js?v=10.13"></script>
-<script src="js/sfx.js?v=10.13"></script>
-<script src="js/vfx.js?v=10.13"></script>
-<script src="js/battle.js?v=10.13"></script>
-<script src="js/world.js?v=10.13"></script>
-<script src="js/story.js?v=10.13"></script>
-<script src="js/puzzle.js?v=10.13"></script>
-<script src="js/tutorial.js?v=10.13"></script>
-<script src="js/main.js?v=10.13"></script>
+<script src="js/version.js?v=12.3"></script>
+<script src="js/data.js?v=12.3"></script>
+<script src="js/ui.js?v=12.3"></script>
+<script src="js/sfx.js?v=12.3"></script>
+<script src="js/vfx.js?v=12.3"></script>
+<script src="js/scene.js?v=12.3"></script>
+<script src="js/battle.js?v=12.3"></script>
+<script src="js/world.js?v=12.3"></script>
+<script src="js/story.js?v=12.3"></script>
+<script src="js/puzzle.js?v=12.3"></script>
+<script src="js/tutorial.js?v=12.3"></script>
+<script src="js/main.js?v=12.3"></script>
 <script>
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     let hadController = !!navigator.serviceWorker.controller;

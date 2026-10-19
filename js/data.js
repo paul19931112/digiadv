@@ -50,6 +50,7 @@ const STATUS = {
   expose: { name: '受傷↑', icon: '🎯' },
   ward:   { name: '光之守護', icon: '✨' },
   root:   { name: '寄生之根', icon: '🌱' },
+  tired:  { name: '疲勞', icon: '😮‍💨' },
 };
 
 // =========================================================
@@ -225,7 +226,7 @@ function curDef() { return B ? B.p.def : (RUN && RUN.team[0]) ? memberStats(RUN.
 // 友情之力的次數：每 2 隻夥伴多 1 下（算到 6 隻），超過 6 隻每隻 +1，最少 1 下
 function friendHits() { const n = B ? B.fighters.filter(f => f.hp > 0).length : (RUN ? RUN.team.length : 1); return Math.max(1, Math.floor(Math.min(n, 6) / 2) + Math.max(0, n - 6)); }
 // 希望之光能進化到的最高階段
-const hopeTier = f => f.m.level >= TIERS[3].lv ? 3 : f.m.level >= TIERS[2].lv ? 2 : 1;
+const hopeTier = f => Math.min(f.leader ? 3 : 1, f.m.level >= TIERS[3].lv ? 3 : f.m.level >= TIERS[2].lv ? 2 : 1);   // 只有隊長能超進化以上，其他夥伴最多到成熟期
 const hpPct = (f, pc) => Math.round(f.maxhp * pc);
 // 護盾量 = 基礎值 ＋ 出戰夥伴最大 HP × 比例（進化後 HP 變大，護盾也跟著變大）
 function curMaxHp() { return B ? B.p.maxhp : (RUN && RUN.team[0]) ? memberStats(RUN.team[0]).maxhp : 60; }
@@ -500,16 +501,53 @@ const KIDS = {
               card: 'prepare', line: '等、等一下！我們先擬定計畫再出發比較安全！', mods: { blockDef: true, spd: .9 }, partner: 'gomamon', unlock: '抵達第三章後解鎖' },
   takeru:   { name: '高石武', nick: '阿武',     crest: '希望', icon: '🕊️', color: '#facc15', plus: '每局可以復活一次（全隊 40% HP），強行進化失敗不受反噬', minus: '進化消耗的勇氣值 +20%',
               card: 'hopelight', line: '只要不放棄，一定會有希望的！', mods: { revive: true, evo: 1.2, noRecoil: true }, partner: 'patamon', unlock: '達成任一結局後解鎖' },
-  hikari:   { name: '八神嘉兒', nick: '嘉兒',     crest: '光明', icon: '☀️', color: '#f9a8d4', plus: '所有回復效果 +50%，強行進化成功時不會失控', minus: '牌組上限 20 張',
-              card: 'lightward', line: '…我感覺得到，數碼寶貝們在呼喚我們。', mods: { heal: 1.5, deckMax: 20, noWrong: true }, partner: 'plotmon', unlock: '收集 2 種結局後解鎖' },
+  hikari:   { name: '八神嘉兒', nick: '嘉兒',     crest: '光明', icon: '☀️', color: '#f9a8d4', plus: '所有回復效果 +50%，強行進化成功時不會失控', minus: '牌組上限 18 張（一般是 20 張）',
+              card: 'lightward', line: '…我感覺得到，數碼寶貝們在呼喚我們。', mods: { heal: 1.5, deckMax: 18, noWrong: true }, partner: 'plotmon', unlock: '收集 2 種結局後解鎖' },
 };
-const KID_DEFAULT = { teamPlus: 0, teamAtk: false, lowHpPenalty: false, loveGuard: false, blockDef: false, forceSuccess: 0, forceWrong: 0, noWrong: false, noRecoil: false, sight: 0, atk: 1, taken: 1, courage: 1, bits: 1, shop: 1, hp: 1, spd: 1, heal: 1, evo: 1, draw: 0, block: 0, persuade: 0, winHeal: 0, deckMax: 99 };
+const KID_DEFAULT = { teamPlus: 0, teamAtk: false, lowHpPenalty: false, loveGuard: false, blockDef: false, forceSuccess: 0, forceWrong: 0, noWrong: false, noRecoil: false, sight: 0, atk: 1, taken: 1, courage: 1, bits: 1, shop: 1, hp: 1, spd: 1, heal: 1, evo: 1, draw: 0, block: 0, persuade: 0, winHeal: 0, deckMax: 20 };
 function K() { return { ...KID_DEFAULT, ...((typeof RUN !== 'undefined' && RUN && KIDS[RUN.kid]) ? KIDS[RUN.kid].mods : {}) }; }
 function gainBits(n) { const v = Math.round(n * K().bits); RUN.bits += v; return v; }
-function addCard(id) {
-  if (RUN.deck.length >= K().deckMax) { toast(`牌組已滿（上限 ${K().deckMax} 張）`); return false; }
-  RUN.deck.push(id); return true;
+// ---------- 牌組上限：整副 20 張（嘉兒 18），每一類也有上限 ----------
+const CAT_INFO = {
+  atk: { icon: '⚔️', name: '攻擊', max: 8 },
+  def: { icon: '🛡️', name: '防禦回復', max: 6 },
+  cou: { icon: '🔥', name: '勇氣', max: 3 },
+  buf: { icon: '💨', name: '強化干擾', max: 4 },
+  sig: { icon: '✴️', name: '必殺', max: 3 },
+};
+const CARD_CAT = {
+  strike: 'atk', double: 'atk', heavy: 'atk', drain: 'atk', pierce: 'atk', hotblood: 'atk', beastking: 'atk', reckless: 'atk', friendship: 'atk', allin: 'atk', relay: 'atk', breaker: 'atk',
+  guard: 'def', wall: 'def', heal: 'def', tender: 'def', prepare: 'def', lightward: 'def', friend: 'def', lovebox: 'def', purify: 'def',
+  focus: 'cou', crest: 'cou', blossom: 'cou',
+  haste: 'buf', jam: 'buf', scan: 'buf', cry: 'buf', rush: 'buf', analyze: 'buf', hopelight: 'buf', evoext: 'buf', signal: 'buf', notes: 'buf', overclock: 'buf',
+};
+const cardCat = id => { const b = id.replace('+', ''); return b === 'sig' ? 'sig' : CARD_CAT[b] || 'buf'; };
+const catCount = cat => RUN.deck.filter(x => cardCat(x) === cat).length;
+const minDeck = () => K().deckMax - 2;   // 出售卡片時最少要保留的張數
+// 目前每一類的張數（顯示用）
+function deckSummary() {
+  return `${RUN.deck.length}/${K().deckMax} 張｜` + Object.entries(CAT_INFO).map(([k, c]) => `${c.icon}${catCount(k)}/${c.max}`).join(' ');
 }
+// 放得下就回傳 null；放不下回傳原因和「可以換掉哪些卡」
+function cardRoom(id) {
+  const cat = cardCat(id), C = CAT_INFO[cat];
+  if (catCount(cat) >= C.max) return { why: `${C.icon} ${C.name}類已滿（${C.max} 張）`, filter: x => cardCat(x) === cat };
+  if (RUN.deck.length >= K().deckMax) return { why: `牌組已滿（${K().deckMax} 張）`, filter: () => true };
+  return null;
+}
+function addCard(id) { if (cardRoom(id)) return false; RUN.deck.push(id); return true; }
+// 拿到新卡：放不下就讓玩家選一張換掉（也可以不要）
+async function acquireCard(id) {
+  const room = cardRoom(id);
+  if (!room) { RUN.deck.push(id); return true; }
+  const x = await chooseCardFromDeck(`${room.why}：選一張換成「${cardDef(id).name}」`, room.filter, '不要這張');
+  if (!x) { toast(`沒有拿「${cardDef(id).name}」`); return false; }
+  RUN.deck[x.i] = id;
+  toast(`「${cardDef(x.id).name}」換成了「${cardDef(id).name}」`);
+  return true;
+}
+// 出售價格：一般 15、強化過 +10、商店限定卡收回半價
+function sellPrice(id) { const b = id.replace('+', ''), c = CARDS[b]; return (c && c.shop ? Math.round(c.shop / 2) : 15) + (id.endsWith('+') ? 10 : 0); }
 // 商店的卡片強化：第一次 30，之後每次 ×1.5（整局累計）
 const shopUpPrice = () => Math.round(30 * Math.pow(1.5, RUN.shopUps || 0) * K().shop);
 const ULT_BOOST_PRICE = 500;   // 究極強化（不打折）

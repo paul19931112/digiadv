@@ -196,7 +196,7 @@ function closeModal() {
 function openTeam() {
   if (!RUN || !['area', 'route'].includes(G.mode)) return;
   const m = openModal(`<h2>我的隊伍（${RUN.team.length}/${teamMax()}）</h2>
-    <p class="sub">隊長會帶頭出戰。🔥 勇氣值全隊共用：目前 ${Math.floor(RUN.courage)} / ${COURAGE_MAX}</p>
+    <p class="sub">隊長會帶頭出戰，而且只有隊長 👑 能超進化到完全體、究極體（其他夥伴最多進化到成熟期）。🔥 勇氣值全隊共用：目前 ${Math.floor(RUN.courage)} / ${COURAGE_MAX}</p>
     <div class="teamList"></div>
     <div class="relicList"></div>
     <button class="btn primary" id="mClose">關閉 (Esc)</button>`);
@@ -209,7 +209,7 @@ function openTeam() {
       <div><div class="nm">${sp.name}　<span class="sub2">Lv.${mem.level}　${ATTR_ICON[sp.attr]} ${ATTR_NAME[sp.attr]}　HP ${mem.hp}/${s.maxhp}　攻 ${s.atk}　防 ${s.def}　速 ${s.spd}</span></div>
       <div class="sub2">${sp.desc}　｜　必殺技：${sp.sig.name}　｜　EXP ${mem.exp}/${expNeed(mem.level)}</div>
       <div class="evoPath">${evoPathHTML(sp, mem.level)}</div></div>
-      <div class="col2">${i === 0 ? '<b style="color:var(--accent)">★ 隊長</b>' : '<button class="btn lead">設為隊長</button>'}${RUN.team.length > 1 ? '<button class="btn release">讓牠離隊</button>' : ''}</div>`;
+      <div class="col2">${i === 0 ? '<b style="color:var(--accent)">👑 隊長</b>' : '<button class="btn lead">設為隊長</button>'}${RUN.team.length > 1 ? '<button class="btn release">讓牠離隊</button>' : ''}</div>`;
     if (i > 0) el.querySelector('.lead').onclick = () => { RUN.team.unshift(RUN.team.splice(i, 1)[0]); updateHUD(); closeModal(); openTeam(); };
     const rb = el.querySelector('.release');
     if (rb) rb.onclick = async () => {
@@ -280,10 +280,11 @@ const HELP = [
   ['⚡ 能量', '每回合 3 點，出牌要花能量（卡片左上角的數字）。沒用完的能量最多保留 2 點到下回合。'],
   ['🃏 手牌', '每回合開始把手牌補到 5 張。回合結束時沒用的牌進棄牌堆，但按卡片左下角的 📌（或 Shift＋數字鍵）可以把牌留到下回合，最多 2 張（究極技卡不算）。留越多，新抽的就越少。牌庫抽完會把棄牌洗回去。'],
   ['😈 頭目的干擾', '頭目會在你的手牌上留下標記：🔥 燃燒（打出時受到 6% 傷害）、🌫️ 霧化（看不到效果）、☠️ 汙染（效果減半）、🔍 看破（能量 +1）。卡片離開手牌後標記就會消失（📌 保留的牌會留著）。商店的「✨ 淨化」可以清除。點敵人面板右下角的標籤可以看頭目的能力。'],
-  ['🧸 商店', '商店的 4 張卡裡有 2 張是只能在這裡買到的「限定卡」。強化一張卡可以一直買，第一次 30，之後每次 ×1.5。第二章以後還會賣「💠 究極強化」。'],
+  ['🗂️ 牌組上限', '牌組最多 20 張（嘉兒 18 張），每一類也有上限：⚔️ 攻擊 8、🛡️ 防禦回復 6、🔥 勇氣 3、💨 強化干擾 4、✴️ 必殺 3。滿了之後拿新卡要換掉一張同類的卡。卡片右上角的圖示就是它的類型。'],
+  ['🧸 商店', '商店的 4 張卡裡有 2 張是只能在這裡買到的「限定卡」。牌組超過「上限 − 2」張時可以賣卡（每間店 2 張）。強化一張卡可以一直買，第一次 30，之後每次 ×1.5。第二章以後還會賣「💠 究極強化」。'],
   ['⚔️ 敵人預告', '敵人頭上會顯示下一招和大概的傷害。看到大招可以先防禦，或用干擾類卡片拖慢牠。'],
   ['🔥 勇氣值', '全隊共用。出攻擊卡、必殺卡、被攻擊都會增加，勇氣卡增加最多。戰鬥結束後，40 以下完全保留，超過 40 的部分減半。'],
-  ['✨ 進化', '按 E 選擇強度：成熟期 30、完全體 60（Lv.4）、究極體 100（Lv.7）。持續 3 回合，送 2 張究極技卡；究極技卡在進化期間會保留在手上，用掉或退化才會消失。'],
+  ['✨ 進化', '按 E 選擇強度：成熟期 30、完全體 60（Lv.4）、究極體 100（Lv.7）。持續 3 回合，送 2 張究極技卡；究極技卡在進化期間會保留在手上，用掉或退化才會消失。進化結束後，夥伴會力氣用盡、強制退場 2 回合（沒有夥伴可以換的話會留下來，但疲勞：傷害 -20%、速度 -10%）。只有隊長 👑（隊伍第一隻）能進化到完全體、究極體，其他夥伴最多到成熟期。'],
   ['⚠️ 強行進化', '勇氣值不夠（但至少 10）也能硬上，勇氣值全部用掉。先判定成功或失敗（失敗會反噬＋麻痺）；成功後，缺越多越容易失控，變成會暴走的黑暗型態。'],
   ['🤝 勸降', '每次可以選擇代價：1 能量＋10 勇氣值／1 能量＋30 數碼幣／2 能量。敵人血越少成功率越高；失敗敵人會被激怒。頭目不能勸降。'],
   ['💞 原作搭檔', '孩子帶著原作的搭檔數碼寶貝（例如太一和亞古獸），那隻夥伴的進化消耗 -10%。'],
@@ -390,7 +391,7 @@ function openDeck() {
   if (!RUN || !['area', 'route'].includes(G.mode)) return;
   const counts = {};
   RUN.deck.forEach(id => counts[id] = (counts[id] || 0) + 1);
-  const m = openModal(`<h2>牌組（${RUN.deck.length} 張）</h2><p class="sub">「必殺」卡會變成出戰夥伴的必殺技；回復泉可以強化卡片，商店可以刪卡</p><div class="deckCards"></div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
+  const m = openModal(`<h2>牌組（${RUN.deck.length} 張）</h2><p class="sub">${deckSummary()}<br>「必殺」卡會變成出戰夥伴的必殺技；回復泉、商店可以強化卡片，商店可以賣卡</p><div class="deckCards"></div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
   const box = m.querySelector('.deckCards');
   Object.entries(counts).forEach(([id, n]) => box.appendChild(cardEl(id, { isStatic: true, count: n })));
   m.querySelector('#mClose').onclick = closeModal;

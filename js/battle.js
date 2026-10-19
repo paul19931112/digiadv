@@ -59,7 +59,7 @@ function updateCourageUI() {
 
 // ---------- 核心計算 ----------
 function atkMult(f) {
-  let m = f.st.atkUp ? 1.3 : 1;
+  let m = (f.st.atkUp ? 1.3 : 1) * (f.st.tired ? .8 : 1);   // 疲勞：傷害 -20%
   if (f.isPlayer && K().teamAtk) { const n = RUN.team.length; m *= n < 3 ? .85 : 1 + Math.min(.05, Math.max(0, n - 3) * .02); }
   if (f.isPlayer) { m *= K().atk; if (has('darkgear')) m *= 1.25; if (has('darkpower')) m *= 1.2; }
   return m;
@@ -117,7 +117,7 @@ function tickStatus(f) {
   for (const k in f.st) { f.st[k]--; if (f.st[k] <= 0) delete f.st[k]; }
   if (B && f === B.e) checkPhase2();
 }
-function gaugeRate(f) { return f.spd * ATB_K * (f.st.haste ? 1.5 : 1) * (f.st.para ? 0.5 : 1); }
+function gaugeRate(f) { return f.spd * ATB_K * (f.st.haste ? 1.5 : 1) * (f.st.para ? 0.5 : 1) * (f.st.tired ? .9 : 1); }   // 疲勞：速度 -10%
 function drawCards(n) {
   n = hv(n);
   for (let i = 0; i < n; i++) {
@@ -213,6 +213,7 @@ function makeFighter(m) {
 function runBattle(enemyId, lv, opt = {}) {
   return new Promise(resolve => {
     const fighters = RUN.team.map(makeFighter);
+    if (fighters[0]) fighters[0].leader = true;   // 👑 隊長（隊伍第一隻）：只有牠能超進化（完全體）以上，其他夥伴最多到成熟期；戰鬥中不會變
     const ai = Math.max(0, fighters.findIndex(f => f.hp > 0));
     const e = makeEnemy(enemyId, lv, opt);
     e.el = $('#ePanel');
@@ -230,7 +231,8 @@ function runBattle(enemyId, lv, opt = {}) {
     $('#result').classList.add('hidden');
     closePopups();
     $('#log').innerHTML = '';
-    $('#pPanel .emo').dataset.k = ''; $('#ePanel .emo').dataset.k = '';
+    $('#pUnit .emo').dataset.k = ''; $('#eUnit .emo').dataset.k = '';
+    arenaTheme();
     log(opt.boss ? `😈 頭目 ${e.name}（Lv.${lv}）出現了！` : opt.elite ? `💀 被黑色齒輪控制的 ${e.name}（Lv.${lv}）！` : `野生的 ${e.name}（Lv.${lv}）出現了！`);
     if (opt.preDamage) log(`${e.name} 已經受了重傷！`);
     if (RUN.stats.wins === 0) log('提示：把敵人的血量壓低，再按「🤝 勸降」就有機會讓牠加入隊伍！');
@@ -298,7 +300,7 @@ function startPlayerTurn() {
   if (K().blockDef) gainBlock(p, Math.round(3 + p.maxhp * .05));   // 阿丈：每回合護盾
   B.switchedThisTurn = false; B.relayFree = false; B.pinBonus = 0;
   if (B.dom === 'heat') { p.st.burn = Math.max(p.st.burn || 0, 1); floatText(p, '🔥 灼熱！', 'dot', 40); }
-  if (p.tier > 0) { p.evoTurns--; if (p.evoTurns <= 0) devolve(); }
+  if (p.tier > 0) { p.evoTurns--; if (p.evoTurns <= 0) { devolve(); if (exhaust(p)) return; } }
   const carry = Math.min(CARRY_MAX, B.carry || 0);
   B.carry = 0;
   B.energy = ENERGY + carry + (B.firstTurn && has('light') ? 1 : 0);
@@ -452,6 +454,21 @@ function enterPhase2() {
     ['💢 黑暗爆發', '惡魔獸的攻擊、速度提升，身上的異常狀態全部解除。'],
   ]);
 }
+// 進化結束（含錯誤進化）：夥伴力氣用盡，強制退場 2 回合；沒有夥伴可以換就留下來，但這回合不能進化、而且疲勞
+function exhaust(p) {
+  if (B.fighters.some(f => f !== p && f.hp > 0 && !isLocked(f))) {
+    p.lockUntil = B.turnNo + 2;
+    floatText(p, '😮‍💨 力氣用盡', 'info');
+    log(`😮‍💨 ${p.name} 力氣用盡，退下休息（2 回合內不能上場）。派出下一隻夥伴吧！`);
+    B.phase = 'choose'; B.exhaustSwap = true;
+    renderBattle(); openSwitch(true);
+    return true;
+  }
+  p.sealUntil = B.turnNo; p.st.tired = 1;
+  floatText(p, '😮‍💨 疲勞', 'dot');
+  log(`😮‍💨 ${p.name} 力氣用盡又沒有夥伴可以換，只能硬撐（這回合不能進化，傷害 -20%、速度 -10%）`);
+  return false;
+}
 // 被死亡宣告換下的夥伴，幾回合內不能上場
 const isLocked = f => f.lockUntil && f.lockUntil >= B.turnNo;
 function checkPhase2() { const e = B.e; if (B.dom === 'dark' && !e.phase2 && e.hp > 0 && e.hp <= e.maxhp / 2) enterPhase2(); }
@@ -470,6 +487,7 @@ function evoBlock(f, tier) {
   if (B && B.sealTurn && B.turnNo <= B.sealTurn) return '被黑暗封印，暫時無法進化';
   if (f.dark) return '暴走中，無法控制';
   if (tier <= f.tier) return f.tier === tier ? '目前型態' : '已經超越';
+  if (tier >= 2 && !f.leader) return '只有隊長 👑 能超進化以上';
   if (f.m.level < TIERS[tier].lv) return `需要 Lv.${TIERS[tier].lv}`;
   if (RUN.courage < evoCost(f, tier) && RUN.courage < FORCE_MIN) return `勇氣值不足（強行進化至少要 ${FORCE_MIN}）`;
   return null;
@@ -643,12 +661,14 @@ function switchTo(i, forced) {
   const old = B.p;
   devolve(true, old);
   old.stay = 0; nf.stay = 0; delete old.st.root;
-  nf.gauge = forced ? 50 : old.gauge;
+  nf.gauge = B.exhaustSwap ? 100 : forced ? 50 : old.gauge;   // 進化結束被迫換人：換上來的夥伴馬上行動
+  B.exhaustSwap = false;
   B.p = nf;
   B.participants.add(i);
   closePopups();
-  $('#pPanel .emo').dataset.k = '';
+  $('#pUnit .emo').dataset.k = '';
   log(forced ? `去吧，${nf.name}！` : `${old.name} 退下，換 ${nf.name} 上場！`);
+  setTimeout(switchFx, 0);
   if (forced) B.phase = 'run';
   renderBattle();
 }
@@ -857,7 +877,7 @@ async function battleReward(msgs, recruit, opt) {
     o.innerHTML = `<h2>${opt.boss ? '🏆 頭目擊破！' : recruit ? '🤝 勸降成功！' : '勝利！'}</h2>
       <div class="msgs">${msgs.join('<br>')}</div>
       <div id="recruitBox"></div>
-      <p class="sub">選一張卡片加入牌組（目前 ${RUN.deck.length}${K().deckMax < 99 ? ' / ' + K().deckMax : ''} 張）</p>
+      <p class="sub">選一張卡片加入牌組（${deckSummary()}）</p>
       <div class="rewardCards"></div>
       <button class="btn" id="btnSkip">跳過</button>`;
     if (recruit) {
@@ -883,10 +903,11 @@ async function battleReward(msgs, recruit, opt) {
     let picked = false;   // 只能選一次（避免連點多拿卡）
     pool.forEach(id => box.appendChild(cardEl(id, { onClick: async () => {
       if (picked) return;
-      if (RUN.deck.length >= K().deckMax) {   // 牌組滿了：選一張舊卡換掉
-        const x = await chooseCardFromDeck(`牌組已滿（${K().deckMax} 張），選一張要換掉的卡`);
-        if (!x) return;
-        if (picked) return; picked = true;
+      if (cardRoom(id)) {   // 整副或這一類滿了：選一張舊卡換掉（取消就回到選卡畫面）
+        const room = cardRoom(id);
+        const x = await chooseCardFromDeck(`${room.why}：選一張換成「${cardDef(id).name}」`, room.filter);
+        o.classList.remove('hidden');
+        if (!x || picked) return; picked = true;
         RUN.deck[x.i] = id; toast(`「${cardDef(x.id).name}」換成了「${cardDef(id).name}」`); res(); return;
       }
       if (addCard(id)) { picked = true; toast(`「${cardDef(id).name}」加入了牌組`); res(); }
@@ -906,14 +927,56 @@ async function battleReward(msgs, recruit, opt) {
 // =========================================================
 //   戰鬥畫面
 // =========================================================
+// ---------- v12：斜向戰場（我方在左下、敵人在右上） ----------
+// [x%, y%, 身高佔戰場高度 %]：d 一般、p 手機直拿、w 手機橫拿（很扁的畫面）
+const SLOTS = {
+  eUnit:  { d: [72, 62, 29], p: [70, 61, 24], w: [62, 63, 40] },
+  pUnit:  { d: [32, 88, 26], p: [31, 94, 22], w: [36, 95, 36] },
+  bUnit1: { d: [14, 72, 15], p: [10, 72, 12.5], w: [20, 70, 22] },
+  bUnit2: { d: [8, 86, 14], p: [9, 88, 11.9], w: [14, 88, 21] },
+};
+const unitOf = f => f.isPlayer ? $('#pUnit') : $('#eUnit');
+function layoutArena() {
+  const ar = $('#arena'); if (!ar || !ar.offsetParent) return;
+  const W = ar.clientWidth, H = ar.clientHeight; if (W < 20 || H < 20) return;
+  const mode = W / H > 2.2 ? 'w' : H > W ? 'p' : 'd';
+  for (const id in SLOTS) {
+    const u = $('#' + id), [x, y, h] = SLOTS[id][mode], px = Math.round(H * h / 100 * (+u.dataset.scale || 1));
+    Object.assign(u.style, { left: x + '%', top: y + '%', width: px + 'px', height: px + 'px' });
+  }
+}
+addEventListener('resize', layoutArena);
+// 戰場背景：依章節換場景（頭目戰有自己的粒子）
+function arenaTheme() {
+  if (typeof Scene === 'undefined') return;
+  if (!Scene.cv) Scene.init($('#arenaBg'));
+  const ch = RUN && RUN.chapter, dom = B && B.dom;
+  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : 'dusk';
+  Scene.set(key, key === 'dusk' ? (dom === 'heat' ? 'ember' : 'none') : null);
+}
+// 後排：最多再站 2 隻（活著、沒被封印的優先）
+function renderBench() {
+  const rest = B.fighters.filter(f => f !== B.p).sort((a, b) => (b.hp > 0) - (a.hp > 0) || (isLocked(a) - isLocked(b)));
+  ['#bUnit1', '#bUnit2'].forEach((sel, i) => {
+    const u = $(sel), f = rest[i];
+    u.classList.toggle('hidden', !f);
+    if (!f) return;
+    const emo = u.querySelector('.emo');
+    if (emo.dataset.k !== f.sp.img) { emo.innerHTML = dpic(f.sp.img, f.emoji, 'big'); emo.dataset.k = f.sp.img; }
+    u.classList.toggle('down', f.hp <= 0 || isLocked(f));
+    u.querySelector('.miniHp i').style.width = (f.hp / f.maxhp * 100) + '%';
+  });
+}
 function renderFighter(f) {
-  const el = f.el;
-  el.querySelector('.fname').innerHTML = f.name + (f.dark ? '<span class="tierTag dark">錯誤進化</span>' : f.tier ? `<span class="tierTag">${TIERS[f.tier].name}</span>` : '') + (f.boss ? '<span class="tierTag boss">頭目</span>' : f.elite ? '<span class="tierTag boss">精英</span>' : '');
+  const el = f.el, u = unitOf(f);
+  u.dataset.scale = f.isPlayer ? 1 + f.tier * .13 : f.boss ? 1.12 : f.elite ? 1.06 : 1;
+  u.querySelector('.miniHp i').style.width = (f.hp / f.maxhp * 100) + '%';
+  el.querySelector('.fname').innerHTML = (f.leader ? '👑 ' : '') + f.name + (f.dark ? '<span class="tierTag dark">錯誤進化</span>' : f.tier ? `<span class="tierTag">${TIERS[f.tier].name}</span>` : '') + (f.boss ? '<span class="tierTag boss">頭目</span>' : f.elite ? '<span class="tierTag boss">精英</span>' : '');
   el.querySelector('.flv').textContent = `Lv.${f.lvl}`;
   el.querySelector('.fattr').textContent = `${ATTR_ICON[f.attr]} ${ATTR_NAME[f.attr]}`;
-  const emo = el.querySelector('.emo');
+  const emo = u.querySelector('.emo');
   if (emo.dataset.k !== f.img) { emo.innerHTML = dpic(f.img, f.emoji, 'big'); emo.dataset.k = f.img; }
-  const spr = el.querySelector('.sprite');
+  const spr = u.querySelector('.sprite');
   spr.classList.toggle('evolved', f.tier > 0);
   spr.classList.toggle('t3', f.tier === 3 && !f.dark);
   spr.classList.toggle('darkevo', !!f.dark);
@@ -925,7 +988,7 @@ function renderFighter(f) {
   hb.style.background = r > .5 ? '#4ade80' : r > .25 ? '#facc15' : '#ef4444';
   el.querySelector('.hptxt').textContent = `${f.hp} / ${f.maxhp}`;
   // 顯示實際速度（加速 ×1.5、麻痺 ×0.5 都算進去），有變化時標顏色
-  const effSpd = +(f.spd * (f.st.haste ? 1.5 : 1) * (f.st.para ? .5 : 1)).toFixed(1);
+  const effSpd = +(f.spd * (f.st.haste ? 1.5 : 1) * (f.st.para ? .5 : 1) * (f.st.tired ? .9 : 1)).toFixed(1);
   el.querySelector('.spdtxt').innerHTML = effSpd === f.spd ? `速度 ${f.spd}` :
     `速度 <b class="${effSpd > f.spd ? 'spdUp' : 'spdDown'}">${effSpd}</b>${f.st.haste ? ' 💨' : ''}${f.st.para ? ' ⚡' : ''}`;
   const blk = el.querySelector('.block');
@@ -947,8 +1010,9 @@ function renderBattle() {
   intent.classList.toggle('hidden', B.phase === 'end');
   intent.textContent = intentText(e);
   p.el.querySelector('.bench').innerHTML = B.fighters.length > 1 ? B.fighters.map(f =>
-    `<div class="tm ${f === p ? 'lead' : ''} ${f.hp <= 0 || isLocked(f) ? 'dead' : ''}" title="${f.sp.name}${isLocked(f) ? '（封印中）' : ''}">${dpic(f.sp.img, f.emoji, 's32')}
+    `<div class="tm ${f === p ? 'lead' : ''} ${f.hp <= 0 || isLocked(f) ? 'dead' : ''}" title="${f.leader ? '👑 隊長　' : ''}${f.sp.name}${isLocked(f) ? '（封印中）' : ''}">${f.leader ? '<span class="crown">👑</span>' : ''}${dpic(f.sp.img, f.emoji, 's32')}
      <div class="hpb"><i style="width:${f.hp / f.maxhp * 100}%"></i></div></div>`).join('') : '';
+  renderBench(); layoutArena();
   $('#battleRelics').innerHTML = RUN.relics.map(k => relicIcon(k)).join('');
   updateCourageUI();
   const orb = $('#orb');
@@ -1051,7 +1115,7 @@ function log(msg) {
   $('#log').innerHTML = B.log.map(m => `<div>${m}</div>`).join('');
 }
 function floatText(f, text, cls, offsetY = 0) {
-  const host = f.el.querySelector('.sprite');
+  const host = unitOf(f).querySelector('.sprite');
   const d = document.createElement('div');
   d.className = `float ${cls}`;
   d.textContent = text;
@@ -1060,8 +1124,21 @@ function floatText(f, text, cls, offsetY = 0) {
   host.appendChild(d);
   setTimeout(() => d.remove(), 1000);
 }
-function shake(f) { restartAnim(f.el.querySelector('.emo'), 'shake'); }
-function lunge(f) { restartAnim(f.el.querySelector('.emo'), f.el.id === 'pPanel' ? 'lunge-r' : 'lunge-l'); }
+function shake(f) { restartAnim(unitOf(f).querySelector('.emo'), 'shake'); }
+// 往對手的方向（斜線）小小衝一下
+function lunge(f) {
+  const s = unitOf(f).querySelector('.sprite'), dx = f.isPlayer ? 34 : -34, dy = f.isPlayer ? -16 : 16;
+  s.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${dx}px,${dy}px) scale(1.06)` }, { transform: 'translate(0,0)' }], { duration: 300, easing: 'ease-out' });
+}
+// 衝到對手面前（沿著斜線），回傳「退回原位」的函式
+async function dashTo(f, t, ratio = .58) {
+  const s = unitOf(f).querySelector('.sprite'), a = spriteCenter(f), b = spriteCenter(t);
+  const dx = (b.x - a.x) * ratio, dy = (b.y - a.y) * ratio;
+  await s.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${dx}px,${dy}px)` }], { duration: 200, easing: 'cubic-bezier(.3,.8,.4,1)', fill: 'forwards' }).finished;
+  return () => s.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'translate(0,0)' }], { duration: 230, easing: 'ease-out' }).finished.then(() => s.getAnimations().forEach(x => x.cancel()));
+}
+// 換手的演出：新夥伴從後排走到前面、落地彈一下
+function switchFx() { const u = $('#pUnit'); u.classList.remove('arrive'); void u.offsetWidth; u.classList.add('arrive'); sfx('card'); }
 function showResult(title, sub) {
   const r = $('#result');
   r.querySelector('h2').textContent = title;

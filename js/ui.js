@@ -59,7 +59,7 @@ function cardEl(id, { playable = true, key, onClick, isStatic = false, count, pr
   const el = document.createElement('div');
   const cst = cost ?? d.cost;
   el.className = `card ${d.type}${playable ? '' : ' disabled'}${isStatic ? ' static' : ''}${d.u ? ' up' : ''}${d.shop ? ' limited' : ''}${fog ? ' fogged' : ''}`;
-  el.innerHTML = `<div class="cost${cst > d.cost ? ' plus' : ''}">${cst}</div><div class="ctype">${TYPE_NAME[d.type]}</div>
+  el.innerHTML = `<div class="cost${cst > d.cost ? ' plus' : ''}">${cst}</div><div class="ctype">${d.type === 'ult' ? '' : CAT_INFO[cardCat(id)].icon + ' '}${TYPE_NAME[d.type]}</div>
     ${fog ? '<div class="cname">？？？</div><div class="cdesc">🌫️ 被迷霧籠罩<br>看不清楚效果</div>' : `<div class="cname">${d.name}</div><div class="cdesc">${d.desc()}</div>`}
     ${d.shop ? '<div class="limTag">🧸 限定</div>' : ''}${marks ? `<div class="cmarks">${marks}</div>` : ''}
     ${keep ? '<div class="keepTag">📌 保留</div>' : ''}${key ? `<div class="ckey">${key}</div>` : ''}${count ? `<div class="cnt">×${count}</div>` : ''}${price != null ? `<div class="cnt price">💰 ${price}</div>` : ''}`;
@@ -123,9 +123,9 @@ function pickScreen({ title, sub = '', items, render, skip = '跳過', allowSkip
     sfx('open');
   });
 }
-function chooseCardFromDeck(title, filter = () => true) {
+function chooseCardFromDeck(title, filter = () => true, skip = '取消') {
   const items = RUN.deck.map((id, i) => ({ id, i })).filter(x => filter(x.id));
-  return pickScreen({ title, items, render: x => cardEl(x.id), skip: '取消' });
+  return pickScreen({ title, items, render: x => cardEl(x.id), skip });
 }
 
 // =========================================================

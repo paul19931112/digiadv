@@ -644,3 +644,105 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .saveBox textarea{-webkit-user-select:text !important;-webkit-touch-callout:default;width:100%;height:76px;margin:8px 0;border-radius:8px;border:1px solid #4b5394;background:#0e1124;color:#cbd5ff;font:11px/1.4 monospace;padding:6px;resize:vertical;word-break:break-all;-webkit-user-select:text;user-select:text}
 .saveBox .btn{width:100%}
 .saveBox .col2{display:flex;gap:8px}.saveBox .col2 .btn{flex:1}
+
+/* v11.0：出售卡片 */
+#svcSell small{display:block;font-size:11px;opacity:.8;font-weight:600}
+
+/* =========================================================
+   v12.0 斜向戰場（我方在左下、敵人在右上）
+   ========================================================= */
+#battle .arena { display: block; position: relative; flex: 1; min-height: 0; padding: 0; margin: 0; overflow: hidden; }
+#arenaBg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#battle .arena .vignette { position: absolute; inset: 0; box-shadow: inset 0 0 160px rgba(0,0,0,.6); pointer-events: none; }
+/* 戰場上的角色 */
+#battle .unit { position: absolute; transform: translate(-50%, -100%); z-index: 2; transition: left .35s, top .35s, width .35s, height .35s, opacity .35s; }
+#battle .unit.hidden { display: none; }
+#battle .unit .sprite { position: relative; width: 100%; height: 100%; margin: 0; font-size: 0; line-height: 0; animation: breathe 2.4s ease-in-out infinite; transform-origin: 50% 100%; }
+#battle .unit .emo { display: block; width: 100%; height: 100%; }
+#battle .unit .dpic.big { width: 100% !important; height: 100% !important; font-size: 0; }
+#battle .unit .dpic img { object-fit: contain; object-position: 50% 100%; }
+#battle .unit .dpic em { font-size: 60px; line-height: 1; }
+#battle .unit .shadow { position: absolute; left: 50%; bottom: -6%; width: 70%; height: 15%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(0,0,0,.55), transparent 70%); }
+#battle .unit .ring { position: absolute; left: 50%; bottom: -10%; width: 105%; height: 24%; transform: translateX(-50%); border-radius: 50%; pointer-events: none;
+  border: 2px solid var(--rc); box-shadow: 0 0 14px var(--rc), inset 0 0 14px var(--rc); opacity: .7; animation: ringP 2s ease-in-out infinite; }
+#battle .unit .ring::after { content: ''; position: absolute; inset: 16%; border-radius: 50%; border: 1.5px dashed var(--rc); animation: spin 8s linear infinite; }
+#battle .unit.mine .ring { --rc: #38bdf8; } #battle .unit.foe .ring { --rc: #ff4d4d; }
+#battle .unit.bench .ring { display: none; }
+#battle .unit.bench { opacity: .8; filter: saturate(.8) brightness(.85); z-index: 1; }
+#battle .unit.bench.down { opacity: .35; filter: grayscale(1) brightness(.6); }
+#battle .unit .miniHp { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 4px; width: 60px; height: 6px; border-radius: 3px; background: #000a; overflow: hidden; }
+#battle .unit .miniHp i { display: block; height: 100%; background: #4ade80; transition: width .2s; }
+#battle .unit.foe .miniHp i { background: #f87171; }
+#battle .unit.bench .miniHp { width: 42px; height: 5px; }
+/* 我方面向右邊（敵人那一側） */
+#battle .unit.mine .dpic img, #battle .unit.bench .dpic img { transform: scaleX(-1); }
+#pPanel .sprite .dpic img { transform: none; }
+#battle .unit.arrive .sprite { animation: arrive .45s ease-out, breathe 2.4s ease-in-out .45s infinite; }
+@keyframes breathe { 50% { transform: translateY(-2.5%) scaleY(1.01); } }
+@keyframes arrive { 0% { transform: translateY(-14%) scale(.9); opacity: .3; } 60% { transform: translateY(3%) scale(1.04); opacity: 1; } 100% { transform: none; } }
+@keyframes ringP { 50% { opacity: .4; } } @keyframes spin { to { transform: rotate(360deg); } }
+/* 資訊框：固定在右邊（敵人右上、我方右下），攻擊時不會跟著角色移動 */
+#battle .fighter { position: absolute; z-index: 4; display: block; width: min(250px, 44vw); padding: 6px 10px 7px; border-radius: 12px; background: #141936e6; }
+#battle .fighter > * { grid-column: auto; }
+#battle #ePanel { top: 46px; right: 10px; border-color: #b91c1c99; }
+#battle #pPanel { bottom: 40px; right: 10px; border-color: #38bdf899; }
+#battle .fighter.active { border-color: var(--accent); }
+#battle #ePanel .intent { position: static; transform: none; display: inline-block; font-size: 12px; padding: 2px 9px; margin-bottom: 4px; border-radius: 8px; }
+#battle .fighter .fhead { font-size: 13px; } #battle .fighter .row { font-size: 11px; }
+#battle .fighter .statuses { min-height: 0; margin-top: 4px; gap: 3px; } #battle .fighter .statuses .st { font-size: 10px; padding: 1px 5px; }
+#battle .fighter .bench { margin-top: 4px; } #battle .fighter .bench .tm { width: 28px; } #battle .fighter .bench .dpic.s32 { width: 22px; height: 22px; }
+#battle .fighter .block { top: -10px; right: -8px; min-width: 38px; height: 34px; font-size: 12px; }
+#battle .arena .log { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; min-height: 0; max-width: 70%; padding: 3px 14px; border-radius: 10px;
+  background: #0b0e20b3; font-size: 13px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#battle .arena .log div:not(:last-child) { display: none; }
+#battle .vs { display: none; }
+/* 特效：護盾、準星、究極技特寫 */
+.vfx.shieldFx { filter: drop-shadow(0 0 12px #7dd3fc); } .vfx.shieldFx svg { width: 100%; height: 100%; }
+.vfx.reticle { border: 3px solid #f87171; border-radius: 50%; box-shadow: 0 0 14px #ef4444; }
+.vfx.reticle::before, .vfx.reticle::after { content: ''; position: absolute; background: #f87171; }
+.vfx.reticle::before { left: 50%; top: -18px; bottom: -18px; width: 3px; transform: translateX(-50%); }
+.vfx.reticle::after { top: 50%; left: -18px; right: -18px; height: 3px; transform: translateY(-50%); }
+.vfx.cutin { z-index: 30; }
+.vfx.cutin .dim { position: absolute; inset: 0; background: rgba(0,0,0,.6); opacity: 0; transition: opacity .2s; }
+.vfx.cutin .band { position: absolute; left: -10%; right: -10%; top: 30%; height: 34%; transform: skewY(-8deg) translateX(-110%); overflow: hidden;
+  background: linear-gradient(90deg, rgba(249,115,22,0), #f97316 15%, #fbbf24 50%, #f97316 85%, rgba(249,115,22,0)); box-shadow: 0 0 40px #f97316; transition: transform .28s cubic-bezier(.2,.9,.3,1); }
+.vfx.cutin .band::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, rgba(255,255,255,.18) 0 4px, transparent 4px 26px); animation: speedL .3s linear infinite; }
+@keyframes speedL { to { transform: translateX(26px); } }
+.vfx.cutin .band img { position: absolute; right: 14%; top: -18%; height: 150%; transform: skewY(8deg) scaleX(-1); filter: drop-shadow(0 0 16px #fff); }
+.vfx.cutin .band .nm { position: absolute; left: 14%; top: 50%; transform: translateY(-50%) skewY(8deg); font-size: clamp(26px, 6vw, 60px); font-weight: 900; color: #fff;
+  text-shadow: 0 0 10px #b45309, 0 4px 0 #7c2d12; letter-spacing: 4px; white-space: nowrap; }
+.vfx.cutin.on .dim { opacity: 1; } .vfx.cutin.on .band { transform: skewY(-8deg) translateX(0); }
+.vfx.cutin.out .band { transform: skewY(-8deg) translateX(120%); transition: transform .22s ease-in; } .vfx.cutin.out .dim { opacity: 0; }
+/* 手機直拿 */
+@media (orientation: portrait) and (max-width: 700px) {
+  #battle .fighter { width: min(200px, 52vw); padding: 4px 7px 5px; } #battle .fighter .fattr { display: none; }
+  #battle #ePanel { top: 38px; } #battle #pPanel { bottom: 34px; }
+  #battle .fighter .fhead { font-size: 12px; } #battle .fighter .row { font-size: 10px; }
+  #battle .arena .log { font-size: 11px; max-width: 90%; }
+}
+/* 手機橫拿：畫面很矮，下方的卡片和按鈕縮小，把空間留給戰場 */
+@media (orientation: landscape) and (max-height: 500px) {
+  #battle .fighter { width: 170px; padding: 3px 7px 4px; } #battle .fighter .fattr, #battle .fighter .statuses, #battle .fighter .bench { display: none; }
+  #battle #ePanel { top: 32px; } #battle #pPanel { bottom: 26px; }
+  #battle .fighter .fhead { font-size: 11px; } #battle .fighter .row { font-size: 9px; } #battle .fighter .bar { height: 6px; }
+  #battle #ePanel .intent { font-size: 10px; padding: 1px 6px; margin-bottom: 2px; }
+  #battle .arena .log { font-size: 10px; bottom: 3px; padding: 2px 10px; }
+  #battle .handbar { padding: 3px 8px max(3px, env(safe-area-inset-bottom)); gap: 6px; }
+  #battle .hand { min-height: 0; padding-top: 8px; }
+  #battle .card { width: 66px; height: 86px; padding: 15px 4px 4px; border-width: 2px; }
+  #battle .card .cname { font-size: 11px; } #battle .card .cdesc { font-size: 9px; line-height: 1.3; }
+  #battle .card .cost { width: 20px; height: 20px; font-size: 12px; top: -6px; left: -5px; } #battle .card .ctype { font-size: 8px; }
+  #battle .orb { width: 42px; height: 42px; font-size: 20px; }
+  #battle .btns .btn { padding: 4px 6px; font-size: 11px; min-height: 0; }
+  #battle .btns { display: grid; grid-template-columns: repeat(3, auto); gap: 4px; align-content: center; }
+  #battle .btns .btnrow { display: contents; }
+  #battle .handbar { grid-template-columns: 56px minmax(0, 1fr) 250px; grid-template-areas: none; align-items: center; }
+  #battle .handbar > * { grid-area: auto; }
+  #battle .btns .btn { white-space: nowrap; }
+  #battle .energy .piles { font-size: 9px; }
+  #battle #pPanel { top: 32px; bottom: auto; left: 10px; right: auto; }   /* 橫拿：我方資訊框放左上（天空那一塊是空的） */
+}
+#battle .handbar > .hand { min-width: 0; overflow-x: auto; overflow-y: hidden; }   /* 手牌太多時可以左右滑，不會把按鈕擠出畫面 */
+
+/* v12.2：隊長 👑 */
+.bench .tm { position: relative; } .bench .tm .crown { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font-size: 11px; line-height: 1; z-index: 1; }

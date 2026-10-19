@@ -42,7 +42,7 @@ const MOVE_VFX = {
 const vfxLayer = () => $('#vfxLayer');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 function centerOf(el) { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
-const spriteCenter = f => centerOf(f.el.querySelector('.emo'));
+const spriteCenter = f => centerOf(unitOf(f).querySelector('.emo'));
 function glow(c) { return `radial-gradient(circle, ${c[0]} 0%, ${c[1]} 40%, ${c[2]}aa 60%, transparent 72%)`; }
 function mk(cls, x, y, w, h = w) {
   const d = document.createElement('div');
@@ -128,16 +128,39 @@ async function aura(f, kind) {
   await wait(260);
 }
 
+// ---------- v12：新的技能動畫 ----------
+const HEX_SVG = `<svg viewBox="0 0 150 170"><defs><pattern id="hxp" width="26" height="30" patternUnits="userSpaceOnUse"><path d="M13 0 L26 7.5 L26 22.5 L13 30 L0 22.5 L0 7.5 Z" fill="rgba(125,211,252,.18)" stroke="#bae6fd" stroke-width="1.5"/></pattern></defs><path d="M75 4 L146 44 L146 126 L75 166 L4 126 L4 44 Z" fill="url(#hxp)" stroke="#e0f2fe" stroke-width="4"/></svg>`;
+async function shieldFx(f) {   // 身前展開六角形的能量盾
+  const a = spriteCenter(f), b = spriteCenter(f.isPlayer ? B.e : B.p);
+  const sh = mk('shieldFx', a.x + (b.x - a.x) * .18, a.y + (b.y - a.y) * .18, 130, 147); sh.innerHTML = HEX_SVG;
+  play(sh, [{ transform: 'translate(-50%,-50%) scale(.2)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(1.08)', opacity: 1, offset: .25 },
+            { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: .75 }, { transform: 'translate(-50%,-50%) scale(1.15)', opacity: 0 }], { duration: 1000, easing: 'ease-out' });
+  await wait(260);
+}
+async function reticleFx(f) {   // 準星鎖定敵人
+  const p = spriteCenter(f), rt = mk('reticle', p.x, p.y, 130);
+  play(rt, [{ transform: 'translate(-50%,-50%) rotate(0deg) scale(2)', opacity: 0 }, { transform: 'translate(-50%,-50%) rotate(135deg) scale(.7)', opacity: 1, offset: .45 },
+            { transform: 'translate(-50%,-50%) rotate(135deg) scale(.7)', opacity: 1, borderColor: '#fff', offset: .8 }, { transform: 'translate(-50%,-50%) rotate(135deg) scale(.7)', opacity: 0 }], { duration: 950, easing: 'ease-out' });
+  await wait(450);
+}
+async function cutIn(f, name) {   // 究極技的招式特寫
+  const img = unitOf(f).querySelector('img'), c = mk('cutin', 0, 0, innerWidth, innerHeight);
+  c.innerHTML = `<div class="dim"></div><div class="band"><img src="${img ? img.src : ''}" alt=""><div class="nm">${name}！</div></div>`;
+  await wait(20); c.classList.add('on'); sfx('evolve');
+  await wait(950); c.classList.add('out'); await wait(240); c.remove();
+}
+
 // ---------- 對外：出牌 / 敵人攻擊 ----------
 async function cardVfx(id, d, fromRect) {
   if (!B) return;
   const base = id.replace('+', '');
   // 技能從自己的數碼寶貝身上打出去（先做一個往前衝的動作）
   const from = spriteCenter(B.p);
-  if (d.type !== 'skill' && d.type !== 'power') { lunge(B.p); await wait(120); }
   const to = spriteCenter(B.e);
   if (d.type === 'sig' || d.type === 'ult') {
     const kind = FLAVOR_VFX[B.p.sp.flavor] || 'light', big = d.type === 'ult';
+    if (big) await cutIn(B.p, d.name);
+    lunge(B.p); await wait(120);
     if (big) await flashScreen(VFX_COLORS[kind === 'slash' ? 'light' : kind]);
     if (kind === 'slash') return slash(B.e, big ? 3 : 1, big);
     const hits = big ? (B.p.sp.evo[B.p.tier - 1].hits || 1) : 1;
@@ -145,19 +168,21 @@ async function cardVfx(id, d, fromRect) {
     return;
   }
   const v = CARD_VFX[base] || (d.type === 'atk' ? { slash: 1 } : { aura: 'light' });
-  if (v.slash) return slash(B.e, v.slash, v.big);
-  if (v.proj) return projectile(v.proj, from, to, false);
+  if (v.slash) { const back = await dashTo(B.p, B.e); await slash(B.e, v.slash, v.big); back(); return; }   // 衝過去打，再退回
+  if (v.proj) { lunge(B.p); await wait(120); return projectile(v.proj, from, to, false); }
+  if (v.aura === 'shield') return shieldFx(B.p);
   if (v.aura) return aura(B.p, v.aura);
+  if (v.auraEnemy === 'target') return reticleFx(B.e);
   if (v.auraEnemy) return aura(B.e, v.auraEnemy);
 }
 async function enemyVfx(moveId, m) {
   if (!B) return;
-  if (m.kind === 'guard') return aura(B.e, 'shield');
+  if (m.kind === 'guard') return shieldFx(B.e);
   if (m.kind === 'heal') return aura(B.e, 'heal');
   if (m.kind === 'buff') return aura(B.e, 'target');
   const kind = MOVE_VFX[moveId];
   const big = m.power >= 15 || moveId === 'groundzero';
-  if (!kind) return slash(B.p, m.hits || 1, big);
+  if (!kind) { const back = await dashTo(B.e, B.p, .5); await slash(B.p, m.hits || 1, big); back(); return; }   // 近身招式：衝過來打
   if (big) await flashScreen(VFX_COLORS[kind], 200);
   return projectile(kind, spriteCenter(B.e), spriteCenter(B.p), big);
 }

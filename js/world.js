@@ -432,7 +432,7 @@ async function openChest(rich) {
     await addItem(k);
   } else if (r < .88) {
     const id = await pickScreen({ title: '🎁 寶箱裡有卡片', sub: '選一張加入牌組', items: shuffle([...REWARD_POOL]).slice(0, 3), render: id => cardEl(id) });
-    if (id) addCard(id);
+    if (id) await acquireCard(id);
   } else {
     teamHeal(.3);
     await say(null, '寶箱裡有回復藥！全隊回復了 HP。');
@@ -445,7 +445,7 @@ async function openPickup() {
   else if (r < .85) await addItem(pick(RANDOM_ITEMS));
   else if (r < .95) {
     const id = await pickScreen({ title: '💾 數據碎片裡藏著卡片的資料', sub: '選一張加入牌組', items: shuffle([...REWARD_POOL]).slice(0, 3), render: id => cardEl(id) });
-    if (id) addCard(id);
+    if (id) await acquireCard(id);
   } else if (relicPool().length) {
     const k = pick(relicPool()); RUN.relics.push(k);
     await say(null, `數據碎片解析出一個道具！獲得 <b>${RELICS[k].icon} ${RELICS[k].name}</b>：${RELICS[k].desc}`);
@@ -513,7 +513,7 @@ async function openShop(o) {
       ov.innerHTML = `<h2>🧸 玩偶獸的商店</h2><p class="sub">💰 你有 ${RUN.bits} 數碼幣</p>
         <div class="shopRow cards"></div><div class="shopRow relics"></div><div class="shopRow items"></div>
         <div class="shopRow svc">
-          <button class="btn" id="svcRemove" ${s.removed || RUN.bits < 60 || RUN.deck.length <= 5 ? 'disabled' : ''}>🗑️ 刪除一張卡　💰60</button>
+          <button class="btn" id="svcSell" ${(s.soldN || 0) >= 2 || RUN.deck.length <= minDeck() ? 'disabled' : ''}>💰 出售卡片（${s.soldN || 0}/2）<small>${RUN.deck.length <= minDeck() ? `牌組要超過 ${minDeck()} 張才能賣` : '一般 15、強化 +10、限定卡半價'}</small></button>
           <button class="btn" id="svcUp" ${RUN.bits < upPrice || !RUN.deck.some(canUpgrade) ? 'disabled' : ''}>⬆️ 強化一張卡　💰${upPrice}<small>（第 ${upN} 次，每次 ×1.5）</small></button>
           ${showUlt ? `<button class="btn evo" id="svcUlt" ${RUN.bits < ULT_BOOST_PRICE ? 'disabled' : ''}>💠 究極強化：所有究極技 +25%　💰${ULT_BOOST_PRICE}</button>` : ''}
           <button class="btn" id="svcHeal" ${RUN.bits < 35 ? 'disabled' : ''}>💊 全隊回復 40%　💰35</button>
@@ -523,13 +523,23 @@ async function openShop(o) {
       const atMax = id => CARDS[baseId(id)] && CARDS[baseId(id)].max && RUN.deck.filter(x => baseId(x) === baseId(id)).length >= CARDS[baseId(id)].max;
       s.cards.forEach(c => { if (c.sold) return; cr.appendChild(cardEl(c.id, { price: c.price, playable: RUN.bits >= c.price && !atMax(c.id), onClick: () => {
         if (atMax(c.id)) { toast(`「${cardDef(c.id).name}」整局最多 ${CARDS[baseId(c.id)].max} 張`); return; }
-        if (RUN.bits < c.price || !addCard(c.id)) return; RUN.bits -= c.price; c.sold = true; render(); } })); });
+        if (RUN.bits < c.price) return;
+        acquireCard(c.id).then(ok => { if (ok) { RUN.bits -= c.price; c.sold = true; } render(); }); } })); });
       s.relics.forEach(r => { if (r.sold) return; rr.appendChild(relicEl(r.k, { price: r.price, onClick: () => { if (RUN.bits < r.price) return; RUN.bits -= r.price; RUN.relics.push(r.k); r.sold = true; render(); } })); });
       s.items.forEach(it => { if (it.sold) return; const el = document.createElement('div'); el.className = 'relic clickable';
         el.innerHTML = `<div class="ri">${ITEMS[it.k].icon}</div><div><b>${ITEMS[it.k].name}</b><div class="rd">${ITEMS[it.k].desc}</div></div><div class="cnt price">💰 ${it.price}</div>`;
         el.onclick = async () => { if (RUN.bits < it.price) return; RUN.bits -= it.price; it.sold = true; await addItem(it.k); render(); };
         ov.querySelector('.items').appendChild(el); });
-      ov.querySelector('#svcRemove').onclick = async () => { const x = await chooseCardFromDeck('選一張要刪除的卡'); if (x) { RUN.deck.splice(x.i, 1); RUN.bits -= 60; s.removed = true; } render(); };
+      // 出售卡片：每間店最多 2 張，牌組至少保留「上限 − 2」張
+      ov.querySelector('#svcSell').onclick = async () => {
+        const items = RUN.deck.map((id, i) => ({ id, i }));
+        const x = await pickScreen({ title: '💰 選一張要出售的卡', sub: `賣掉之後牌組剩 ${RUN.deck.length - 1} 張（${deckSummary()}）`, items, render: x => cardEl(x.id, { price: sellPrice(x.id) }), skip: '取消' });
+        if (x && RUN.deck.length > minDeck() && (s.soldN || 0) < 2) {
+          const p = sellPrice(x.id); RUN.deck.splice(x.i, 1); RUN.bits += p; s.soldN = (s.soldN || 0) + 1;
+          toast(`賣掉「${cardDef(x.id).name}」，獲得 💰 ${p}`);
+        }
+        render();
+      };
       // 強化一張卡：可以一直買，但每次 ×1.5（整局累計）
       ov.querySelector('#svcUp').onclick = async () => {
         const x = await chooseCardFromDeck(`選一張卡片強化　💰${upPrice}`, canUpgrade);

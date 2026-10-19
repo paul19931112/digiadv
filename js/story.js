@@ -12,7 +12,7 @@ const F = () => RUN.flags;
 function teamDamage(p) { RUN.team.forEach(m => m.hp = Math.max(1, m.hp - Math.round(memberStats(m).maxhp * p))); }
 function teamHeal(p) { RUN.team.forEach(m => m.hp = Math.min(memberStats(m).maxhp, m.hp + healAmt(memberStats(m).maxhp * p))); }
 function addFlag(k, n = 1) { F()[k] = (F()[k] || 0) + n; }
-async function giveCard(id, text) { if (!addCard(id)) return; await say(null, `${text || '獲得卡片'}：<b>「${cardDef(id).name}」</b>`); }
+async function giveCard(id, text) { if (!(await acquireCard(id))) return; await say(null, `${text || '獲得卡片'}：<b>「${cardDef(id).name}」</b>`); }
 async function giveRelic(k) { if (!k || has(k)) return; RUN.relics.push(k); await say(null, `獲得 <b>${RELICS[k].icon} ${RELICS[k].name}</b>：${RELICS[k].desc}`); }
 async function upgradeCards(n) {
   for (let i = 0; i < n; i++) {
@@ -211,6 +211,38 @@ const EVENTS = {
   } },
 
   // ----- 第三章 -----
+  // ----- 拯救事件（v11.1）：第二章兩條路各一個 -----
+  elecmonTrap: { ch: ['city'], npc: 'elecmon', run: async () => {
+    await say(null, '巷子深處劈哩啪啦地閃著火花——一隻電擊獸被暴走的電網困住了！');
+    await say('elecmon', '好、好痛…！電網一直在放電，我出不去…！');
+    await say('partner', '那個電網是被黑色齒輪控制的！我們得想辦法！');
+    const c = await ask(null, '要怎麼做？', [
+      { text: '衝過去把牠拉出來！', note: '全隊受到 15% 傷害' },
+      { text: '鼓起勇氣，打斷電網', note: '消耗勇氣值 20', disabled: RUN.courage < 20 },
+      { text: '太危險了，先離開', note: '勇氣值 +10' },
+    ]);
+    if (c === 2) { gainCourage(10); await say('elecmon', '…嗚嗚，好吧…'); return; }
+    if (c === 0) teamDamage(.15); else { RUN.courage -= 20; addFlag('light'); }
+    addFlag('saved');
+    await say('elecmon', '得救了！電網終於停下來了…謝謝你們！這個送給你們！');
+    await addItem(pick(RANDOM_ITEMS));
+  } },
+  vineCry: { ch: ['forest'], npc: 'gekomon', run: async () => {
+    await say(null, '濃霧裡傳來斷斷續續的哭聲…這次不是「過來…過來…」，而是真的在求救。');
+    await say('gekomon', '救命呀～！藤蔓越纏越緊了…！有沒有人…！');
+    await say('partner', '是被黑暗藤蔓纏住的數碼寶貝！旁邊還有被控制的蘑菇獸守著！');
+    const c = await ask(null, '要怎麼救牠？', [
+      { text: '打倒守衛，砍斷藤蔓！', note: '戰鬥' },
+      { text: '用勇氣的火焰燒斷藤蔓', note: '消耗勇氣值 20', disabled: RUN.courage < 20 },
+      { text: '霧太濃了，先離開', note: '' },
+    ]);
+    if (c === 2) { await say(null, '哭聲漸漸被霧吞沒了…'); return; }
+    if (c === 0) await eventBattle('mushmon', curLv() + 1, { elite: true, noRecruit: true });
+    else { RUN.courage -= 20; addFlag('light'); }
+    addFlag('saved');
+    await say('gekomon', '呱呱！得救了！森林裡的數碼寶貝教我的招式，送給你們！');
+    await giveCard(pick(['tender', 'prepare', 'heal']), '青蛙獸教你');
+  } },
   darkness: { ch: [3], npc: 'devimon_voice', cond: () => (F().dark || 0) >= 1, run: async () => {
     await say(null, '四周突然暗了下來。一個低沉的聲音在腦中響起…');
     await say('devimon_voice', '你身上…有黑色齒輪的味道。你也渴望力量吧？');
