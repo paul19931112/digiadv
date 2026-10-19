@@ -84,7 +84,7 @@ const Scene = {
   spawn(S, dt) {
     const W = this.W, H = this.H, hz = H * S.hz, n = { ember: 14, spark: 10, firefly: 6, snow: 40, wisp: 10 }[S.parts] * dt;
     for (let i = 0; i < n + (Math.random() < n % 1 ? 1 : 0); i++) {
-      if (S.parts === 'ember') this.parts.push({ x: W * (.12 + Math.random() * .35), y: H * (.5 + Math.random() * .2), vx: (Math.random() - .3) * 20, vy: -30 - Math.random() * 40, r: 1.5 + Math.random() * 1.5, life: 1.5 + Math.random() });
+      if (S.parts === 'ember') this.parts.push({ x: W * ((this.mirror ? .53 : .12) + Math.random() * .35), y: H * (.5 + Math.random() * .2), vx: (Math.random() - .3) * 20, vy: -30 - Math.random() * 40, r: 1.5 + Math.random() * 1.5, life: 1.5 + Math.random() });
       if (S.parts === 'spark') this.parts.push({ x: Math.random() * W, y: hz + Math.random() * (H - hz), vx: (Math.random() - .5) * 220, vy: -60 - Math.random() * 120, r: 1, life: .3 + Math.random() * .3 });
       if (S.parts === 'firefly' && this.parts.length < 40) this.parts.push({ x: Math.random() * W, y: hz * .7 + Math.random() * (H - hz * .7), vx: 0, vy: 0, r: 1.6 + Math.random(), life: 4 + Math.random() * 3 });
       if (S.parts === 'snow') this.parts.push({ x: Math.random() * W * 1.2 - W * .1, y: -5, vx: -15 - Math.random() * 15, vy: 30 + Math.random() * 40, r: 1 + Math.random() * 1.8, life: 8 });

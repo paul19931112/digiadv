@@ -87,6 +87,14 @@
   .fixPanel .hpn { font-size: 10px; color: #c7cdf5; margin-top: 2px; display: flex; justify-content: space-between; gap: 8px; }
   .fixPanel.e { left: 10px; top: 46px; border-color: #b91c1c88; }
   .fixPanel.p { left: 10px; bottom: 40px; border-color: #38bdf888; }
+  /* 左右對調 */
+  body.mirror .unit img { transform: scaleX(-1); animation-name: breatheFlip; }
+  body.mirror #enemy img { transform: none; animation-name: breathe; }
+  body.mirror .fixPanel.e { left: auto; right: 10px; } body.mirror .fixPanel.p { left: auto; right: 10px; }
+  body.mirror .demo { top: 140px; }
+  .demo.collapsed > :not(#dToggle) { display: none !important; }
+  #dToggle { background: #ffcc33 !important; color: #3a2000 !important; }
+  body.mirror .cutin .band img { left: auto; right: 14%; transform: skewY(8deg); } body.mirror .cutin .band .nm { right: auto; left: 16%; }
   .miniHp { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 4px; width: 60px; height: 6px; border-radius: 3px; background: #000a; overflow: hidden; }
   .miniHp i { display: block; height: 100%; background: #f87171; } .miniHp.p i { background: #4ade80; }
   .label { transition: opacity .6s; }
@@ -174,6 +182,26 @@
   @media (orientation: portrait) and (max-width: 700px) { .demo { top: 40px; gap: 4px; display: grid; grid-template-columns: 1fr 1fr; width: 170px; } .demo button { padding: 4px 6px; font-size: 10px; } .themes { grid-column: 1 / -1; margin-top: 2px; } }
   .label { position: fixed; left: 50%; top: 48px; transform: translateX(-50%); background: #ffcc33; color: #3a2000; font-weight: 900; font-size: 12px; border-radius: 8px; padding: 2px 10px; z-index: 20; }
 
+
+  /* ================= 手機橫拿：高度很矮，下方的卡片、按鈕、資訊框都縮小 ================= */
+  @media (orientation: landscape) and (max-height: 500px) {
+    #bottom { padding: 3px 8px max(3px, env(safe-area-inset-bottom)); gap: 8px; align-items: center; }
+    .hand { padding-top: 8px; gap: 6px; }
+    .card { width: 66px; height: 86px; padding: 15px 4px 4px; border-width: 2px; border-radius: 8px; }
+    .card b { font-size: 11px; } .card p { font-size: 9px; margin-top: 2px; line-height: 1.3; }
+    .card .ct { font-size: 8px; padding: 0 3px; top: 3px; right: 3px; }
+    .card .cost { width: 20px; height: 20px; font-size: 12px; top: -6px; left: -5px; }
+    .orb { width: 42px; height: 42px; font-size: 20px; }
+    .btns { width: 210px; gap: 4px; } .btn { padding: 5px 6px; font-size: 11px; }
+    .fixPanel { min-width: 130px; padding: 3px 7px 4px; } .fixPanel .nm { font-size: 11px; } .fixPanel .attr, .fixPanel .sts { display: none; }
+    .fixPanel .hpn { font-size: 9px; } .bar { height: 6px; margin-top: 3px; } .intent { font-size: 10px; padding: 1px 6px; margin-bottom: 2px; }
+    .fixPanel.e { top: 32px; } .fixPanel.p { bottom: 26px; }
+    .corner { top: 4px; } .chip { padding: 2px 7px; font-size: 10px; }
+    .log { font-size: 10px; bottom: 3px; padding: 2px 10px; }
+    .demo { top: 32px; gap: 3px; display: grid; grid-template-columns: 1fr 1fr; width: 190px; } .demo button { padding: 3px 6px; font-size: 10px; } .themes { grid-column: 1 / -1; margin-top: 0; }
+    .themes select { padding: 2px 4px; font-size: 10px; }
+    .label { top: 4px; font-size: 10px; }
+  }
   /* ================= 手機直拿 ================= */
   @media (orientation: portrait) and (max-width: 700px) {
     #bottom { flex-wrap: wrap; gap: 8px; }
@@ -244,6 +272,8 @@
 
 <div class="label">樣品畫面（不是遊戲本體）</div>
 <div class="demo">
+  <button id="dToggle">🎬 示範 ▾</button>
+  <button id="dMirror">⇆ 左右對調</button>
   <button id="dAtk">▶ 我方攻擊</button>
   <button id="dFire">▶ 必殺技</button>
   <button id="dEnemy">▶ 敵人攻擊</button>
@@ -257,7 +287,7 @@
   <div class="themes" id="themes"></div>
 </div>
 
-<script src="scene.js?v=2"></script>
+<script src="scene.js?v=3"></script>
 <script>
 const $ = s => document.querySelector(s);
 const field = $('#field');
@@ -268,6 +298,7 @@ const SLOTS = { enemy: { d: [28, 60, 32], p: [30, 60, 25] }, front: { d: [68, 88
 function place(el) {
   const W = field.clientWidth, H = field.clientHeight, portrait = H > W;
   let [x, y, h] = SLOTS[el.dataset.slot][portrait ? 'p' : 'd'];
+  if (document.body.classList.contains('mirror')) x = 100 - x;   // 左右對調：我方在左、敵人在右
   h *= +(el.dataset.scale || 1);
   el.style.left = x + '%'; el.style.top = y + '%';
   el.style.height = (H * h / 100) + 'px';
@@ -413,6 +444,10 @@ $('#dUlt').onclick = run(async () => {
   E.classList.add('hit', 'shake'); dmgCls(E, '142', 'big'); await sleep(150); E.classList.remove('hit'); await sleep(400); E.classList.remove('shake');
   $('.log').textContent = `${H.dataset.name} 的究極技「${names[H.dataset.sp] || '究極技'}」！`;
 });
+$('#dMirror').onclick = () => { Scene.mirror = document.body.classList.toggle('mirror'); layout(); };
+// 示範按鈕可以收起來，看乾淨的畫面
+$('#dToggle').onclick = () => { const d = $('.demo'); d.classList.toggle('collapsed'); $('#dToggle').textContent = d.classList.contains('collapsed') ? '🎬 示範 ▸' : '🎬 示範 ▾'; };
+if (innerHeight < 500) $('#dToggle').click();
 </script>
 </body>
 </html>
