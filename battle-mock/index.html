@@ -31,6 +31,15 @@
   /* 戰場上的對角光帶（像舞台） */
   .stage { position: absolute; left: 50%; top: 66%; width: 130%; height: 34%; transform: translate(-50%, -50%) rotate(-14deg);
     background: radial-gradient(ellipse at center, rgba(255,230,170,.18), transparent 65%); pointer-events: none; }
+  #bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .ring { position: absolute; left: 50%; bottom: -9%; width: 110%; height: 22%; transform: translateX(-50%); border-radius: 50%; pointer-events: none;
+    border: 2px solid var(--rc); box-shadow: 0 0 14px var(--rc), inset 0 0 14px var(--rc); background: radial-gradient(ellipse, transparent 55%, color-mix(in srgb, var(--rc) 25%, transparent)); opacity: .75; animation: ringP 2s ease-in-out infinite; }
+  .ring::after { content: ""; position: absolute; inset: 16%; border-radius: 50%; border: 1.5px dashed var(--rc); animation: spin 8s linear infinite; }
+  @keyframes ringP { 50% { opacity: .45; } } @keyframes spin { to { transform: rotate(360deg); } }
+  .unit[data-slot] .ring { --rc: #38bdf8; } #enemy .ring { --rc: #ff4d4d; }
+  .unit.bench .ring { display: none; } .unit.bench .miniHp { width: 44px; height: 5px; }
+  .unit { transition: left .35s cubic-bezier(.3,.8,.4,1), top .35s cubic-bezier(.3,.8,.4,1), height .35s, opacity .35s, filter .35s; }
+  .unit.arrive img { animation: arrive .45s ease-out; } @keyframes arrive { 0% { transform: translateY(-14%) scale(.9); } 60% { transform: translateY(3%) scale(1.04); } 100% { transform: none; } }
   .vignette { position: absolute; inset: 0; box-shadow: inset 0 0 160px rgba(0,0,0,.65); pointer-events: none; }
 
   /* 角色 */
@@ -44,7 +53,7 @@
   .unit.hit img { filter: brightness(3) drop-shadow(0 0 10px #fff); }
   .unit.shake { animation: shake .3s; }
   @keyframes shake { 20% { margin-left: -10px; } 40% { margin-left: 9px; } 60% { margin-left: -6px; } 80% { margin-left: 4px; } }
-  .unit.bench { opacity: .78; filter: saturate(.8) brightness(.85); }
+  .unit.bench { opacity: .78; filter: saturate(.8) brightness(.85); z-index: 1; } .unit:not(.bench) { z-index: 2; }
   .unit.boss .aura { position: absolute; left: 50%; bottom: 0; width: 120%; height: 30%; transform: translateX(-50%); border-radius: 50%;
     background: radial-gradient(ellipse, rgba(255,80,40,.55), transparent 70%); animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .45; transform: translateX(-50%) scale(1.15); } }
@@ -68,6 +77,19 @@
   .benchTag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 2px; width: 56px; }
   .benchTag .bar { margin: 0; height: 5px; }
 
+
+  /* 固定位置的資訊框 */
+  .fixPanel { position: absolute; z-index: 4; min-width: 170px; background: var(--panel); border: 1.5px solid #4b5394; border-radius: 10px; padding: 6px 9px 7px; box-shadow: 0 4px 10px #0008; }
+  .fixPanel .nm { font-size: 13px; font-weight: 900; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .fixPanel .nm small { color: #9aa3d6; font-weight: 700; }
+  .fixPanel .boss { background: #b91c1c; color: #fff; font-size: 10px; border-radius: 5px; padding: 0 5px; }
+  .fixPanel .attr { margin-left: auto; font-size: 11px; color: #c7cdf5; }
+  .fixPanel .hpn { font-size: 10px; color: #c7cdf5; margin-top: 2px; display: flex; justify-content: space-between; gap: 8px; }
+  .fixPanel.e { left: 10px; top: 46px; border-color: #b91c1c88; }
+  .fixPanel.p { left: 10px; bottom: 40px; border-color: #38bdf888; }
+  .miniHp { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 4px; width: 60px; height: 6px; border-radius: 3px; background: #000a; overflow: hidden; }
+  .miniHp i { display: block; height: 100%; background: #f87171; } .miniHp.p i { background: #4ade80; }
+  .label { transition: opacity .6s; }
   /* 特效 */
   .fx { position: absolute; pointer-events: none; }
   .fireball { width: 44px; height: 44px; border-radius: 50%; transform: translate(-50%, -50%);
@@ -106,6 +128,9 @@
   /* 樣品用的控制列 */
   .demo { position: fixed; right: 10px; top: 50px; display: flex; flex-direction: column; gap: 6px; z-index: 20; }
   .demo button { border: 2px solid #ffcc33; background: #1a1f3dee; color: #ffcc33; font-weight: 900; border-radius: 10px; padding: 6px 10px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .themes { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .themes select { border: 2px solid #93c5fd; background: #1a1f3dee; color: #bfdbfe; font-weight: 900; border-radius: 10px; padding: 5px 6px; font-size: 12px; font-family: inherit; }
+  @media (orientation: portrait) and (max-width: 700px) { .demo { top: 40px; gap: 4px; } .demo button { padding: 4px 8px; font-size: 11px; } }
   .label { position: fixed; left: 50%; top: 48px; transform: translateX(-50%); background: #ffcc33; color: #3a2000; font-weight: 900; font-size: 12px; border-radius: 8px; padding: 2px 10px; z-index: 20; }
 
   /* ================= 手機直拿 ================= */
@@ -115,7 +140,7 @@
     .orb { order: 2; width: 52px; height: 52px; font-size: 24px; }
     .btns { order: 3; flex: 1; width: auto; }
     .card { width: 88px; height: 116px; padding-top: 18px; } .card p { font-size: 10px; }
-    .tag { min-width: 118px; padding: 3px 6px 4px; } .tag .nm { font-size: 11px; } .tag .attr { display: none; } .corner { top: 6px; } .chip { padding: 3px 7px; font-size: 11px; }
+    .fixPanel { min-width: 140px; padding: 4px 7px 5px; } .fixPanel .nm { font-size: 11px; } .fixPanel .attr { display: none; } .fixPanel.e { top: 38px; } .fixPanel.p { bottom: 36px; } .corner { top: 6px; } .chip { padding: 3px 7px; font-size: 11px; }
     .intent { font-size: 11px; }
     .sun { width: 80px; height: 80px; }
   }
@@ -124,49 +149,39 @@
 <body>
 <div id="game">
   <div id="field">
-    <div class="sky"></div>
-    <div class="sun"></div>
-    <div class="far"><svg viewBox="0 0 1000 200" preserveAspectRatio="none">
-      <path d="M0 200 L0 120 L80 90 L150 115 L230 60 L320 105 L400 80 L470 112 L560 50 L640 95 L720 70 L800 110 L880 75 L1000 100 L1000 200 Z" fill="#5a3a5e" opacity=".75"/>
-      <path d="M0 200 L0 150 L100 125 L190 148 L300 118 L410 150 L520 128 L640 152 L760 122 L870 146 L1000 130 L1000 200 Z" fill="#3e2c48"/>
-      <g fill="#2a3a26"><path d="M90 160 l14 -40 l14 40z"/><path d="M118 165 l10 -30 l10 30z"/><path d="M780 158 l16 -46 l16 46z"/><path d="M812 165 l10 -28 l10 28z"/><path d="M560 168 l9 -26 l9 26z"/></g>
-    </svg></div>
-    <div class="groundWrap"><div class="ground"></div></div>
-    <div class="groundFade"></div>
-    <div class="stage"></div>
+    <canvas id="bg"></canvas>
 
     <!-- 敵人：左上 -->
-    <div class="unit flip boss" id="enemy" data-x="28" data-y="60" data-h="32">
-      <div class="aura"></div><div class="shadow"></div>
+    <div class="unit flip boss" id="enemy" data-slot="enemy">
+      <div class="ring"></div><div class="aura"></div><div class="shadow"></div>
       <img src="../images/Meramon.png" alt="">
-      <div class="tag"><div class="intent">下一招 ⚔️ 火焰拳 39 🔥</div><div class="nm">火焰獸 <small>Lv.5</small><span class="boss">頭目</span><span class="attr">💾 資料種</span></div>
+      <div class="miniHp"><i style="width:78%"></i></div>
+    </div>
+
+    <!-- 我方：最多 3 隻站在戰場上（data-slot：front 出戰、b1／b2 後排） -->
+    <div class="unit bench" data-slot="b1" data-sp="Gabumon" data-name="加布獸" data-lv="5" data-hp="92" data-max="92" data-attr="💾 資料種">
+      <div class="ring"></div><div class="shadow"></div><img src="../images/Gabumon.png" alt=""><div class="miniHp p"><i style="width:100%"></i></div>
+    </div>
+    <div class="unit bench" data-slot="b2" data-sp="Piyomon" data-name="比丘獸" data-lv="5" data-hp="49" data-max="76" data-attr="💉 疫苗種">
+      <div class="ring"></div><div class="shadow"></div><img src="../images/Piyomon.png" alt=""><div class="miniHp p"><i style="width:64%"></i></div>
+    </div>
+    <div class="unit" data-slot="front" data-sp="Agumon" data-name="亞古獸" data-lv="5" data-hp="75" data-max="87" data-attr="💉 疫苗種">
+      <div class="ring"></div><div class="shadow"></div><img src="../images/Agumon.png" alt=""><div class="miniHp p"><i style="width:86%"></i></div>
+    </div>
+
+    <!-- 固定位置的資訊框（攻擊時不會跟著角色移動） -->
+    <div class="fixPanel e" id="ePanel"><div class="intent">下一招 ⚔️ 火焰拳 39 🔥</div><div class="nm">火焰獸 <small>Lv.5</small><span class="boss">頭目</span><span class="attr">💾 資料種</span></div>
         <div class="bar hp e"><i style="width:78%"></i></div><div class="hpn"><span>283 / 362</span><span>速度 11.6</span></div>
         <div class="bar atb e"><i style="width:55%"></i></div>
         <div class="sts"><span>💪 攻擊↑ 2</span></div></div>
-    </div>
-
-    <!-- 我方候補：後排 -->
-    <div class="unit bench" id="bench1" data-x="86" data-y="72" data-h="15">
-      <div class="shadow"></div><img src="../images/Gabumon.png" alt="">
-      <div class="benchTag"><div class="bar hp"><i style="width:100%"></i></div></div>
-    </div>
-    <div class="unit bench" id="bench2" data-x="92" data-y="86" data-h="14">
-      <div class="shadow"></div><img src="../images/Piyomon.png" alt="">
-      <div class="benchTag"><div class="bar hp"><i style="width:64%"></i></div></div>
-    </div>
-    <!-- 我方出戰：右下 -->
-    <div class="unit" id="hero" data-x="68" data-y="88" data-h="26">
-      <div class="shadow"></div>
-      <img src="../images/Agumon.png" alt="">
-      <div class="tag"><div class="nm">亞古獸 <small>Lv.5</small><span class="attr">💉 疫苗種</span></div>
-        <div class="bar hp"><i style="width:86%"></i></div><div class="hpn"><span>75 / 87</span><span>🔥 勇氣 48</span></div>
+    <div class="fixPanel p" id="pPanel"><div class="nm"><span id="pName">亞古獸</span> <small id="pLv">Lv.5</small><span class="attr" id="pAttr">💉 疫苗種</span></div>
+        <div class="bar hp"><i id="pHpBar" style="width:86%"></i></div><div class="hpn"><span id="pHp">75 / 87</span><span>🔥 勇氣 48</span></div>
         <div class="bar atb"><i style="width:100%"></i></div>
         <div class="sts"><span>🛡 13</span></div></div>
-    </div>
-
     <div class="corner l"><div class="chip dom">🔥 灼熱之軀 ⓘ</div><div class="chip">☀️🔥</div></div>
     <div class="corner r"><div class="chip">🔊</div><div class="chip">❓ 說明</div></div>
     <div class="log">亞古獸 的回合！</div>
+    <div class="vignette"></div>
     <div class="flash" id="flash"></div>
   </div>
 
@@ -192,27 +207,35 @@
   <button id="dFire">▶ 必殺技</button>
   <button id="dEnemy">▶ 敵人攻擊</button>
   <button id="dEvo">▶ 進化</button>
+  <button id="dSwitch">▶ 換手</button>
+  <div class="themes" id="themes"></div>
 </div>
 
+<script src="scene.js?v=2"></script>
 <script>
 const $ = s => document.querySelector(s);
 const field = $('#field');
 // 依 data-x / data-y（戰場的百分比位置）和 data-h（身高佔戰場高度的百分比）擺放
+// 站位：依 slot 決定（電腦／手機直拿各一組），[x%, y%, 身高佔戰場高度 %]
+const SLOTS = { enemy: { d: [28, 60, 32], p: [30, 60, 25] }, front: { d: [68, 88, 26], p: [62, 94, 23.4] },
+                b1: { d: [86, 72, 15], p: [88, 74, 12.8] }, b2: { d: [92, 86, 14], p: [91, 88, 11.9] } };
 function place(el) {
   const W = field.clientWidth, H = field.clientHeight, portrait = H > W;
-  let x = +el.dataset.x, y = +el.dataset.y, h = +el.dataset.h;
-  if (portrait) {   // 手機直拿：拉近對角線、角色放大一點
-    const map = { enemy: [30, 60, .78], hero: [62, 94, .9], bench1: [88, 74, .85], bench2: [91, 88, .85] };
-    [x, y] = map[el.id]; h = h * map[el.id][2];
-  }
+  let [x, y, h] = SLOTS[el.dataset.slot][portrait ? 'p' : 'd'];
+  h *= +(el.dataset.scale || 1);
   el.style.left = x + '%'; el.style.top = y + '%';
   el.style.height = (H * h / 100) + 'px';
   el.querySelector('img').style.height = '100%';
   el.dataset.homeX = x; el.dataset.homeY = y;
 }
-const units = ['#enemy', '#bench1', '#bench2', '#hero'].map(s => $(s));
+const units = [...document.querySelectorAll('.unit')];
+const front = () => document.querySelector('.unit[data-slot="front"]');
 function layout() { units.forEach(place); }
 addEventListener('resize', layout); layout();
+Scene.init($('#bg'));
+const themeBox = $('#themes');
+const sel = document.createElement('select'); sel.innerHTML = Object.entries(SCENES).map(([k, sc]) => `<option value="${k}">${sc.name}</option>`).join(''); sel.onchange = () => Scene.set(sel.value); themeBox.appendChild(sel);
+setTimeout(() => $('.label').style.opacity = 0, 3500);
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const center = el => { const r = el.getBoundingClientRect(), f = field.getBoundingClientRect(); return { x: r.left - f.left + r.width / 2, y: r.top - f.top + r.height * .55 }; };
@@ -228,13 +251,13 @@ let busy = false;
 const run = fn => async () => { if (busy) return; busy = true; try { await fn(); } finally { busy = false; } };
 
 $('#dAtk').onclick = run(async () => {
-  const H = $('#hero'), E = $('#enemy');
+  const H = front(), E = $('#enemy');
   await dash(H, E, .62);
   const c = center(E), s = document.createElement('div'); s.className = 'fx slash'; s.style.left = c.x + 'px'; s.style.top = c.y + 'px'; field.appendChild(s); setTimeout(() => s.remove(), 300);
   await hit(E, 8); home(H); await sleep(300);
 });
 $('#dFire').onclick = run(async () => {
-  const H = $('#hero'), E = $('#enemy'), a = center(H), b = center(E);
+  const H = front(), E = $('#enemy'), a = center(H), b = center(E);
   H.classList.add('shake'); await sleep(200); H.classList.remove('shake');
   const f = document.createElement('div'); f.className = 'fx fireball'; f.style.left = a.x + 'px'; f.style.top = a.y + 'px'; field.appendChild(f);
   const t0 = performance.now(), dur = 420;
@@ -244,19 +267,41 @@ $('#dFire').onclick = run(async () => {
   await hit(E, 17); await sleep(200);
 });
 $('#dEnemy').onclick = run(async () => {
-  const H = $('#hero'), E = $('#enemy');
+  const H = front(), E = $('#enemy');
   await dash(E, H, .55); await hit(H, 39); home(E); await sleep(300);
 });
+const EVO = { Agumon: ['Greymon', '暴龍獸'], Gabumon: ['Garurumon', '加魯魯獸'], Piyomon: ['Birdramon', '巴多拉獸'] };
+function devolveUnit(u) {   // 換下場時退化
+  if (!u.dataset.evo) return;
+  u.querySelector('img').src = `../images/${u.dataset.sp}.png`; u.dataset.scale = 1; delete u.dataset.evo;
+}
+function showPanel(u) {
+  $('#pName').textContent = u.dataset.evo ? EVO[u.dataset.sp][1] : u.dataset.name; $('#pLv').textContent = 'Lv.' + u.dataset.lv; $('#pAttr').textContent = u.dataset.attr;
+  $('#pHp').textContent = `${u.dataset.hp} / ${u.dataset.max}`; $('#pHpBar').style.width = (u.dataset.hp / u.dataset.max * 100) + '%';
+}
 $('#dEvo').onclick = run(async () => {
-  const H = $('#hero'), img = H.querySelector('img');
+  const H = front(), img = H.querySelector('img'), ev = EVO[H.dataset.sp];
   $('#flash').style.transition = 'opacity .4s'; $('#flash').style.opacity = .85; await sleep(420);
-  const toGrey = img.src.includes('Agumon');
-  img.src = img.src.replace(toGrey ? 'Agumon' : 'Greymon', toGrey ? 'Greymon' : 'Agumon');
-  H.dataset.h = toGrey ? 36 : 26; place(H);
-  H.querySelector('.nm').firstChild.textContent = toGrey ? '暴龍獸 ' : '亞古獸 ';
+  if (H.dataset.evo) devolveUnit(H);
+  else { img.src = `../images/${ev[0]}.png`; H.dataset.scale = 1.38; H.dataset.evo = 1; }
+  place(H); showPanel(H);
   $('#flash').style.opacity = 0; await sleep(450); $('#flash').style.transition = 'opacity .15s';
-  $('.log').textContent = toGrey ? '✨ 亞古獸 進化——暴龍獸！' : '亞古獸 的回合！';
+  $('.log').textContent = H.dataset.evo ? `✨ ${H.dataset.name} 進化——${ev[1]}！` : `${H.dataset.name} 的回合！`;
 });
+// 換手：出戰的退到最後面，後排第一隻走到前面（三隻輪流）
+function doSwitch() {
+  const F = front(), N = document.querySelector('.unit[data-slot="b1"]'), L = document.querySelector('.unit[data-slot="b2"]');
+  $('.log').textContent = `${F.dataset.name} 退下，換 ${N.dataset.name} 上場！`;
+  devolveUnit(F);
+  F.dataset.slot = 'b2'; F.classList.add('bench'); place(F);
+  L.dataset.slot = 'b1'; place(L);
+  setTimeout(() => {
+    N.dataset.slot = 'front'; N.classList.remove('bench'); place(N);
+    N.classList.remove('arrive'); void N.offsetWidth; N.classList.add('arrive');
+    showPanel(N);
+  }, 180);
+}
+$('#dSwitch').onclick = run(async () => { doSwitch(); await sleep(650); });
 </script>
 </body>
 </html>
