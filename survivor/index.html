@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>數碼倖存者（試玩版）</title>
+<style>
+  :root { --accent: #ffcc33; --bg: #0e1124; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: #eef1ff; position: fixed; inset: 0;
+    font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; }
+  canvas { display: block; }
+  .hidden { display: none !important; }
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #expBar { position: absolute; top: 0; left: 0; right: 0; height: 10px; background: #0008; }
+  #expBar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #22d3ee, #a5f3fc); transition: width .15s; }
+  #topRow { position: absolute; top: 14px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+    text-shadow: 0 2px 4px #000c; font-weight: 800; }
+  #timer { font-size: 26px; letter-spacing: 1px; }
+  .stat { font-size: 14px; background: #0b0e20aa; padding: 4px 10px; border-radius: 10px; }
+  #hpWrap { position: absolute; left: 50%; transform: translateX(-50%); bottom: max(18px, env(safe-area-inset-bottom)); width: min(320px, 70vw); }
+  #hpBar { height: 14px; background: #000a; border: 2px solid #fff6; border-radius: 8px; overflow: hidden; }
+  #hpBar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ef4444, #f87171); transition: width .1s; }
+  #hpTxt { text-align: center; font-size: 12px; font-weight: 800; margin-top: 2px; text-shadow: 0 1px 3px #000; }
+  #formTag { text-align: center; font-size: 13px; font-weight: 900; color: var(--accent); text-shadow: 0 1px 3px #000; margin-bottom: 3px; }
+  #banner { position: absolute; top: 30%; left: 0; right: 0; text-align: center; font-size: 40px; font-weight: 900; color: var(--accent);
+    text-shadow: 0 0 20px #f97316, 0 3px 0 #7c2d12; opacity: 0; transition: opacity .3s; }
+  #banner.show { opacity: 1; }
+  #hurt { position: absolute; inset: 0; box-shadow: inset 0 0 90px #ef4444; opacity: 0; transition: opacity .25s; }
+  .dmg { position: absolute; font-weight: 900; font-size: 16px; color: #fff; text-shadow: 0 0 3px #000, 0 2px 0 #000; transform: translate(-50%, -50%);
+    animation: dmgUp .6s ease-out forwards; }
+  .dmg.big { color: var(--accent); font-size: 22px; }
+  .dmg.heal { color: #4ade80; }
+  @keyframes dmgUp { to { transform: translate(-50%, -150%); opacity: 0; } }
+  /* 搖桿 */
+  #joy { position: fixed; width: 116px; height: 116px; margin: -58px 0 0 -58px; border-radius: 50%; pointer-events: none; opacity: .35;
+    background: radial-gradient(circle, #ffffff10, #ffffff22 70%, #ffcc3355 72%, transparent 74%); border: 2px solid #ffcc3366; transition: opacity .12s; }
+  #joy.on { opacity: 1; }
+  #joy i { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; border-radius: 50%; transform: translate(-50%, -50%);
+    background: radial-gradient(circle at 35% 30%, #fff6c4, #ffcc33 55%, #b8860b); box-shadow: 0 4px 12px #000a; }
+  /* 視窗 */
+  .panel { position: fixed; inset: 0; background: #070914cc; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 16px; text-align: center; z-index: 10; }
+  .panel h1 { margin: 0 0 6px; font-size: 36px; color: var(--accent); text-shadow: 0 0 18px #f97316; }
+  .panel h2 { margin: 0 0 10px; font-size: 26px; color: var(--accent); }
+  .panel p { margin: 6px 0; color: #c7cdf5; line-height: 1.6; max-width: 520px; }
+  .btn { border: none; border-radius: 12px; padding: 12px 26px; font-size: 18px; font-weight: 900; cursor: pointer; margin-top: 14px;
+    background: linear-gradient(180deg, #ffd84d, #f5a300); color: #3a2000; box-shadow: 0 4px 0 #8a5a00; font-family: inherit; }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #8a5a00; }
+  .choices { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  .choice { width: 180px; background: #1a1f3d; border: 3px solid #4b5394; border-radius: 14px; padding: 14px 12px; cursor: pointer; text-align: center;
+    transition: transform .1s, border-color .1s; }
+  .choice:hover { transform: translateY(-4px); border-color: var(--accent); }
+  .choice .ic { font-size: 38px; }
+  .choice b { display: block; margin: 6px 0 4px; font-size: 16px; color: #fde68a; }
+  .choice small { color: #c7cdf5; font-size: 13px; line-height: 1.5; }
+  .choice .key { display: block; margin-top: 6px; color: #6b74a8; font-size: 11px; }
+  .muteBtn { pointer-events: auto; border: none; border-radius: 10px; background: #0b0e20cc; color: #fff; font-size: 16px; padding: 4px 10px; cursor: pointer; }
+  .credit { position: fixed; left: 8px; bottom: max(4px, env(safe-area-inset-bottom)); font-size: 10px; color: #9aa3d6; opacity: .6; pointer-events: none; }
+  .portrait { display: flex; gap: 10px; justify-content: center; margin: 8px 0; }
+  .portrait img { height: 90px; filter: drop-shadow(0 4px 8px #000); }
+  @media (max-width: 600px) { .choice { width: 100%; max-width: 320px; display: flex; gap: 12px; align-items: center; text-align: left; }
+    .choice .ic { font-size: 32px; } .panel h1 { font-size: 28px; } #timer { font-size: 22px; } }
+</style>
+</head>
+<body>
+<div id="hud" class="hidden">
+  <div id="expBar"><i></i></div>
+  <div id="topRow">
+    <div class="stat" id="lvTxt">Lv.1</div>
+    <div id="timer">0:00</div>
+    <div style="display:flex;gap:6px;align-items:center"><div class="stat" id="killTxt">💀 0</div><button class="muteBtn" title="音效開關（M）">🔊</button></div>
+  </div>
+  <div id="banner"></div>
+  <div id="hurt"></div>
+  <div id="hpWrap"><div id="formTag">亞古獸</div><div id="hpBar"><i></i></div><div id="hpTxt"></div></div>
+</div>
+<div id="dmgLayer" style="position:fixed;inset:0;pointer-events:none;overflow:hidden"></div>
+<div id="joy"><i></i></div>
+
+<div class="panel" id="startPanel">
+  <h1>數碼倖存者</h1>
+  <p style="color:var(--accent);font-weight:800">3D 試玩版</p>
+  <div class="portrait" id="startPics"></div>
+  <p>敵人會從四面八方湧來！亞古獸會<b>自動發射小火球</b>，你只要負責移動、閃躲。<br>
+  撿起敵人掉落的<b>💾 數據碎片</b>就能升級、選擇新能力，<b>Lv.5、Lv.10</b> 還會進化！<br>撐到 <b>2:00</b> 頭目火焰獸會出現，打倒牠就過關。</p>
+  <p style="font-size:13px">電腦：WASD／方向鍵移動、M 音效開關　｜　手機：按住畫面任何地方拖曳</p>
+  <button class="btn" id="btnStart">開始</button>
+  <button class="muteBtn" style="margin-top:12px" title="音效開關（M）">🔊</button>
+</div>
+<div class="panel hidden" id="levelPanel">
+  <h2 id="levelTitle">升級！</h2>
+  <p>選一個能力（電腦可以按 1～3）</p>
+  <div class="choices" id="choices"></div>
+</div>
+<div class="panel hidden" id="endPanel">
+  <h1 id="endTitle">全滅了…</h1>
+  <p id="endStats"></p>
+  <button class="btn" id="btnRetry">再玩一次</button>
+</div>
+<div class="credit">非官方粉絲試作・數碼寶貝相關權利屬於原權利方</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sprites.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
