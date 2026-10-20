@@ -7,28 +7,28 @@
 const BGM = (() => {
   let ctx = null, master = null, cur = null, timer = null, vol = .5, noiseBuf = null;
   const NOTE = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
-  const freq = n => { const m = n.match(/^([A-G][#b]?)(\d)$/); return 440 * Math.pow(2, (NOTE[m[1]] + (+m[2] + 1) * 12 - 69) / 12); };
+  const freq = (n, oct = 0) => { const m = n.match(/^([A-G][#b]?)(\d)$/); return 440 * Math.pow(2, (NOTE[m[1]] + (+m[2] + 1 + oct) * 12 - 69) / 12); };
   const CHORD = { C: ['C', 'E', 'G'], Am: ['A', 'C', 'E'], F: ['F', 'A', 'C'], G: ['G', 'B', 'D'], E: ['E', 'G#', 'B'], Dm: ['D', 'F', 'A'],
-                  Bb: ['Bb', 'D', 'F'], Gm: ['G', 'Bb', 'D'], A: ['A', 'C#', 'E'], Em: ['E', 'G', 'B'] };
+                  Bb: ['Bb', 'D', 'F'], Gm: ['G', 'Bb', 'D'], A: ['A', 'C#', 'E'], Em: ['E', 'G', 'B'], B: ['B', 'D#', 'F#'] };
   // 一小節 16 格：音名＝起音、- ＝延長、. ＝休止
   const bars = s => s.trim().split(/\s+/);
   const TRACKS = {
-    // 探索地圖：輕快的冒險感（C 大調）
-    field: { bpm: 124, chords: ['C', 'Am', 'F', 'G', 'C', 'Am', 'F', 'G'], bass: 'bounce', harm: 'stab', drum: 'k . h . s . h . k . h k s . h .', lead: 'square', leadVol: .11,
+    // 探索地圖：比較悠閒、不高亢（C 大調，低一個八度、用柔和的三角波）
+    field: { bpm: 100, oct: -1, chords: ['C', 'Am', 'F', 'G', 'C', 'Am', 'F', 'G'], bass: 'bounce', harm: 'stab', drum: 'k . . . s . . . k . . k s . . .', lead: 'triangle', leadVol: .2,
       mel: ['E5 - G5 - C6 - - - B5 - G5 - E5 - - -', 'A5 - - G5 E5 - C5 - D5 - E5 - C5 - - -', 'F5 - A5 - C6 - A5 - G5 - F5 - E5 - D5 -', 'D5 - - - G5 - - - B4 - D5 - G5 - - -',
             'E5 - G5 - C6 - D6 - E6 - D6 - C6 - - -', 'A5 - C6 - B5 - A5 - G5 - E5 - - - . .', 'F5 - E5 - D5 - F5 - G5 - - - D5 - B4 -', 'C5 - - - - - - - G4 - C5 - E5 - G5 -'] },
     // 選路線：安靜、思考的感覺（F 大調）
     route: { bpm: 92, chords: ['F', 'Dm', 'Bb', 'C', 'F', 'Dm', 'Bb', 'C'], bass: 'long', harm: 'arp', drum: 'h . . . h . . . h . . . h . . .', lead: 'triangle', leadVol: .16,
       mel: ['A5 - - - C6 - - - A5 - G5 - F5 - - -', 'D5 - - - F5 - A5 - - - - - . . . .', 'Bb5 - - - A5 - G5 - F5 - - - D5 - - -', 'E5 - - - G5 - - - C5 - - - - - - -',
             'F5 - A5 - C6 - F6 - E6 - - - C6 - - -', 'D6 - - - C6 - A5 - F5 - - - - - - -', 'G5 - - - Bb5 - - - A5 - G5 - F5 - E5 -', 'F5 - - - - - - - . . . . . . . .'] },
-    // 一般戰鬥：節奏快、緊張（A 小調）
-    battle: { bpm: 152, chords: ['Am', 'F', 'G', 'E', 'Am', 'F', 'G', 'E'], bass: 'drive', harm: 'stab', drum: 'k . h . s . h . k . k . s . h h', lead: 'square', leadVol: .1,
-      mel: ['A5 - E5 - A5 - C6 - B5 - A5 - G5 - E5 -', 'F5 - - - A5 - C6 - - - A5 - F5 - - -', 'G5 - D5 - G5 - B5 - D6 - C6 - B5 - G5 -', 'G#5 - - - B5 - - - E6 - - - D6 - B5 -',
-            'C6 - B5 - A5 - E5 - A5 - B5 - C6 - D6 -', 'E6 - - - C6 - A5 - F5 - A5 - C6 - - -', 'D6 - C6 - B5 - G5 - D5 - G5 - B5 - D6 -', 'E6 - - - - - - - G#5 - - - B5 - - -'] },
-    // 頭目戰：厚重、壓迫感（D 小調）
-    boss: { bpm: 138, chords: ['Dm', 'Bb', 'Gm', 'A', 'Dm', 'Bb', 'Gm', 'A'], bass: 'ostinato', harm: 'pad', drum: 'k k s . k . s . k k s . k . s s', lead: 'saw', leadVol: .07, crash: true,
+    // 一般戰鬥：厚重、緊張（D 小調，原本的頭目曲）
+    battle: { bpm: 138, chords: ['Dm', 'Bb', 'Gm', 'A', 'Dm', 'Bb', 'Gm', 'A'], bass: 'ostinato', harm: 'pad', drum: 'k k s . k . s . k k s . k . s s', lead: 'saw', leadVol: .07, crash: true,
       mel: ['D5 - - - F5 - - - A5 - - - G#5 - A5 -', 'Bb5 - - - A5 - - - F5 - - - D5 - - -', 'G5 - - - Bb5 - - - D6 - - - C#6 - D6 -', 'E6 - - - C#6 - - - A5 - - - - - - -',
             'D6 - C6 - A5 - F5 - D5 - F5 - A5 - D6 -', 'F6 - - - E6 - D6 - Bb5 - - - - - - -', 'G5 - A5 - Bb5 - C6 - D6 - Eb6 - D6 - C6 -', 'C#6 - - - - - - - E6 - - - A5 - - -'] },
+    // 頭目戰：更壓迫（E 弗里吉亞：E 和 F 的半音拉扯）、馬蹄低音、低沉的持續音、定音鼓
+    boss: { bpm: 126, chords: ['Em', 'F', 'Em', 'F', 'C', 'B', 'Em', 'B'], bass: 'gallop', harm: 'pad', drone: true, boom: true, drum: 'k . . k s . . k k . k . s . . s', lead: 'saw', leadVol: .075, crash: true,
+      mel: ['E5 - - - - - F5 - E5 - - - B4 - - -', 'F5 - - - E5 - - - C5 - - - A4 - - -', 'G5 - - - F5 - - - E5 - - - D#5 - E5 -', 'A5 - - - G5 - F5 - E5 - - - - - - -',
+            'E6 - - - D6 - C6 - B5 - - - G5 - - -', 'F#5 - - - D#5 - - - B4 - - - D#5 - F#5 -', 'G5 - F#5 - E5 - D#5 - E5 - G5 - B5 - E6 -', 'D#6 - - - - - - - F#5 - - - B4 - - -'] },
   };
   function init() {
     if (ctx) return true;
@@ -62,17 +62,20 @@ const BGM = (() => {
     const bar = Math.floor(i / 16) % T.chords.length, s = i % 16, ch = CHORD[T.chords[bar]], root = ch[0];
     // 主旋律
     const mel = T._mel[bar], tok = mel[s];
-    if (tok !== '-' && tok !== '.') { let n = 1; while (s + n < 16 && mel[s + n] === '-') n++; tone(T.lead, freq(tok), t, n * sd * .95, T.leadVol); }
+    if (tok !== '-' && tok !== '.') { let n = 1; while (s + n < 16 && mel[s + n] === '-') n++; tone(T.lead, freq(tok, T.oct || 0), t, n * sd * .95, T.leadVol); }
     // 低音
     const B = (o, d, v = .22) => tone('triangle', freq(o), t, d, v);
     if (T.bass === 'bounce' && s % 4 === 0) B((s % 8 ? ch[2] : root) + '2', sd * 2);
     if (T.bass === 'long' && s === 0) B(root + '2', sd * 15, .2);
     if (T.bass === 'drive' && s % 2 === 0) B(root + (s % 4 ? '3' : '2'), sd * 1.6);
+    if (T.bass === 'gallop' && [0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15].includes(s)) B(root + (s % 4 === 0 ? '1' : '2'), sd * .8, s % 4 ? .16 : .3);
     if (T.bass === 'ostinato') B(root + ([0, 3, 6, 10, 12].includes(s) ? '2' : '3'), sd * .9, s % 4 ? .14 : .24);
     // 和聲
     if (T.harm === 'stab' && (s === 4 || s === 12)) ch.forEach(n => tone('square', freq(n + '4'), t, sd * 1.2, .028));
     if (T.harm === 'arp') tone('square', freq(ch[s % 3] + (s % 6 < 3 ? '4' : '5')), t, sd * .9, .03);
     if (T.harm === 'pad' && s === 0) ch.forEach(n => tone('saw', freq(n + '3'), t, sd * 16, .022));
+    if (T.drone && s === 0) tone('sawtooth', freq(root + '1'), t, sd * 16, .05);
+    if (T.boom && s === 0 && bar % 2 === 0) tone('sine', 80, t, .9, .45, 38);   // 定音鼓
     // 鼓
     const dk = T._drum[s]; if (dk !== '.') drum(dk, t);
     if (T.crash && s === 0 && bar % 4 === 0) noise(t, .6, .12, 3000);
