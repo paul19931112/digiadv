@@ -95,6 +95,16 @@ const PAINT = {
     ['#fcd34d', '#fbbf24', '#f59e0b', '#d97706', '#b45309'].forEach((c, l) => { const y0 = H * (.45 + l * .11); g.fillStyle = c; g.beginPath(); g.moveTo(0, H);
       for (let x = 0; x <= W; x += 8) g.lineTo(x, y0 + Math.sin(x / (W * (.18 - l * .02)) + l * 2) * H * .04 + (l === 0 ? Math.sin(x / 40 + t * 3) * 1.5 : 0)); g.lineTo(W, H); g.fill(); });
   },
+  pyramid(g, W, H, t) {   // 夜晚的金字塔：星空、巨大的金字塔、發光的電路
+    g.fillStyle = cutGrad(g, 0, H, ['#020617', '#1e1b4b', '#7c2d12']); g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(255,255,255,${.3 + .3 * Math.sin(t * 2 + i)})`; g.fillRect((i * 97 % 100) / 100 * W, (i * 53 % 45) / 100 * H, 2, 2); }
+    g.fillStyle = '#3b2412'; g.beginPath(); g.moveTo(W * .1, H * .82); g.lineTo(W * .5, H * .2); g.lineTo(W * .9, H * .82); g.fill();
+    g.fillStyle = '#5c3a1a'; g.beginPath(); g.moveTo(W * .5, H * .2); g.lineTo(W * .9, H * .82); g.lineTo(W * .62, H * .82); g.fill();
+    g.strokeStyle = `rgba(34,211,238,${.45 + .3 * Math.sin(t * 2.5)})`; g.lineWidth = 2;
+    for (let k = 1; k < 6; k++) { const y = H * (.2 + k * .12), hw = (y - H * .2) / (H * .62) * W * .4; g.beginPath(); g.moveTo(W * .5 - hw, y); g.lineTo(W * .5 + hw, y); g.stroke(); }
+    cutGlow(g, W * .5, H * .3, H * .12, [[0, '#67e8f9cc'], [1, '#0000']]);
+    g.fillStyle = '#b45309'; g.fillRect(0, H * .82, W, H * .18);
+  },
   void(g, W, H, t) {   // 黑暗紫霧
     g.fillStyle = '#05010a'; g.fillRect(0, 0, W, H);
     for (let i = 0; i < 6; i++) cutGlow(g, W * (.5 + .45 * Math.sin(t * .2 + i * 1.7)), H * (.5 + .35 * Math.cos(t * .17 + i * 2.3)), W * .5, [[0, '#4c1d9533'], [1, '#0000']]);

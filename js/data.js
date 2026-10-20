@@ -29,7 +29,7 @@ const P2 = () => typeof RUN !== 'undefined' && !!RUN && RUN.rules === 'p2';   //
 const NEW = () => P1() || P2();   // 第一部、第二部共用的新規則（勇氣值 40、背包 4 格、沒有徽章道具…）
 const COURAGE_MAX_P1 = 40;
 const courageMax = () => NEW() ? COURAGE_MAX_P1 : COURAGE_MAX;
-const tierCap = f => P1() ? 1 : P2() ? (f.leader ? (RUN.awaken ? 3 : RUN.crest ? 2 : 1) : 1) : (f.leader ? 3 : 1);   // 能進化到的最高階段
+const tierCap = f => P1() ? 1 : P2() ? ((f.leader || (typeof crestPartner === 'function' && crestPartner(f))) ? (RUN.awaken ? 3 : RUN.crest ? 2 : 1) : 1) : (f.leader ? 3 : 1);   // 能進化到的最高階段
 const crestCost = tier => tier >= 3 ? 2 : 1;   // 第二部：超進化花 1 格徽章刻度、究極進化花 2 格
 const CREST_KEYS = ['courage', 'friendship', 'love', 'knowledge', 'sincerity', 'purity', 'hope', 'light'];
 const teamMax = () => 6 + (K().teamPlus || 0);
@@ -207,6 +207,13 @@ const SPECIES = {
   otamamon:   { name: '蝌蚪獸',   img: 'Otamamon',    emoji: '🐸', attr: 'virus', hp: 42, atk: 11, def: 8,  spd: 10, moves: ['water', 'song', 'bite'] },
   tyranomon:  { name: '恐龍獸',   img: 'Tyranomon',   emoji: '🦖', attr: 'data',  hp: 62, atk: 15, def: 11, spd: 8,  moves: ['flame', 'bite', 'heavy'] },
   nanimon:    { name: '納尼獸',   img: 'Nanimon',     emoji: '🕶️', attr: 'virus', hp: 54, atk: 15, def: 9,  spd: 11, moves: ['heavy', 'rock', 'roar'] },
+  // 第五章：金字塔
+  tankmon:    { name: '坦克獸',   img: 'Tankmon',     emoji: '🚜', attr: 'data',  hp: 60, atk: 14, def: 14, spd: 6,  moves: ['gatling', 'missile', 'guard'] },
+  kuwagamon:  { name: '鍬形獸',   img: 'Kuwagamon',   emoji: '🪲', attr: 'virus', hp: 54, atk: 16, def: 10, spd: 11, moves: ['scissor', 'bite', 'roar'] },
+  deltamon:   { name: '三頭獸',   img: 'Deltamon',    emoji: '🐲', attr: 'virus', hp: 58, atk: 15, def: 11, spd: 9,  moves: ['tripleforce', 'bite', 'guard'] },
+  datamon:    { name: '數據獸',   img: 'Datamon',     emoji: '🤖', attr: 'virus', hp: 58, atk: 15, def: 12, spd: 10, moves: ['electric', 'missile', 'guard', 'regen'] },
+  okuwamon:   { name: '大鍬形獸', img: 'Okuwamon',    emoji: '🪲', attr: 'virus', hp: 66, atk: 17, def: 12, spd: 10, moves: ['doublescissor', 'scissor', 'roar'] },
+  metaletemon:{ name: '機械猴子獸', img: 'Metal_Etemon', emoji: '🦍', attr: 'virus', hp: 68, atk: 16, def: 11, spd: 11, moves: ['darkspiritdx', 'metalpunch', 'guard', 'roar'] },
   andromon:   { name: '機械人獸', img: 'Andromon',  emoji: '🦾', attr: 'vaccine', hp: 60, atk: 15, def: 13, spd: 10, moves: ['spiral', 'missile', 'guard'] },
   jyureimon:  { name: '樹人獸',   img: 'Jyureimon', emoji: '🌲', attr: 'virus',   hp: 64, atk: 14, def: 11, spd: 9,  moves: ['cherry', 'branch', 'spore', 'regen'] },
   devimon:    { name: '惡魔獸',   img: 'Devimon',   emoji: '😈', attr: 'virus',   hp: 62, atk: 16, def: 11, spd: 12, moves: ['deathclaw', 'darkwing', 'roar', 'guard', 'regen'] },
@@ -365,6 +372,12 @@ const MOVES = {
   darkwing: { name: '黑暗之翼', kind: 'atk', power: 6, hits: 2, w: 3 },
   stoneglare:{ name: '石化凝視', kind: 'atk', power: 8, status: ['para', 2], chance: .5, w: 2 },
   loveSerenade:{ name: '愛之小夜曲・全力', kind: 'serenade', w: 0 },
+  gatling:  { name: '重型機槍', kind: 'atk', power: 4, hits: 3, w: 2 },
+  scissor:  { name: '剪刀臂',   kind: 'atk', power: 12, w: 3 },
+  doublescissor:{ name: '雙重剪刀', kind: 'atk', power: 8, hits: 2, w: 2 },
+  tripleforce:{ name: '三重力量', kind: 'atk', power: 5, hits: 3, w: 2 },
+  darkspiritdx:{ name: '黑暗精神DX', kind: 'atk', power: 16, w: 2 },
+  metalpunch:{ name: '鋼鐵重拳', kind: 'atk', power: 8, hits: 2, w: 3 },
   regen:    { name: '黑暗再生', kind: 'heal', heal: .12, w: 1 },
   deathmark:{ name: '死亡宣告', kind: 'doom', w: 0 },
 };
@@ -460,7 +473,10 @@ const CHAPTERS = {
   // ----- 第二部 -----
   4: { title: '第四章　伺服大陸・沙漠', theme: 'desert', floors: 7, lv: [14, 18],
        zone: ['gekomon', 'gottsumon', 'numemon', 'gazimon', 'kokatorimon', 'otamamon'],
-       elites: ['tyranomon', 'nanimon'], boss: { id: 'etemon', lv: 20, domain: 'concert' }, next: 'p2done' },
+       elites: ['tyranomon', 'nanimon'], boss: { id: 'etemon', lv: 20, domain: 'concert' }, next: 5 },
+  5: { title: '第五章　伺服大陸・金字塔', theme: 'pyramid', floors: 7, lv: [18, 22],
+       zone: ['guardromon', 'tankmon', 'kuwagamon', 'deltamon', 'gazimon', 'numemon'],
+       elites: ['datamon', 'okuwamon'], boss: { id: 'metaletemon', lv: 24, domain: 'metal' }, next: 'p2done' },
 };
 // 頭目／精英的領域效果（對玩家不利）
 const DOMAINS = {
@@ -608,11 +624,11 @@ function makeEnemy(id, lv, opt = {}) {
   if (opt.boss) { s.maxhp = Math.round(s.maxhp * 3.6); s.atk = Math.round(s.atk * 1.35); s.def = Math.round(s.def * 1.15); }
   // 難度旋鈕：敵人整體的血量與攻擊加成
   // 各章節的敵人強度：第一章手下留情，越後面越強 [血量, 攻擊]
-  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35] };
+  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35], 5: [1.6, 1.42] };
   const [chHp, chAtk] = (typeof RUN !== 'undefined' && RUN && CH_SCALE[RUN.chapter]) || [1, 1];
   s.maxhp = Math.round(s.maxhp * ENEMY_HP * chHp); s.atk = Math.round(s.atk * ENEMY_ATK * chAtk);
   // 第二部的頭目再加強（第二部隊伍有完全體可以用；用電腦模擬調到勝率約六成）
-  const BOSS_EXTRA = { 4: [2.34, 1.78] };
+  const BOSS_EXTRA = { 4: [2.34, 1.78], 5: [1.61, .94] };   // 第五章：機械猴子獸的能力很強，本體數值低一點（駭入 2 項約六成）
   if (opt.boss && typeof RUN !== 'undefined' && RUN && BOSS_EXTRA[RUN.chapter]) { s.maxhp = Math.round(s.maxhp * BOSS_EXTRA[RUN.chapter][0]); s.atk = Math.round(s.atk * BOSS_EXTRA[RUN.chapter][1]); }
   const name = (opt.elite ? '暗黑' : '') + sp.name;
   return { id, sp, name, img: sp.img, emoji: sp.emoji, attr: sp.attr, lvl: lv, ...s, hp: s.maxhp,

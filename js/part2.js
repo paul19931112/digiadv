@@ -114,23 +114,23 @@ async function crestEvent() {
     lines: [[null, '沙漠深處，數碼裝置突然發出強光——'], ['me', '這是……「標籤」？'], [null, `標籤裡嵌進了一枚發光的徽章——<b>${k.crest}的徽章</b>！`],
       ['partner', '感覺……有股力量湧上來了！'],
       [null, `🔰 <b>徽章覺醒</b>：${aw ? aw.text : '孩子的特性變強了'}。<br>隊長 👑 進化成成熟期之後，可以花「徽章刻度」超進化成完全體（整個第二部共 ${CREST_TICKS} 格）。`]] }]);
-  RUN.crest = true; RUN.crestTicks = CREST_TICKS;
+  RUN.crest = true; RUN.crestTicks = CREST_TICKS + (RUN.crestTicks || 0);
   saveRun(); updateHUD();
 }
 
-// ---------- 第四章結束（第五章製作中） ----------
+// ---------- 第五章結束（第六章製作中） ----------
 async function part2ChapterDone() {
   G.mode = 'busy';
   await cutscene([
-    { bg: 'desert', music: 'route', amb: 'wind', chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '猴子獸逃走了……牠往沙漠另一邊的金字塔去了！']] },
-    { bg: 'void', music: null, amb: 'drone', chars: [['Metal_Etemon', 50, 78, 56, 'dark']], fx: '<div class="cutTitle"><b>第五章</b><strong>金字塔</strong><small>製作中・敬請期待</small></div>',
-      lines: [['shadow', '本大爺……還會回來的……！']] },
+    { bg: 'pyramid', music: 'route', amb: 'drone', chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '機械猴子獸被打倒了！金字塔的藍光也熄滅了……'], [null, '黑色齒輪碎成粉末，被沙漠的風吹散了。']] },
+    { bg: 'castle', music: null, amb: 'drone', chars: [['Vamdemon', 50, 78, 56, 'dark']], fx: '<div class="cutTitle"><b>第六章</b><strong>吸血魔王獸</strong><small>製作中・敬請期待</small></div>',
+      lines: [['shadow', '呵呵呵……被選召的孩子，終於到了這一步。'], ['shadow', '來吧——到現實世界來找我。']] },
   ]);
-  META.p2ch = Math.max(META.p2ch || 0, 4); META.clears++;
+  META.p2ch = Math.max(META.p2ch || 0, RUN.chapter); META.clears++;
   recordDex(); saveMeta(); clearRun();
   const o = $('#overlay');
-  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">🏜️</div><h1>第四章 完成！</h1>
-    <p>第五章「金字塔」還在製作中，敬請期待</p>
+  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">🔺</div><h1>第五章 完成！</h1>
+    <p>第六章「吸血魔王獸」還在製作中，敬請期待</p>
     <div class="endTeam">${RUN.team.map(m => spPic(m.sp, 's80')).join('')}</div>
     <p>擊敗 ${RUN.stats.wins} 隻敵人　｜　隊伍 ${RUN.team.length} 隻　｜　牌組 ${RUN.deck.length} 張</p>
     <button class="btn primary big" id="p2Back">回到標題</button></div>`;

@@ -310,6 +310,9 @@ const BOSS_LINES = {
   city: () => cutscene([bossScene('city', null, 'Andromon', [['andromon', '偵測到入侵者。執行排除程序。'], ['partner', '機械人獸的身體裡有黑色齒輪在轉動！我們要救牠！']])]),
   forest: () => cutscene([bossScene('forest', 'wind', 'Jyureimon', [['jyureimon', '呵呵呵…踏進這座森林的人，誰都別想出去…'], ['partner', '就是牠製造了迷霧！大家一起上！']])]),
   4: () => cutscene([bossScene('stage', 'crowd', 'Etemon', [['etemon', 'Yeah～！歡迎來到本大爺的黑暗演唱會！'], ['etemon', '聽完我的「愛之小夜曲」，你們就會乖乖變成我的歌迷啦～'], ['partner', '別被歌聲迷住了！要在他唱之前打斷他！']])]),
+  5: () => cutscene([bossScene('pyramid', 'drone', 'Metal_Etemon', [['metaletemon', 'Yeah～～！本大爺用黑色齒輪改造了身體——現在是無敵的「機械猴子獸」啦！'],
+    ...(hacked().length ? [['partner', `終端機駭進去了 ${hacked().length} 台！他的${hacked().map(k => METAL_ABIL[k].name).join('、')}已經不能用了！`]] : [['partner', '他的能力全都還在……要小心！']]),
+    ['partner', '還有那個金屬噪音……被標記的卡要記得打出去！']])]),
   3: async () => {
     const scenes = [bossScene('castle', 'drone', 'Devimon', [['devimon', '哼哼哼…被選召的孩子，竟然能走到這裡。不過，你們的冒險就到此為止了！'], ['partner', '惡魔獸！我們絕對不會輸給你！']])];
     if (F().leomon) scenes.push({ bg: 'burst', amb: null, sting: true, chars: [['Leomon', 50, 76, 48, 'in-l']], fx: '<div class="cutSpeed"></div>',
@@ -324,6 +327,7 @@ async function bossDefeated() {
   if (RUN.chapter === 1) { addFlag('saved'); await say('meramon', '我…我怎麼了？…是你們救了我嗎？謝謝你們！'); }
   else if (RUN.chapter === 'city') { addFlag('saved'); await say('andromon', '系統…恢復正常。被選召的孩子，感謝你。這份資料給你。'); await giveRelic(pick(relicPool())); }
   else if (RUN.chapter === 'forest') { addFlag('saved'); await say('jyureimon', '迷霧…散去了…原來森林的陽光這麼溫暖…'); teamHeal(.5); }
+  else if (RUN.chapter === 5) await say('metaletemon', '不、不可能……本大爺的鋼鐵身體……！');
 }
 
 async function chapterComplete() {
@@ -344,6 +348,13 @@ async function chapterComplete() {
     unlockKid('jou');
     await cutscene([{ bg: 'castle', music: 'route', amb: 'wind', chars: [['partner', 28, 78, 32, 'in-l']], lines: [['partner', '看！山頂就在前面了！那裡就是惡魔獸的城堡！']] }]);
     startChapter(3);
+  } else if (RUN.chapter === 4) {
+    await cutscene([
+      { bg: 'desert', music: 'route', amb: 'wind', chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '猴子獸逃走了……牠往沙漠另一邊的金字塔去了！'], [null, '黃沙的盡頭，一座巨大的金字塔閃著詭異的藍光。']] },
+      { bg: 'pyramid', music: null, amb: 'drone', chars: [['Metal_Etemon', 50, 78, 56, 'dark']], lines: [['shadow', '嘿嘿嘿……來吧，到本大爺的金字塔裡來……'], ['shadow', '這次的演唱會，可是用「鋼鐵」打造的喔～']] },
+      { bg: 'pyramid', music: 'route', amb: 'drone', chars: [['partner', 30, 78, 30, 'in-l']], lines: [['partner', '裡面是迷宮……地板上好像有奇怪的傳送陣。'], [null, '💻 迷宮裡的<b>駭客終端</b>可以關掉頭目的能力；🌀 傳送點是捷徑，但也有<b>看不見的傳送陷阱</b>。']] },
+    ]);
+    startChapter(5);
   } else if (CHAPTERS[RUN.chapter].next === 'p2done') {
     await part2ChapterDone();
     return;
@@ -352,7 +363,7 @@ async function chapterComplete() {
     return;
   }
   saveRun();
-  await chapterCard(CHAPTERS[RUN.chapter].title, '全隊回復了 50% HP');
+  await chapterCard(CHAPTERS[RUN.chapter].title, RUN.chapter === 5 ? '全隊回復了 50% HP｜在金字塔迷宮裡駭入終端，削弱機械猴子獸！' : '全隊回復了 50% HP');
   showRoute();
 }
 

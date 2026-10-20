@@ -23,6 +23,10 @@ function genRoute(chKey) {
     }
     floors.push(row);
   }
+  if (chKey === 5) for (let f = 1; f <= 4; f++) {   // 金字塔：第 2～5 層各有一個駭客終端
+    const row = floors[f], c = row.filter(nd => !['shop', 'rest'].includes(nd.type));
+    if (!row.some(nd => nd.type === 'hack') && c.length) pick(c).type = 'hack';
+  }
   // 連線：依位置比例連到下一層，並保證每個節點都走得到
   for (let f = 0; f < F - 1; f++) {
     const a = floors[f], b = floors[f + 1];
@@ -112,11 +116,15 @@ function genArea(nd) {
         if ((x - cx) ** 2 + ((y - cy) * 1.3) ** 2 <= r * r + rand(-1, 1)) T[y][x] = ch;
     }
   };
-  blob(',', randInt(5, 8), 1.5, 3.2);
-  blob('T', theme === 'forest' ? randInt(9, 13) : theme === 'desert' ? randInt(3, 5) : randInt(5, 8), .8, 1.8);
-  if (theme === 'mountain' || theme === 'desert') blob('R', randInt(4, 6), .8, 1.6);
-  blob('~', theme === 'desert' ? randInt(0, 1) : randInt(1, 2), 1.2, 2.2);
-  const start = { x: 1, y: randInt(4, ROWS - 5) }, exit = { x: COLS - 2, y: randInt(3, ROWS - 4) };
+  const maze = theme === 'pyramid';
+  if (maze) pyramidMaze(T);   // 金字塔：走道迷宮
+  else {
+    blob(',', randInt(5, 8), 1.5, 3.2);
+    blob('T', theme === 'forest' ? randInt(9, 13) : theme === 'desert' ? randInt(3, 5) : randInt(5, 8), .8, 1.8);
+    if (theme === 'mountain' || theme === 'desert') blob('R', randInt(4, 6), .8, 1.6);
+    blob('~', theme === 'desert' ? randInt(0, 1) : randInt(1, 2), 1.2, 2.2);
+  }
+  const start = { x: 1, y: maze ? oddRow() : randInt(4, ROWS - 5) }, exit = { x: COLS - 2, y: maze ? oddRow() : randInt(3, ROWS - 4) };
   const clear = (p, r) => { for (let y = p.y - r; y <= p.y + r; y++) for (let x = p.x - r; x <= p.x + r; x++) if (x > 0 && y > 0 && x < COLS - 1 && y < ROWS - 1) T[y][x] = '.'; };
   clear(start, 1); clear(exit, 1);
   // 保證能從起點走到出口
@@ -154,7 +162,7 @@ function genArea(nd) {
   };
   const place = (o, cands) => {
     cands = shuffle(cands.slice());
-    const p = ['enemy', 'chest', 'pickup'].includes(o.kind) ? cands[0] : cands.find(c => !blocksPath(c));
+    const p = ['enemy', 'chest', 'pickup', ...PASS_KINDS].includes(o.kind) ? cands[0] : cands.find(c => !blocksPath(c)) || (maze && o.kind === 'npc' ? cands[0] : null);
     if (!p) return;
     used.add(`${p.x},${p.y}`); objs.push({ ...o, x: p.x, y: p.y });
   };
@@ -197,6 +205,9 @@ function genArea(nd) {
       place({ ...enemy('guard', 'numemon', 1), tut: 1 }, nearExit());
       break;
     }
+    case 'hack':
+      if (Math.random() < .6) place(enemy('roam', pick(ch.zone), lv - 1), free(6));
+      break;
     case 'puzzle':
       place({ kind: 'stone' }, middle());
       if (Math.random() < .5) place(enemy('roam', pick(ch.zone), lv - 1), free(6));
@@ -215,6 +226,7 @@ function genArea(nd) {
     if (['battle', 'treasure', 'event'].includes(nd.type) && Math.random() < .2) place({ kind: 'stone' }, free(5));
   }
   maybePlaceAssist(place, free, nd.type);   // 援護事件：任何地圖都可能出現
+  extraObjs(nd, place, free, T, dist);   // 第二部：傳送點、陷阱、駭客終端、徽章、樂團
   return { T, objs, start, exit, theme, nd, x: start.x, y: start.y, mv: { moving: false, t: 0 }, facing: 1, seen: new Uint8Array(COLS * ROWS) };
 }
 
@@ -223,7 +235,7 @@ function exitLocked() {
 }
 
 // ---------- 迷霧：只看得到身邊，走過的地方會記住地形 ----------
-const sightR = () => 4 + K().sight + (has('radar') ? 2 : 0);
+const sightR = () => 4 + K().sight + (has('radar') ? 2 : 0) - (AREA && AREA.theme === 'pyramid' ? 1 : 0);   // 金字塔裡比較暗
 function reveal() {
   const A = AREA, R = sightR();
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
@@ -233,12 +245,12 @@ function reveal() {
 // ---------- 存檔：把目前的節點地圖存起來（關掉網頁再回來會回到同一個地方） ----------
 function serializeArea(A) {
   return { T: A.T, objs: A.objs, start: A.start, exit: A.exit, theme: A.theme, nd: { f: A.nd.f, i: A.nd.i, type: A.nd.type },
-           x: A.mv.moving ? A.mv.toX : A.x, y: A.mv.moving ? A.mv.toY : A.y, facing: A.facing, seen: Array.from(A.seen), introDone: !!A.introDone, scanned: !!A.scanned };
+           x: A.mv.moving ? A.mv.toX : A.x, y: A.mv.moving ? A.mv.toY : A.y, facing: A.facing, seen: Array.from(A.seen), introDone: !!A.introDone, scanned: !!A.scanned, seal: A.seal || null };
 }
 function restoreArea(d) {
   const nd = (RUN.route && RUN.route[d.nd.f] && RUN.route[d.nd.f][d.nd.i]) || d.nd;
   return { T: d.T, objs: d.objs, start: d.start, exit: d.exit, theme: d.theme, nd, x: d.x, y: d.y, facing: d.facing || 1,
-           mv: { moving: false, t: 0 }, seen: Uint8Array.from(d.seen), introDone: d.introDone, scanned: d.scanned };
+           mv: { moving: false, t: 0 }, seen: Uint8Array.from(d.seen), introDone: d.introDone, scanned: d.scanned, seal: d.seal || undefined };
 }
 async function resumeArea(data) {
   AREA = restoreArea(data);
@@ -264,8 +276,9 @@ async function enterArea(nd) {
   const info = NODE_INFO[nd.type];
   banner(`${info.icon} ${info.name}`);
   const hint = { battle: '打倒守在出口的數碼寶貝才能離開', elite: '出口被暗黑化的強敵擋住了！', event: '好像有誰在等你…去跟牠說說話',
-                 rest: '找到回復泉了', shop: '玩偶獸開了一家商店', egg: '附近有一顆數碼蛋', treasure: '這裡散落著寶箱！', tutorial: '長老獸的訓練場', puzzle: '發現了一座古代遺跡，石碑上刻著謎題', boss: '強大的氣息…頭目就在出口前' }[nd.type];
+                 rest: '找到回復泉了', shop: '玩偶獸開了一家商店', egg: '附近有一顆數碼蛋', treasure: '這裡散落著寶箱！', tutorial: '長老獸的訓練場', puzzle: '發現了一座古代遺跡，石碑上刻著謎題', hack: '迷宮深處有一台古代終端機，駭進去可以削弱機械猴子獸', boss: '強大的氣息…頭目就在出口前' }[nd.type];
   toast(hint, 3000);
+  if (AREA.objs.some(o => o.kind === 'crest')) setTimeout(() => toast('📟 數碼裝置有微弱的反應……這張地圖好像埋著徽章！（左上角的雷達越熱越近）', 4000), 3100);
   saveRun();   // 一進節點就存檔：商店的貨、寶箱、敵人都固定下來，不能用重開來刷
   if (nd.type === 'boss') { await bossIntro(); AREA.introDone = true; saveRun(); }
   if (P2() && RUN.chapter === 4 && !RUN.crest && nd.f >= 2) await crestEvent();   // 第四章中段：拿到自己的徽章
@@ -291,6 +304,7 @@ const objAt = (x, y) => AREA.objs.find(o => !o.done && o.x === x && o.y === y);
 
 function updateArea(dt) {
   const A = AREA, m = A.mv;
+  ch5Tick(A);
   if (m.moving) {
     m.t += dt / (STEP_TIME * (m.len || 1));   // 斜走一步比較遠（×1.4）
     if (m.t >= 1) { m.moving = false; A.x = m.toX; A.y = m.toY; reveal(); }
@@ -310,13 +324,14 @@ function updateArea(dt) {
       const step = (sx, sy) => {
         const nx = A.x + sx, ny = A.y + sy;
         if (nx === A.exit.x && ny === A.exit.y) { A.path = null; tryExit(); return true; }
+        if (sealBlocks(A, nx, ny)) { A.path = null; return false; }   // 陷阱房的光牆
         const o = objAt(nx, ny);
         if (o) { A.path = null; interact(o); return true; }
         if (SOLID.has(A.T[ny][nx])) return false;
         Object.assign(m, { fromX: A.x, fromY: A.y, toX: nx, toY: ny, t: 0, moving: true, len: sx && sy ? 1.41 : 1 });
         return true;
       };
-      const free = (x, y) => !SOLID.has(A.T[y][x]) && !objAt(x, y);
+      const free = (x, y) => !SOLID.has(A.T[y][x]) && !objAt(x, y) && !sealBlocks(A, x, y);
       if (dx && dy) {
         // 斜著走：旁邊兩格都是空地才能過（不能穿過牆角）；過不去就沿著牆滑
         if (!(free(A.x + dx, A.y) && free(A.x, A.y + dy) && step(dx, dy))) { if (!step(dx, 0)) step(0, dy); }
@@ -337,7 +352,7 @@ function updateArea(dt) {
     for (const [dx, dy] of dirs) {
       const nx = o.x + dx, ny = o.y + dy;
       if (nx === px && ny === py) { interact(o); return; }
-      if (SOLID.has(A.T[ny][nx]) || objAt(nx, ny) || (nx === A.exit.x && ny === A.exit.y)) continue;
+      if (SOLID.has(A.T[ny][nx]) || objAt(nx, ny) || (nx === A.exit.x && ny === A.exit.y) || (o.amb && sealBlocks(A, nx, ny))) continue;
       o.x = nx; o.y = ny; break;
     }
   }
@@ -373,6 +388,7 @@ async function interact(o) {
   else if (o.kind === 'egg') { o.done = true; await hatchEgg(); }
   else if (o.kind === 'pickup') { o.done = true; await openPickup(); }
   else if (o.kind === 'stone') { if (await stoneTablet()) o.done = true; }
+  else await ch5Interact(o);
   backToArea();
 }
 function backToArea() {
@@ -396,7 +412,8 @@ function findPath(tx, ty) {
       const nx = c.x + dx, ny = c.y + dy, k = key(nx, ny);
       if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS || prev.has(k)) continue;
       // 目標格可以是物件或出口；路上不能穿過牆和物件
-      const blocked = SOLID.has(A.T[ny][nx]) || ((objAt(nx, ny) || (nx === A.exit.x && ny === A.exit.y)) && !isTarget(nx, ny));
+      const ob = objAt(nx, ny), hiddenTrap = ob && ob.kind === 'trap';   // 看不見的陷阱不能拿來繞路（會直接踩上去）
+      const blocked = SOLID.has(A.T[ny][nx]) || sealBlocks(A, nx, ny) || (((ob && !hiddenTrap) || (nx === A.exit.x && ny === A.exit.y)) && !isTarget(nx, ny));
       if (blocked) continue;
       prev.set(k, c); q.push({ x: nx, y: ny });
     }
@@ -587,6 +604,7 @@ const PALETTE = {
   metal:    { floor: '#a3abbb', dot: '#8b93a3', grass: '#7f8899', tuft: '#666f80', treeBg: '#8b93a3', tree: '#4b5263', treeHi: '#6b7385', water: '#2b3a55', wave: '#5eead4', crate: true },
   forest:   { floor: '#6f8d55', dot: '#5c7746', grass: '#3f6e3b', tuft: '#2d5530', treeBg: '#4f7040', tree: '#1f4a2a', treeHi: '#2f6038', water: '#355f6e', wave: '#8ac2c9', fog: true },
   desert:   { floor: '#ecc985', dot: '#d9ad62', grass: '#e0b366', tuft: '#c08f46', treeBg: '#e0b870', tree: '#4f8a3a', treeHi: '#7dbb5a', water: '#38bdf8', wave: '#bae6fd', cactus: true },
+  pyramid:  { floor: '#c9a66b', dot: '#b08c52', grass: '#b8955c', tuft: '#9c7a44', treeBg: '#6b4c26', tree: '#8a6634', treeHi: '#b08850', water: '#1e3a5f', wave: '#22d3ee', brick: true },
   mountain: { floor: '#9a8a92', dot: '#837480', grass: '#7c6a80', tuft: '#665570', treeBg: '#8a7a84', tree: '#4a3d55', treeHi: '#5f5070', water: '#e0532a', wave: '#ffc078', lava: true },
 };
 
@@ -616,7 +634,12 @@ function drawTile(x, y, c, t, P) {
     }
   } else if (c === 'T' || c === 'R') {
     ctx.fillStyle = P.treeBg; ctx.fillRect(px, py, TS, TS);
-    if (P.crate) {
+    if (P.brick) {   // 金字塔：砂岩磚牆
+      ctx.fillStyle = P.tree; const o = (y % 2) * 8;
+      for (let r = 0; r < 2; r++) for (let k = -1; k < 2; k++) ctx.fillRect(px + k * 16 + (r ? o + 8 : o) % 16 + 1, py + r * 16 + 1, 14, 14);
+      ctx.fillStyle = P.treeHi; ctx.fillRect(px, py, TS, 2);
+      if (h % 23 === 0) { ctx.fillStyle = `rgba(34,211,238,${.35 + Math.sin(t * 2 + x) * .25})`; ctx.fillRect(px + 6, py + 14, 20, 2); ctx.fillRect(px + 15, py + 8, 2, 14); }
+    } else if (P.crate) {
       ctx.fillStyle = P.tree; ctx.fillRect(px + 3, py + 3, 26, 26);
       ctx.strokeStyle = P.treeHi; ctx.lineWidth = 2; ctx.strokeRect(px + 6, py + 6, 20, 20);
       ctx.beginPath(); ctx.moveTo(px + 6, py + 6); ctx.lineTo(px + 26, py + 26); ctx.stroke();
@@ -713,7 +736,7 @@ function drawArea(t) {
     } else if (o.kind === 'stone') {
       ctx.fillStyle = `rgba(253,224,71,${.25 + Math.sin(t * 3) * .12})`; ctx.beginPath(); ctx.arc(cx, cy + 2, 17, 0, 7); ctx.fill();
       emojiAt('🗿', cx, cy + 2, 26);
-    }
+    } else drawCh5Obj(o, cx, cy, t);
   }
   // 點擊的目標
   if (A.tapMark && A.path && A.path.length) {
@@ -733,6 +756,7 @@ function drawArea(t) {
     const a = d <= R - 1.2 ? 0 : d <= R ? base * (d - (R - 1.2)) / 1.2 : base;
     if (a > 0) { ctx.fillStyle = `rgba(6,8,22,${a})`; ctx.fillRect(x * TS, y * TS, TS, TS); }
   }
+  drawCh5Overlay(A, rx, ry, t);
   // 用過數據掃描器：還沒撿的碎片在迷霧裡也會標出位置
   if (A.scanned) for (const o of A.objs) {
     if (o.kind !== 'pickup' || o.done || inSight(o.x, o.y)) continue;
@@ -750,6 +774,7 @@ function drawArea(t) {
     ctx.beginPath(); ctx.arc(ex, ey, 9, 0, 7); ctx.fill();
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  drawCrestRadar(A, rx, ry, t);
   // 出口在畫面外：在邊緣畫一個指向出口的箭頭
   const exs = ex - CAM.x;
   if (exs > cvs.width - 4 || exs < 4) {
