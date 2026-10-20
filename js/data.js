@@ -25,9 +25,12 @@ const COURAGE_MAX = 120;
 const COURAGE_SAFE = 40;   // 保留線：戰鬥結束後勇氣值 40 以下完全保留，超過的部分減半（舊存檔才用）
 // 第一部規則（v13 起新開的冒險）：只能進化到成熟期、沒有徽章、勇氣值上限 40、不會減半
 const P1 = () => typeof RUN !== 'undefined' && !!RUN && RUN.rules === 'p1';
+const P2 = () => typeof RUN !== 'undefined' && !!RUN && RUN.rules === 'p2';   // 第二部
+const NEW = () => P1() || P2();   // 第一部、第二部共用的新規則（勇氣值 40、背包 4 格、沒有徽章道具…）
 const COURAGE_MAX_P1 = 40;
-const courageMax = () => P1() ? COURAGE_MAX_P1 : COURAGE_MAX;
-const tierCap = f => P1() ? 1 : (f.leader ? 3 : 1);   // 能進化到的最高階段
+const courageMax = () => NEW() ? COURAGE_MAX_P1 : COURAGE_MAX;
+const tierCap = f => P1() ? 1 : P2() ? (f.leader ? (RUN.awaken ? 3 : RUN.crest ? 2 : 1) : 1) : (f.leader ? 3 : 1);   // 能進化到的最高階段
+const crestCost = tier => tier >= 3 ? 2 : 1;   // 第二部：超進化花 1 格徽章刻度、究極進化花 2 格
 const CREST_KEYS = ['courage', 'friendship', 'love', 'knowledge', 'sincerity', 'purity', 'hope', 'light'];
 const teamMax = () => 6 + (K().teamPlus || 0);
 const RECRUIT_CHANCE = 0.2;
@@ -198,6 +201,12 @@ const SPECIES = {
       { name: '黑色戰鬥暴龍獸', img: 'Black_War_Greymon', ult: '黑暗蓋亞炮' },
       { name: '暗黑龍獸', img: 'Darkdramon', ult: '數碼十字', hits: 3 }],
     moves: ['groundzero', 'bite', 'roar'] },
+  // ----- 第二部：伺服大陸（不能勸降，沒有進化路線） -----
+  gazimon:    { name: '加奇獸',   img: 'Gazimon',     emoji: '🐰', attr: 'virus', hp: 46, atk: 13, def: 8,  spd: 12, moves: ['bite', 'electric', 'roar'] },
+  kokatorimon:{ name: '雞頭怪獸', img: 'Kokatorimon', emoji: '🐓', attr: 'data',  hp: 56, atk: 13, def: 10, spd: 8,  moves: ['stoneglare', 'bite', 'guard'] },
+  otamamon:   { name: '蝌蚪獸',   img: 'Otamamon',    emoji: '🐸', attr: 'virus', hp: 42, atk: 11, def: 8,  spd: 10, moves: ['water', 'song', 'bite'] },
+  tyranomon:  { name: '恐龍獸',   img: 'Tyranomon',   emoji: '🦖', attr: 'data',  hp: 62, atk: 15, def: 11, spd: 8,  moves: ['flame', 'bite', 'heavy'] },
+  nanimon:    { name: '納尼獸',   img: 'Nanimon',     emoji: '🕶️', attr: 'virus', hp: 54, atk: 15, def: 9,  spd: 11, moves: ['heavy', 'rock', 'roar'] },
   andromon:   { name: '機械人獸', img: 'Andromon',  emoji: '🦾', attr: 'vaccine', hp: 60, atk: 15, def: 13, spd: 10, moves: ['spiral', 'missile', 'guard'] },
   jyureimon:  { name: '樹人獸',   img: 'Jyureimon', emoji: '🌲', attr: 'virus',   hp: 64, atk: 14, def: 11, spd: 9,  moves: ['cherry', 'branch', 'spore', 'regen'] },
   devimon:    { name: '惡魔獸',   img: 'Devimon',   emoji: '😈', attr: 'virus',   hp: 62, atk: 16, def: 11, spd: 12, moves: ['deathclaw', 'darkwing', 'roar', 'guard', 'regen'] },
@@ -284,12 +293,22 @@ const CARDS = {
   notes:     { name: '戰術筆記', cost: 0, type: 'skill', shop: 90, desc: u => `這回合 📌 保留上限 +1<br>抽 ${u ? 2 : 1} 張牌`, fx: u => { B.pinBonus = 1; drawCards(u ? 2 : 1); } },
   breaker:   { name: '破甲彈', cost: 2, type: 'atk', shop: 150, desc: u => `清除敵人的護盾<br>造成 ${dmgTxt(u ? 15 : 11)} 傷害<br><small>對頭目、精英傷害 ×1.5</small>`, fx: u => { if (B.e.block) { B.e.block = 0; floatText(B.e, '護盾粉碎！', 'info', 60); } hit((u ? 15 : 11) * (B.e.boss || B.e.elite ? 1.5 : 1)); } },
   signal:    { name: '友好訊號', cost: 1, type: 'skill', shop: 90, desc: u => `下一次勸降的成功率 +${u ? 30 : 20}%`, fx: u => { B.e.signal = (B.e.signal || 0) + hv(u ? 30 : 20) / 100; floatText(B.e, '💗 好像願意聽了', 'info', 60); } },
+  // ----- 第二部的新卡（p2：只在第二部出現） -----
+  spread:    { name: '擴散', cost: 1, type: 'skill', p2: true, noTarget: true, desc: u => '這回合下一張攻擊卡<br>打到<b>所有</b>敵人部位<br><small>只有一個敵人時沒有額外效果</small>', fx: u => { B.aoeTurn = B.turnNo; floatText(B.p, '🌐 擴散', 'info'); } },
+  tagres:    { name: '標籤共鳴', cost: 0, type: 'power', p2: true, shop: 500, max: 1, exhaust: true, permanent: true, noTarget: true,
+               canPlay: () => B && P2() && RUN.crest && !B.freeCrest, desc: u => '這場戰鬥下一次超進化<br><b>不消耗徽章刻度</b><br><small>用過就從牌組消失</small>', fx: u => { B.freeCrest = true; floatText(B.p, '🔰 標籤共鳴', 'info'); } },
+  sandstorm: { name: '沙塵暴', cost: 1, type: 'skill', p2: true, desc: u => `敵人接下來 ${u ? 3 : 2} 次攻擊<br>各有 50% 機率落空`, fx: u => { B.missN = u ? 3 : 2; floatText(B.e, '🌪️ 沙塵暴', 'info', 60); } },
+  datasteal: { name: '數據竊取', cost: 1, ucost: 0, type: 'skill', p2: true, desc: u => '偷走敵人身上一個<br>強化效果（攻擊↑、加速、守護、護盾）', fx: u => stealBuff() },
+  counter:   { name: '反擊架勢', cost: 1, type: 'skill', p2: true, desc: u => `這回合被攻擊時<br>反彈 ${u ? 70 : 50}% 傷害`, fx: u => { B.counterTurn = B.turnNo; B.counterPct = u ? .7 : .5; floatText(B.p, '↩️ 反擊架勢', 'info'); } },
+  charge:    { name: '蓄力一擊', cost: 1, ucost: 0, type: 'skill', p2: true, desc: u => '下一張攻擊卡<br>傷害 ×2', fx: u => { B.chargeNext = true; floatText(B.p, '💥 蓄力', 'info'); } },
   purify:    { name: '淨化', cost: 1, ucost: 0, type: 'skill', shop: 120, noHalf: true, max: 2, desc: u => '清除手牌和出戰夥伴<br>身上的負面效果<br><small>整局最多 2 張</small>', fx: u => purifyAll() },
 };
 const TYPE_NAME = { atk: '攻擊', skill: '技能', power: '強化', sig: '必殺', ult: '究極' };
 const STARTER_DECK = ['strike', 'strike', 'strike', 'strike', 'guard', 'guard', 'guard', 'sig', 'sig', 'focus'];
 const SHOP_POOL = Object.keys(CARDS).filter(k => CARDS[k].shop);   // 商店限定卡
+const shopPool = () => SHOP_POOL.filter(k => !CARDS[k].p2 || P2());
 const REWARD_POOL = ['double', 'heavy', 'wall', 'haste', 'heal', 'jam', 'drain', 'scan', 'cry', 'pierce', 'rush', 'sig', 'focus', 'crest', 'hotblood', 'hotblood'];
+const rewardPool = () => P2() ? [...REWARD_POOL, 'spread', 'sandstorm', 'datasteal', 'counter', 'charge'] : REWARD_POOL;
 
 function sigDef(sp, u) {
   const fl = flavor(sp.flavor, 0), pw = Math.round(sp.sig.power * (u ? 1.4 : 1));
@@ -344,6 +363,8 @@ const MOVES = {
   cherry:   { name: '櫻桃炸彈', kind: 'atk', power: 7, hits: 2, status: ['poison', 2], chance: .5, w: 3 },
   deathclaw:{ name: '死亡之手', kind: 'atk', power: 16, status: ['para', 2], chance: .5, w: 2 },
   darkwing: { name: '黑暗之翼', kind: 'atk', power: 6, hits: 2, w: 3 },
+  stoneglare:{ name: '石化凝視', kind: 'atk', power: 8, status: ['para', 2], chance: .5, w: 2 },
+  loveSerenade:{ name: '愛之小夜曲・全力', kind: 'serenade', w: 0 },
   regen:    { name: '黑暗再生', kind: 'heal', heal: .12, w: 1 },
   deathmark:{ name: '死亡宣告', kind: 'doom', w: 0 },
 };
@@ -377,7 +398,7 @@ const has = k => RUN.relics.includes(k);
 // =========================================================
 //   背包道具（戰鬥中使用，不花能量；最多帶 4 個，舊存檔 3 個）
 // =========================================================
-const bagMax = () => (P1() ? 4 : 3) + (has('bigbag') ? 1 : 0);
+const bagMax = () => (NEW() ? 4 : 3) + (has('bigbag') ? 1 : 0);
 const ITEMS = {
   potion: { name: '回復藥',   icon: '💊', desc: '一隻夥伴回復 30% HP（戰鬥中給出戰夥伴，戰鬥外可以自己選）' },
   juice:  { name: '勇氣飲料', icon: '🧃', desc: '勇氣值 +25' },
@@ -418,7 +439,7 @@ async function addItem(k) {
     return true;
   }
 }
-const relicPool = () => Object.keys(RELICS).filter(k => !RELICS[k].dark && !RELICS[k].special && !has(k) && !(k === 'hope' && RUN.flags.hopeUsed) && !(P1() && CREST_KEYS.includes(k)));   // 第一部沒有徽章
+const relicPool = () => Object.keys(RELICS).filter(k => !RELICS[k].dark && !RELICS[k].special && !has(k) && !(k === 'hope' && RUN.flags.hopeUsed) && !(NEW() && CREST_KEYS.includes(k)));   // 第一部沒有徽章
 
 // =========================================================
 //   章節
@@ -436,6 +457,10 @@ const CHAPTERS = {
   3: { title: '第三章　無限山', theme: 'mountain', floors: 7, lv: [8, 12],
        zone: ['orgemon', 'unimon', 'meramon', 'gekomon', 'shellmon', 'guardromon'],
        elites: ['skullgreymon', 'etemon'], boss: { id: 'devimon', lv: 16, domain: 'dark' }, next: 'end' },
+  // ----- 第二部 -----
+  4: { title: '第四章　伺服大陸・沙漠', theme: 'desert', floors: 7, lv: [14, 18],
+       zone: ['gekomon', 'gottsumon', 'numemon', 'gazimon', 'kokatorimon', 'otamamon'],
+       elites: ['tyranomon', 'nanimon'], boss: { id: 'etemon', lv: 20, domain: 'concert' }, next: 'p2done' },
 };
 // 頭目／精英的領域效果（對玩家不利）
 const DOMAINS = {
@@ -443,6 +468,7 @@ const DOMAINS = {
   jam:   { name: '干擾電波', icon: '📡', desc: '手牌少補 1 張、換手多花 1 能量；鎖定分析：進化中的夥伴傷害 +40%；看破手牌、召喚小齒輪' },
   fog:   { name: '迷霧森林', icon: '🌫️', desc: '看不到招式預告，勇氣值獲得減半；寄生之根；霧化手牌、種植回血' },
   dark:  { name: '黑暗壓迫', icon: '🌑', desc: '進化消耗 +30%、持續回合 -1；卡片汙染；血量剩一半時進入第二階段' },
+  concert: { name: '黑暗演唱會', icon: '🎤', desc: '每 3 次行動唱一次「愛之小夜曲」（會先預告），出攻擊卡可以打斷；沒打斷的話下回合能量 -1' },
   armor: { name: '暗黑之軀', icon: '🛡️', desc: '被黑色齒輪強化，受到的傷害 -15%' },
 };
 // 頭目戰開始前的說明視窗
@@ -461,6 +487,9 @@ const BOSS_INFO = {
          ['☠️ 卡片汙染', '每次行動後汙染你下一手牌的 1 張（第二階段 2 張），<b>效果減半</b>，究極技也會被汙染。打出被汙染的卡，所有同名的卡 2 回合內都會效果減半。'],
          ['💥 第二階段', '血量剩一半時：進化中的夥伴會被<b>強制退化</b>（沒進化的受到 30% 傷害），接下來 1 回合不能進化；之後每 3 次行動發動「☠️ 死亡宣告」（會先預告）。']],
 };
+BOSS_INFO.concert = [['🎤 黑暗演唱會', '猴子獸每 3 次行動會唱一次「<b>愛之小夜曲・全力</b>」，唱之前的那次行動就會預告。'],
+  ['💥 打斷', '預告出現後，你的回合只要<b>出一張攻擊卡</b>（必殺、究極技也算）就能打斷這首歌。'],
+  ['💘 陶醉', '沒打斷的話，你的夥伴會聽得陶醉，<b>下回合能量 -1</b>。']];
 // 究極之證的謎語（撿到神聖計畫時出現）
 const PROOF_RIDDLE = '當孩子懷抱著屬於自己的徽章，<br>與最初相遇的夥伴一同登上究極之巔，<br>幾乎毫髮無傷地擊倒強大的敵人——<br>那份證明，將會顯現。';
 // 孩子自己的徽章道具（太一 → 勇氣徽章…）
@@ -511,12 +540,19 @@ const KIDS = {
               card: 'lightward', line: '…我感覺得到，數碼寶貝們在呼喚我們。', mods: { heal: 1.5, deckMax: 18, noWrong: true, firstDisc: true }, partner: 'plotmon', unlock: '收集 2 種結局後解鎖' },
 };
 const KID_DEFAULT = { teamPlus: 0, teamAtk: false, lowHpPenalty: false, loveGuard: false, blockDef: false, forceSuccess: 0, forceWrong: 0, startCourage: 0, springPlus: 0, firstDisc: false, noWrong: false, noRecoil: false, sight: 0, atk: 1, taken: 1, courage: 1, bits: 1, shop: 1, hp: 1, spd: 1, heal: 1, evo: 1, draw: 0, block: 0, persuade: 0, winHeal: 0, deckMax: 20 };
-function K() { return { ...KID_DEFAULT, ...((typeof RUN !== 'undefined' && RUN && KIDS[RUN.kid]) ? KIDS[RUN.kid].mods : {}) }; }
+function K() {
+  const k = { ...KID_DEFAULT, ...((typeof RUN !== 'undefined' && RUN && KIDS[RUN.kid]) ? KIDS[RUN.kid].mods : {}) };
+  if (P2()) {
+    k.deckMax += 2; k.shop *= 1.8;   // 第二部：牌組上限 +2、商店價格 ×1.8
+    if (RUN.crest && typeof AWAKEN !== 'undefined' && AWAKEN[RUN.kid]) Object.assign(k, AWAKEN[RUN.kid].mods);   // 徽章覺醒
+  }
+  return k;
+}
 function gainBits(n) { const v = Math.round(n * K().bits); RUN.bits += v; return v; }
 // ---------- 牌組上限：整副 20 張（嘉兒 18），每一類也有上限 ----------
 const CAT_INFO = {
-  atk: { icon: '⚔️', name: '攻擊', max: 8 },
-  def: { icon: '🛡️', name: '防禦回復', max: 6 },
+  atk: { icon: '⚔️', name: '攻擊', get max() { return P2() ? 9 : 8; } },   // 第二部 9 張
+  def: { icon: '🛡️', name: '防禦回復', get max() { return P2() ? 7 : 6; } },
   cou: { icon: '🔥', name: '勇氣', max: 3 },
   buf: { icon: '💨', name: '強化干擾', max: 4 },
   sig: { icon: '✴️', name: '必殺', max: 3 },
@@ -525,6 +561,7 @@ const CARD_CAT = {
   strike: 'atk', double: 'atk', heavy: 'atk', drain: 'atk', pierce: 'atk', hotblood: 'atk', beastking: 'atk', reckless: 'atk', friendship: 'atk', allin: 'atk', relay: 'atk', breaker: 'atk',
   guard: 'def', wall: 'def', heal: 'def', tender: 'def', prepare: 'def', lightward: 'def', friend: 'def', lovebox: 'def', purify: 'def',
   focus: 'cou', crest: 'cou', blossom: 'cou',
+  counter: 'def', spread: 'buf', tagres: 'buf', sandstorm: 'buf', datasteal: 'buf', charge: 'buf',
   haste: 'buf', jam: 'buf', scan: 'buf', cry: 'buf', rush: 'buf', analyze: 'buf', hopelight: 'buf', evoext: 'buf', signal: 'buf', notes: 'buf', overclock: 'buf',
 };
 const cardCat = id => { const b = id.replace('+', ''); return b === 'sig' ? 'sig' : CARD_CAT[b] || 'buf'; };
@@ -557,6 +594,8 @@ function sellPrice(id) { const b = id.replace('+', ''), c = CARDS[b]; return (c 
 // 商店的卡片強化：第一次 30，之後每次 ×1.5（整局累計）
 const shopUpPrice = () => Math.round(30 * Math.pow(1.5, RUN.shopUps || 0) * K().shop);
 const ULT_BOOST_PRICE = 500;   // 究極強化（不打折）
+const ultBoostPrice = () => P2() ? 1000 : ULT_BOOST_PRICE;
+const TAGRES_PRICE = 500;   // 標籤共鳴（第二部商店，固定價）
 const healAmt = n => Math.round(n * K().heal);
 function newMember(sp, level) {
   return { uid: Date.now() + Math.random(), sp, level, exp: 0, hp: scaleStats(SPECIES[sp], level).maxhp };
@@ -568,9 +607,12 @@ function makeEnemy(id, lv, opt = {}) {
   if (opt.boss) { s.maxhp = Math.round(s.maxhp * 3.6); s.atk = Math.round(s.atk * 1.35); s.def = Math.round(s.def * 1.15); }
   // 難度旋鈕：敵人整體的血量與攻擊加成
   // 各章節的敵人強度：第一章手下留情，越後面越強 [血量, 攻擊]
-  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2] };
+  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35] };
   const [chHp, chAtk] = (typeof RUN !== 'undefined' && RUN && CH_SCALE[RUN.chapter]) || [1, 1];
   s.maxhp = Math.round(s.maxhp * ENEMY_HP * chHp); s.atk = Math.round(s.atk * ENEMY_ATK * chAtk);
+  // 第二部的頭目再加強（第二部隊伍有完全體可以用；用電腦模擬調到勝率約六成）
+  const BOSS_EXTRA = { 4: [2.34, 1.78] };
+  if (opt.boss && typeof RUN !== 'undefined' && RUN && BOSS_EXTRA[RUN.chapter]) { s.maxhp = Math.round(s.maxhp * BOSS_EXTRA[RUN.chapter][0]); s.atk = Math.round(s.atk * BOSS_EXTRA[RUN.chapter][1]); }
   const name = (opt.elite ? '暗黑' : '') + sp.name;
   return { id, sp, name, img: sp.img, emoji: sp.emoji, attr: sp.attr, lvl: lv, ...s, hp: s.maxhp,
            block: 0, st: {}, gauge: rand(0, 30), moves: sp.moves, boss: !!opt.boss, elite: !!opt.elite, tier: 0 };

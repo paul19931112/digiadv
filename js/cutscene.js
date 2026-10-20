@@ -88,6 +88,13 @@ const PAINT = {
     for (const [x, c] of [[.3, '#a855f7'], [.7, '#ec4899']]) { const sway = Math.sin(t * .8 + x * 9) * W * .05; g.save(); g.globalCompositeOperation = 'screen';
       g.fillStyle = cutGrad(g, 0, H, [c + 'aa', c + '00']); g.beginPath(); g.moveTo(W * x + sway, 0); g.lineTo(W * .25, H * .95); g.lineTo(W * .75, H * .95); g.fill(); g.restore(); }
   },
+  desert(g, W, H, t) {   // 正午的沙漠：太陽、好幾層沙丘、遠方的金字塔
+    g.fillStyle = cutGrad(g, 0, H * .5, ['#38bdf8', '#fde68a']); g.fillRect(0, 0, W, H);
+    cutGlow(g, W * .2, H * .15, H * .35, [[0, '#fff'], [.1, '#fffbeb'], [.4, '#fde68a55'], [1, '#0000']]);
+    g.fillStyle = '#92400e66'; g.beginPath(); g.moveTo(W * .56, H * .47); g.lineTo(W * .64, H * .32); g.lineTo(W * .72, H * .47); g.fill();
+    ['#fcd34d', '#fbbf24', '#f59e0b', '#d97706', '#b45309'].forEach((c, l) => { const y0 = H * (.45 + l * .11); g.fillStyle = c; g.beginPath(); g.moveTo(0, H);
+      for (let x = 0; x <= W; x += 8) g.lineTo(x, y0 + Math.sin(x / (W * (.18 - l * .02)) + l * 2) * H * .04 + (l === 0 ? Math.sin(x / 40 + t * 3) * 1.5 : 0)); g.lineTo(W, H); g.fill(); });
+  },
   void(g, W, H, t) {   // 黑暗紫霧
     g.fillStyle = '#05010a'; g.fillRect(0, 0, W, H);
     for (let i = 0; i < 6; i++) cutGlow(g, W * (.5 + .45 * Math.sin(t * .2 + i * 1.7)), H * (.5 + .35 * Math.cos(t * .17 + i * 2.3)), W * .5, [[0, '#4c1d9533'], [1, '#0000']]);

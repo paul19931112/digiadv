@@ -113,9 +113,9 @@ function genArea(nd) {
     }
   };
   blob(',', randInt(5, 8), 1.5, 3.2);
-  blob('T', theme === 'forest' ? randInt(9, 13) : randInt(5, 8), .8, 1.8);
-  if (theme === 'mountain') blob('R', randInt(4, 6), .8, 1.6);
-  blob('~', randInt(1, 2), 1.2, 2.2);
+  blob('T', theme === 'forest' ? randInt(9, 13) : theme === 'desert' ? randInt(3, 5) : randInt(5, 8), .8, 1.8);
+  if (theme === 'mountain' || theme === 'desert') blob('R', randInt(4, 6), .8, 1.6);
+  blob('~', theme === 'desert' ? randInt(0, 1) : randInt(1, 2), 1.2, 2.2);
   const start = { x: 1, y: randInt(4, ROWS - 5) }, exit = { x: COLS - 2, y: randInt(3, ROWS - 4) };
   const clear = (p, r) => { for (let y = p.y - r; y <= p.y + r; y++) for (let x = p.x - r; x <= p.x + r; x++) if (x > 0 && y > 0 && x < COLS - 1 && y < ROWS - 1) T[y][x] = '.'; };
   clear(start, 1); clear(exit, 1);
@@ -268,6 +268,7 @@ async function enterArea(nd) {
   toast(hint, 3000);
   saveRun();   // 一進節點就存檔：商店的貨、寶箱、敵人都固定下來，不能用重開來刷
   if (nd.type === 'boss') { await bossIntro(); AREA.introDone = true; saveRun(); }
+  if (P2() && RUN.chapter === 4 && !RUN.crest && nd.f >= 2) await crestEvent();   // 第四章中段：拿到自己的徽章
 }
 
 function leaveArea() {
@@ -432,7 +433,7 @@ async function openChest(rich) {
     await say(null, `寶箱裡有 ${ITEMS[k].icon} ${ITEMS[k].name}！`);
     await addItem(k);
   } else if (r < .88) {
-    const id = await pickScreen({ title: '🎁 寶箱裡有卡片', sub: '選一張加入牌組', items: shuffle([...REWARD_POOL]).slice(0, 3), render: id => cardEl(id) });
+    const id = await pickScreen({ title: '🎁 寶箱裡有卡片', sub: '選一張加入牌組', items: shuffle([...rewardPool()]).slice(0, 3), render: id => cardEl(id) });
     if (id) await acquireCard(id);
   } else {
     teamHeal(.3);
@@ -445,7 +446,7 @@ async function openPickup() {
   if (r < .45) { const b = gainBits(randInt(10, 25)); toast(`💾 解析數據碎片：💰 ${b} 數碼幣`); }
   else if (r < .85) await addItem(pick(RANDOM_ITEMS));
   else if (r < .95) {
-    const id = await pickScreen({ title: '💾 數據碎片裡藏著卡片的資料', sub: '選一張加入牌組', items: shuffle([...REWARD_POOL]).slice(0, 3), render: id => cardEl(id) });
+    const id = await pickScreen({ title: '💾 數據碎片裡藏著卡片的資料', sub: '選一張加入牌組', items: shuffle([...rewardPool()]).slice(0, 3), render: id => cardEl(id) });
     if (id) await acquireCard(id);
   } else if (relicPool().length) {
     const k = pick(relicPool()); RUN.relics.push(k);
@@ -454,7 +455,7 @@ async function openPickup() {
   updateHUD();
 }
 async function restSpot() {
-  const amt = (has('purity') ? .7 : .4) + (P1() ? K().springPlus : 0);   // 美美：回復泉 +15%
+  const amt = (has('purity') ? .7 : .4) + (NEW() ? K().springPlus : 0);   // 美美：回復泉 +15%
   const c = await ask(null, '清澈的回復泉閃閃發光。要怎麼休息呢？', [
     { text: `休息`, note: `全隊回復 ${Math.min(100, Math.round(amt * K().heal * 100))}% HP` },
     { text: '特訓', note: '強化一張卡片', disabled: !RUN.deck.some(canUpgrade) },
@@ -497,8 +498,8 @@ async function hatchEgg() {
 async function openShop(o) {
   if (!o.stock) {
     o.stock = {
-      cards: [...shuffle([...REWARD_POOL]).slice(0, 2).map(id => ({ id, price: Math.round(randInt(40, 65) * K().shop), sold: false })),
-              ...shuffle([...SHOP_POOL]).slice(0, 2).map(id => ({ id, price: Math.round(CARDS[id].shop * K().shop), sold: false }))],   // 後 2 張是商店限定卡
+      cards: [...shuffle([...rewardPool()]).slice(0, 2).map(id => ({ id, price: Math.round(randInt(40, 65) * K().shop), sold: false })),
+              ...shuffle(shopPool()).slice(0, 2).map(id => ({ id, price: id === 'tagres' ? TAGRES_PRICE : Math.round(CARDS[id].shop * K().shop), sold: false }))],   // 後 2 張是商店限定卡
       relics: shuffle(relicPool()).slice(0, 2).map(k => ({ k, price: Math.round(randInt(110, 150) * K().shop), sold: false })),
       items: [...shuffle([...RANDOM_ITEMS]).slice(0, 3).map(k => ({ k, price: Math.round(randInt(28, 45) * K().shop), sold: false })),
               { k: 'scanner', price: Math.round(25 * K().shop), sold: false }],   // 數據掃描器：每間商店都有
@@ -516,7 +517,7 @@ async function openShop(o) {
         <div class="shopRow svc">
           <button class="btn" id="svcSell" ${(s.soldN || 0) >= 2 || RUN.deck.length <= minDeck() ? 'disabled' : ''}>💰 出售卡片（${s.soldN || 0}/2）<small>${RUN.deck.length <= minDeck() ? `牌組要超過 ${minDeck()} 張才能賣` : '一般 15、強化 +10、限定卡半價'}</small></button>
           <button class="btn" id="svcUp" ${RUN.bits < upPrice || !RUN.deck.some(canUpgrade) ? 'disabled' : ''}>⬆️ 強化一張卡　💰${upPrice}<small>（第 ${upN} 次，每次 ×1.5）</small></button>
-          ${showUlt ? `<button class="btn evo" id="svcUlt" ${RUN.bits < ULT_BOOST_PRICE ? 'disabled' : ''}>💠 究極強化：所有究極技 +25%　💰${ULT_BOOST_PRICE}</button>` : ''}
+          ${showUlt ? `<button class="btn evo" id="svcUlt" ${RUN.bits < ultBoostPrice() ? 'disabled' : ''}>💠 究極強化：所有究極技 +25%　💰${ultBoostPrice()}</button>` : ''}
           <button class="btn" id="svcHeal" ${RUN.bits < 35 ? 'disabled' : ''}>💊 全隊回復 40%　💰35</button>
         </div>
         <button class="btn primary" id="shopLeave">離開商店</button>`;
@@ -551,8 +552,8 @@ async function openShop(o) {
         render();
       };
       if (showUlt) ov.querySelector('#svcUlt').onclick = () => {
-        if (RUN.bits < ULT_BOOST_PRICE) return;
-        RUN.bits -= ULT_BOOST_PRICE; RUN.relics.push('ultboost'); sfx('levelup');
+        if (RUN.bits < ultBoostPrice()) return;
+        RUN.bits -= ultBoostPrice(); RUN.relics.push('ultboost'); sfx('levelup');
         toast('💠 究極強化！所有究極技的威力 +25%', 3000); render();
       };
       ov.querySelector('#svcHeal').onclick = () => { RUN.bits -= 35; teamHeal(.4); toast('全隊回復了！'); render(); };
@@ -585,6 +586,7 @@ const PALETTE = {
   grass:    { floor: '#e2cf9a', dot: '#cdb67c', grass: '#79bf5c', tuft: '#5a9f43', treeBg: '#5c9c4f', tree: '#2d6a35', treeHi: '#3f8f4a', water: '#3a86d4', wave: '#8cc4f2' },
   metal:    { floor: '#a3abbb', dot: '#8b93a3', grass: '#7f8899', tuft: '#666f80', treeBg: '#8b93a3', tree: '#4b5263', treeHi: '#6b7385', water: '#2b3a55', wave: '#5eead4', crate: true },
   forest:   { floor: '#6f8d55', dot: '#5c7746', grass: '#3f6e3b', tuft: '#2d5530', treeBg: '#4f7040', tree: '#1f4a2a', treeHi: '#2f6038', water: '#355f6e', wave: '#8ac2c9', fog: true },
+  desert:   { floor: '#ecc985', dot: '#d9ad62', grass: '#e0b366', tuft: '#c08f46', treeBg: '#e0b870', tree: '#4f8a3a', treeHi: '#7dbb5a', water: '#38bdf8', wave: '#bae6fd', cactus: true },
   mountain: { floor: '#9a8a92', dot: '#837480', grass: '#7c6a80', tuft: '#665570', treeBg: '#8a7a84', tree: '#4a3d55', treeHi: '#5f5070', water: '#e0532a', wave: '#ffc078', lava: true },
 };
 
@@ -618,6 +620,9 @@ function drawTile(x, y, c, t, P) {
       ctx.fillStyle = P.tree; ctx.fillRect(px + 3, py + 3, 26, 26);
       ctx.strokeStyle = P.treeHi; ctx.lineWidth = 2; ctx.strokeRect(px + 6, py + 6, 20, 20);
       ctx.beginPath(); ctx.moveTo(px + 6, py + 6); ctx.lineTo(px + 26, py + 26); ctx.stroke();
+    } else if (P.cactus && c === 'T') {   // 沙漠：仙人掌
+      ctx.fillStyle = P.tree; ctx.fillRect(px + 13, py + 5, 7, 24); ctx.fillRect(px + 6, py + 12, 4, 9); ctx.fillRect(px + 6, py + 18, 9, 4); ctx.fillRect(px + 23, py + 9, 4, 9); ctx.fillRect(px + 18, py + 15, 9, 4);
+      ctx.fillStyle = P.treeHi; ctx.fillRect(px + 14, py + 6, 2, 22);
     } else if (c === 'R' || P.lava) {
       ctx.fillStyle = P.tree; ctx.beginPath(); ctx.moveTo(px + 4, py + 28); ctx.lineTo(px + 12, py + 6); ctx.lineTo(px + 22, py + 10); ctx.lineTo(px + 29, py + 28); ctx.fill();
       ctx.fillStyle = P.treeHi; ctx.beginPath(); ctx.moveTo(px + 12, py + 6); ctx.lineTo(px + 16, py + 16); ctx.lineTo(px + 9, py + 20); ctx.fill();

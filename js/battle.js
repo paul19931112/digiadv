@@ -13,6 +13,7 @@ $('#domainBar').addEventListener('click', hideDomain);
 
 // 被汙染的卡：效果減半（數值、回合數都減半，小數進位）。只在出牌結算的瞬間為 true
 let HALF = false;
+let CHARGE = 1;   // 蓄力一擊：下一張攻擊卡傷害 ×2
 const hv = n => HALF ? Math.ceil(n / 2) : n;
 
 // 戰鬥中的說明視窗（頭目能力、惡魔獸第二階段）：打開時戰鬥暫停，手動按關閉
@@ -58,7 +59,7 @@ function gainCourage(n, show) {
   updateCourageUI();
 }
 function coolDownCourage() {   // 40 以下完全保留，超過的部分減半（第一部上限就是 40，不用減半）
-  if (P1()) { RUN.courage = Math.min(RUN.courage, courageMax()); updateCourageUI(); return; }
+  if (NEW()) { RUN.courage = Math.min(RUN.courage, courageMax()); updateCourageUI(); return; }
   const c = RUN.courage;
   RUN.courage = Math.floor(c <= COURAGE_SAFE ? c : COURAGE_SAFE + (c - COURAGE_SAFE) / 2);
   updateCourageUI();
@@ -72,6 +73,9 @@ function updateCourageUI() {
     e.title = mx === COURAGE_MAX ? '勇氣值（全隊共用）：用來進化。刻度是 30／60／100，戰鬥結束後保留一半' : `勇氣值（全隊共用）：用來進化，成熟期要 30，最多存 ${mx}`;
   });
   document.querySelectorAll('.courageBar>i').forEach(e => e.style.width = pct);
+  const showCrest = P2() && RUN.crest;   // 第二部：徽章刻度
+  document.querySelectorAll('.crestRow').forEach(e => e.classList.toggle('hidden', !showCrest));
+  if (showCrest) document.querySelectorAll('.crestVal').forEach(e => e.textContent = `${'◆'.repeat(Math.max(0, RUN.crestTicks))}${'◇'.repeat(Math.max(0, CREST_TICKS - RUN.crestTicks))} ${RUN.crestTicks}`);
 }
 
 // ---------- 核心計算 ----------
@@ -109,11 +113,15 @@ function applyHit(att, tgt, power, opts = {}) {
   if (attrMult(att.attr, tgt.attr) > 1) floatText(tgt, '效果拔群！', 'super', 52);
   shake(tgt);
   if (tgt === B.p) gainCourage((d + blocked) / 8);
+  if (tgt === B.p && att === B.e && d > 0 && B.counterTurn === B.turnNo) {   // 反擊架勢
+    const r = Math.max(1, Math.round(d * (B.counterPct || .5))); att.hp = Math.max(0, att.hp - r); floatText(att, `-${r} ↩️`, 'dmg'); checkPhase2();
+  }
   return d;
 }
 function hit(power, hits = 1, opts = {}) {
   let total = 0;
   if (HALF) power /= 2;
+  power *= CHARGE;
   for (let i = 0; i < hits; i++) { if (B.e.hp <= 0) break; total += applyHit(B.p, B.e, power, opts); }
   return total;
 }
@@ -156,7 +164,7 @@ function togglePin(i) {
 // ---------- 手牌上的標記：🔥 燃燒、🌫️ 霧化、☠️ 汙染、🔍 看破（卡片離開手牌就消失） ----------
 function clearMarks(c) { delete c.burn; delete c.fog; delete c.pol; delete c.seen; }
 const baseId = id => id.replace('+', '');
-const cardCost = (c, d = cardDef(c.id)) => Math.max(0, d.cost + (c.seen ? 1 : 0) - (B && B.firstDisc && B.turnNo <= 1 ? 1 : 0));
+const cardCost = (c, d = cardDef(c.id)) => Math.max(0, d.cost + (c.seen ? 1 : 0) - (B && B.firstDisc && (B.turnNo <= 1 || K().discEvery) ? 1 : 0));
 const isHalf = (c, d = cardDef(c.id)) => !d.noHalf && !!(c.pol || (B.spread && B.spread[baseId(c.id)] >= B.turnNo));
 // 頭目行動時先預告，等玩家下一回合抽完牌才套用到手牌上（不然只會打到保留的牌）
 function bossHandAct(e) {
@@ -190,6 +198,13 @@ function applyBossHand() {
   if (got.length) floatText(B.p, got.join(' ') + ' 手牌被干擾了', 'dot', 60);
 }
 // ✨ 淨化（商店限定卡）
+// 數據竊取：偷走敵人一個強化
+function stealBuff() {
+  const e = B.e, p = B.p;
+  for (const k of ['atkUp', 'haste', 'ward']) if (e.st[k]) { p.st[k] = Math.max(p.st[k] || 0, e.st[k]); delete e.st[k]; floatText(p, `🕵️ 偷到 ${STATUS[k].icon}`, 'info'); log(`🕵️ 偷走了 ${e.name} 的${STATUS[k].name}！`); return; }
+  if (e.block > 0) { const v = e.block; e.block = 0; gainBlock(p, v); log(`🕵️ 偷走了 ${e.name} 的護盾（${v}）！`); return; }
+  floatText(e, '沒有東西可以偷', 'info');
+}
 function purifyAll() {
   B.hand.forEach(clearMarks); B.spread = {};
   ['burn', 'poison', 'para', 'root'].forEach(k => delete B.p.st[k]); B.p.stay = 0;
@@ -254,8 +269,8 @@ function runBattle(enemyId, lv, opt = {}) {
     if (opt.preDamage) log(`${e.name} 已經受了重傷！`);
     if (RUN.stats.wins === 0) log('提示：把敵人的血量壓低，再按「🤝 勸降」就有機會讓牠加入隊伍！');
     if (has('courage')) { gainCourage(10); log('🔥 勇氣徽章發光了！勇氣值 +10'); }
-    if (P1() && K().startCourage) { gainCourage(K().startCourage); log(`🔥 ${KIDS[RUN.kid].nick}鼓起勇氣！勇氣值 +${K().startCourage}`); }
-    B.firstDisc = P1() && K().firstDisc;   // 嘉兒：第一回合第一張牌 -1 能量
+    if (NEW() && K().startCourage) { gainCourage(K().startCourage); log(`🔥 ${KIDS[RUN.kid].nick}鼓起勇氣！勇氣值 +${K().startCourage}`); }
+    B.firstDisc = NEW() && K().firstDisc;   // 嘉兒：第一回合第一張牌 -1 能量
     const db = $('#domainBar');
     hideDomain();
     $('#domBadge').classList.toggle('hidden', !dom);
@@ -281,6 +296,7 @@ function intentText(e) {
   if (B.dom === 'fog') return '❓ ？？？';
   const m = MOVES[e.intent];
   if (m.kind === 'doom') return '☠️ 死亡宣告（出戰夥伴會被打到 1 血並強制換下）';
+  if (m.kind === 'serenade') return B.serenadeBroken ? '🎤 （已經打斷）' : '🎤 愛之小夜曲（出攻擊卡打斷！）';
   if (m.kind === 'atk') {
     const est = Math.max(1, Math.round(calcRaw(e, B.p, m.power)));
     const st = m.status ? ` ${STATUS[m.status[0]].icon}` : '';
@@ -316,7 +332,8 @@ function startPlayerTurn() {
   if (checkEnd()) return;
   p.block = 0;
   if (has('sincerity')) gainBlock(p, 4);
-  if (K().blockDef) gainBlock(p, Math.round(3 + p.maxhp * .05));   // 阿丈：每回合護盾
+  if (K().blockDef) gainBlock(p, K().bigBlock ? Math.round(5 + p.maxhp * .08) : Math.round(3 + p.maxhp * .05));   // 阿丈：每回合護盾（覺醒後更多）
+  if (K().discEvery) B.firstDisc = true;   // 嘉兒覺醒：每回合第一張牌 -1
   B.switchedThisTurn = false; B.relayFree = false; B.pinBonus = 0;
   if (B.dom === 'heat') { p.st.burn = Math.max(p.st.burn || 0, 1); floatText(p, '🔥 灼熱！', 'dot', 40); }
   if (p.tier > 0) { p.evoTurns--; if (p.evoTurns <= 0) { devolve(); if (exhaust(p)) return; } }
@@ -324,8 +341,9 @@ function startPlayerTurn() {
   B.carry = 0;
   B.energy = ENERGY + carry + (B.firstTurn && has('light') ? 1 : 0);
   if (carry) log(`⚡ 上回合保留的 ${carry} 點能量帶過來了！`);
+  if (B.charmed) { B.charmed = false; B.energy = Math.max(0, B.energy - 1); log('💘 還陶醉在歌聲裡…能量 -1'); floatText(p, '💘 能量 -1', 'dot'); }
   B.firstTurn = false;
-  const target = HAND_SIZE + (has('knowledge') ? 1 : 0) + K().draw - (B.dom === 'jam' ? 1 : 0);   // 干擾電波：少補 1 張
+  const target = HAND_SIZE + (has('knowledge') ? 1 : 0) + K().draw + (B.turnNo === 1 ? K().firstTurnDraw || 0 : 0) - (B.dom === 'jam' ? 1 : 0);   // 干擾電波：少補 1 張
   drawCards(target - B.hand.filter(c => !c.temp).length);
   applyBossHand();
   banner('你的回合！');
@@ -360,7 +378,13 @@ async function playCard(i, forced) {
   } else {
     if (half) floatText(B.p, '☠️ 效果減半', 'dot', 60);
     HALF = half;
-    try { d.fx(); } finally { HALF = false; }
+    const atkCard = ['atk', 'sig', 'ult'].includes(d.type);
+    if (atkCard && B.chargeNext) { CHARGE = 2; B.chargeNext = false; log('💥 蓄力一擊！這張卡傷害加倍'); }
+    if (atkCard && B.aoeTurn === B.turnNo) B.aoeTurn = 0;   // 擴散用掉了（多部位的敵人在第六章）
+    try { d.fx(); } finally { HALF = false; CHARGE = 1; }
+    if (atkCard && B.dom === 'concert' && B.e.intent === 'loveSerenade' && !B.serenadeBroken && B.e.hp > 0) {   // 猴子獸：打斷愛之小夜曲
+      B.serenadeBroken = true; floatText(B.e, '🎤 打斷！', 'super', 40); log('💥 打斷了猴子獸的歌！');
+    }
   }
   if (c.burn && B.e.hp > 0) {   // 火焰獸的卡片燒傷
     const dd = Math.max(1, Math.round(B.p.maxhp * .06)); B.p.hp = Math.max(0, B.p.hp - dd);
@@ -403,7 +427,7 @@ function enemyTurn() {
   renderBattle();
   setTimeout(async () => {
     if (B !== myB || B.phase !== 'enemy') return;
-    const m = MOVES[e.intent];
+    let m = MOVES[e.intent];
     log(`${e.name} 使用了「${m.name}」！`);
     await Promise.race([enemyVfx(e.intent, m), sleep(1500)]);
     while (noticeOpen()) await sleep(200);   // 說明視窗打開時先暫停
@@ -411,8 +435,12 @@ function enemyTurn() {
     const p = B.p;
     bossHandAct(e);
     if (m.kind === 'atk') {
-      for (let i = 0; i < (m.hits || 1); i++) applyHit(e, p, m.power);
+      if (B.missN > 0) { B.missN--; if (Math.random() < .5) { floatText(p, '🌪️ 落空！', 'info'); log(`🌪️ 沙塵暴！${e.name} 的攻擊落空了`); m = { ...m, power: 0, hits: 0, status: null }; } }
+      for (let i = 0; i < (m.hits ?? 1); i++) applyHit(e, p, m.power);
       if (m.status && p.hp > 0 && Math.random() < (m.chance ?? 1)) addStatus(p, m.status[0], m.status[1]);
+    } else if (m.kind === 'serenade') {   // 猴子獸：愛之小夜曲・全力
+      if (B.serenadeBroken) { floatText(e, '🎤 唱不下去…', 'info'); log('🎤 歌被打斷了，猴子獸愣在原地！'); }
+      else { B.charmed = true; floatText(p, '💘 陶醉', 'dot'); log('💘 愛之小夜曲！夥伴聽得陶醉了——下回合能量 -1'); }
     } else if (m.kind === 'guard') {
       gainBlock(e, Math.round(m.block * (1 + .1 * (e.lvl - 1))));
     } else if (m.kind === 'buff') {
@@ -437,7 +465,9 @@ function enemyTurn() {
     e.gauge = 0;
     if (e.phase2) e.p2n = (e.p2n || 0) + 1;
     // 第二階段：每 3 次行動發動一次死亡宣告（前一次行動時就會預告）
+    if (B.dom === 'concert') e.cn = (e.cn || 0) + 1;
     if (e.phase2 && e.p2n % 3 === 2) { e.intent = 'deathmark'; log(`⚠️ ${e.name} 正在準備「死亡宣告」！`); }
+    else if (B.dom === 'concert' && e.cn % 3 === 2) { e.intent = 'loveSerenade'; B.serenadeBroken = false; log(`🎤 ${e.name} 準備唱「愛之小夜曲・全力」！出攻擊卡可以打斷！`); }
     else chooseIntent(e);
     if (checkEnd()) return;
     renderBattle();
@@ -497,6 +527,7 @@ function checkPhase2() { const e = B.e; if (B.dom === 'dark' && !e.phase2 && e.h
 const evoTurnsNow = () => Math.max(1, EVO_TURNS + (has('digivice') ? 1 : 0) - (B && B.dom === 'dark' ? 1 : 0));
 const FORCE_MIN = 10;   // 強行進化至少要有的勇氣值
 function evoCost(f, tier) {
+  if (P2() && tier >= 2) return 0;   // 第二部的超進化花徽章刻度，不花勇氣值
   const c = TIERS[tier].cost - (f.tier ? TIERS[f.tier].cost : 0);
   const partner = RUN && KIDS[RUN.kid] && f.m && f.m.sp === KIDS[RUN.kid].partner;
   return Math.round(c * (has('darkpower') ? .7 : 1) * K().evo * (B && B.dom === 'dark' ? 1.3 : 1) * (partner ? .9 : 1));
@@ -509,6 +540,12 @@ function evoBlock(f, tier) {
   if (tier <= f.tier) return f.tier === tier ? '目前型態' : '已經超越';
   if (P1() && tier >= 2) return '第一部只能進化到成熟期';
   if (tier >= 2 && !f.leader) return '只有隊長 👑 能超進化以上';
+  if (P2() && tier >= 2) {   // 第二部：要有徽章、先進化成前一個階段、刻度夠
+    if (!RUN.crest) return '要先在伺服大陸找到徽章';
+    if (tier === 3 && !RUN.awaken) return '究極進化要等第六章的覺醒';
+    if (f.tier !== tier - 1) return tier === 2 ? '要先進化成成熟期' : '要先超進化成完全體';
+    if (!B.freeCrest && (RUN.crestTicks || 0) < crestCost(tier)) return `徽章刻度不足（需要 ${crestCost(tier)} 格）`;
+  }
   if (f.m.level < TIERS[tier].lv) return `需要 Lv.${TIERS[tier].lv}`;
   if (RUN.courage < evoCost(f, tier) && RUN.courage < FORCE_MIN) return `勇氣值不足（強行進化至少要 ${FORCE_MIN}）`;
   return null;
@@ -535,7 +572,7 @@ function evoOdds(f, tier) {
 const pct = x => Math.round(x * 100);
 
 function darkForm(f, tier) {
-  if (P1() && tier === 1 && f.sp.dark1) return { name: f.sp.dark1.name, img: f.sp.dark1.img, tint: !!f.sp.dark1.tint };   // 第一部：成熟期的黑暗型態
+  if (NEW() && tier === 1 && f.sp.dark1) return { name: f.sp.dark1.name, img: f.sp.dark1.img, tint: !!f.sp.dark1.tint };   // 第一部：成熟期的黑暗型態
   if (f.sp.dark) return { name: f.sp.dark.name, img: f.sp.dark.img, tint: false };
   const ev = f.sp.evo[tier - 1];
   return { name: '暗黑' + ev.name, img: ev.img, tint: true };
@@ -576,6 +613,10 @@ function evolveTo(tier) {
   else {   // ---- 強行進化：勇氣值全部用掉，結果看運氣 ----
     RUN.courage = 0;
     log(`⚠️ ${KIDS[RUN.kid].nick}：「拜託了…${f.name}，進化吧——！」（成功 ${pct(o.success)}%）`);
+  }
+  if (P2() && tier >= 2) {   // 第二部：超進化花徽章刻度
+    if (B.freeCrest) { B.freeCrest = false; log('🔰 標籤共鳴：這次超進化不消耗徽章刻度！'); }
+    else { RUN.crestTicks -= crestCost(tier); log(`🔰 徽章刻度 -${crestCost(tier)}（剩 ${RUN.crestTicks} 格）`); }
   }
   const r = Math.random();
   if (r < o.success) doEvolve(f, tier, false);
@@ -670,7 +711,8 @@ function useItem(i) {
 function switchCost() {
   if (B && B.relayFree) return 0;   // 交棒連擊
   let c = 1;
-  if (K().freeSwitch) c = B && B.switchedThisTurn ? 1 : 0;   // 大和：每回合第一次免費
+  if (K().allSwitchFree) c = 0;   // 大和覺醒：換手都免費
+  else if (K().freeSwitch) c = B && B.switchedThisTurn ? 1 : 0;   // 大和：每回合第一次免費
   else if (has('friendship')) c = 0;
   return c + (B && B.dom === 'jam' ? 1 : 0);
 }
@@ -718,10 +760,10 @@ function flee() {
 
 function checkEnd() {
   if (B.e.hp <= 0) { win(); return true; }
-  if (B.p.hp <= 0 && K().loveGuard && !B.loveUsed) {   // 素娜：愛的守護（每場戰鬥一次，以 1 HP 撐住）
-    B.loveUsed = true; B.p.hp = 1;
+  if (B.p.hp <= 0 && K().loveGuard && (B.loveUsed || 0) < (K().loveGuardN || 1)) {   // 素娜：愛的守護（每場戰鬥一次，覺醒後 2 次）
+    B.loveUsed = (B.loveUsed || 0) + 1; B.p.hp = 1;
     floatText(B.p, '💗 愛的守護！', 'heal', 30); sfx('heal');
-    log(`💗 愛的守護！${B.p.name} 以 1 HP 撐住了！（這場戰鬥只能發動一次）`);
+    log(`💗 愛的守護！${B.p.name} 以 1 HP 撐住了！（這場戰鬥還能發動 ${(K().loveGuardN || 1) - B.loveUsed} 次）`);
     renderBattle();
   }
   if (B.p.hp <= 0) {
@@ -837,7 +879,7 @@ function win() {
       lvUp = true;
     }
     msgs.push(`${SPECIES[m.sp].name} 經驗 +${got}${lvUp ? `　🎉 Lv.${m.level}！` : ''}` +
-      (lvUp && !P1() && [4, 7].includes(m.level) ? `　<b style="color:#f9a8d4">解鎖${TIERS[m.level === 4 ? 2 : 3].verb}！</b>` : ''));
+      (lvUp && !NEW() && [4, 7].includes(m.level) ? `　<b style="color:#f9a8d4">解鎖${TIERS[m.level === 4 ? 2 : 3].verb}！</b>` : ''));
   });
   const bits = gainBits((e.lvl * 4 + randInt(5, 12)) * (opt.boss ? 4 : opt.elite ? 2 : 1) * (has('coin') ? 1.5 : 1));
   const cg = 1 + (opt.boss ? 15 : opt.elite ? 5 : 0);
@@ -845,7 +887,7 @@ function win() {
   const cBefore = Math.floor(RUN.courage);
   coolDownCourage();
   msgs.push(`💰 數碼幣 +${bits}　　🔥 勇氣值 +${Math.round(cg * K().courage)}`);
-  if (!P1() && Math.floor(RUN.courage) < cBefore) msgs.push(`<span style="color:#fdba74">🔥 勇氣值冷靜下來：${cBefore} → ${Math.floor(RUN.courage)}（${COURAGE_SAFE} 以下完全保留，超過的部分減半）</span>`);
+  if (!NEW() && Math.floor(RUN.courage) < cBefore) msgs.push(`<span style="color:#fdba74">🔥 勇氣值冷靜下來：${cBefore} → ${Math.floor(RUN.courage)}（${COURAGE_SAFE} 以下完全保留，超過的部分減半）</span>`);
   RUN.stats.wins++;
   if (persuaded) RUN.stats.persuaded = (RUN.stats.persuaded || 0) + 1;
   renderBattle();
@@ -876,7 +918,7 @@ function revive(text, title, pct) {
 function lose() {
   if (K().revive && !RUN.flags.kidRevive) {
     RUN.flags.kidRevive = true;
-    revive('🕊️ 「只要不放棄，就一定有希望！」全隊重新站了起來！', '希望不滅！', .4);
+    revive('🕊️ 「只要不放棄，就一定有希望！」全隊重新站了起來！', '希望不滅！', K().revivePct || .4);
     return;
   }
   if (has('hope') && !RUN.flags.hopeUsed) {
@@ -897,7 +939,7 @@ function joinTeam(id, lv) { RUN.team.push(newMember(id, lv)); preloadLine(id); i
 async function battleReward(msgs, recruit, opt) {
   const o = $('#reward');
   showScreen('#reward');
-  const pool = shuffle([...REWARD_POOL]).slice(0, 3);
+  const pool = shuffle([...rewardPool()]).slice(0, 3);
   const full = recruit && RUN.team.length >= teamMax();
   if (recruit && !full) joinTeam(recruit.id, recruit.lvl);
   await new Promise(res => {
@@ -978,7 +1020,7 @@ function arenaTheme() {
   if (typeof Scene === 'undefined') return;
   if (!Scene.cv) Scene.init($('#arenaBg'));
   const ch = RUN && RUN.chapter, dom = B && B.dom;
-  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : 'dusk';
+  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : ch === 4 ? 'desert' : 'dusk';
   Scene.set(key, key === 'dusk' ? (dom === 'heat' ? 'ember' : 'none') : null);
 }
 // 後排：最多再站 2 隻（活著、沒被封印的優先）
@@ -1094,7 +1136,7 @@ function openEvo() {
   closePopups(); sfx('open');
   const f = B.p, panel = $('#evoPanel');
   panel.innerHTML = `<h3><span>選擇進化的強度　🔥 勇氣值 ${Math.floor(RUN.courage)}</span><button class="btn" id="evoClose">關閉</button></h3>`;
-  (P1() ? [1] : [1, 2, 3]).forEach(t => {
+  (P1() ? [1] : P2() ? (RUN.awaken ? [1, 2, 3] : [1, 2]) : [1, 2, 3]).forEach(t => {
     const T = TIERS[t], ev = f.sp.evo[t - 1], why = evoBlock(f, t), cost = Math.max(0, evoCost(f, t));
     const o = why ? null : evoOdds(f, t), force = !!(o && o.force), risky = !!(o && !force && o.wrong > 0);
     const el = document.createElement('div');
@@ -1105,7 +1147,7 @@ function openEvo() {
       ${force ? `<div class="odds"><span class="ok">成功 ${pct(o.total)}%</span>${o.wrong > 0 ? `<span class="bad">（其中失控 ${pct(o.wrong)}%）</span>` : ''}<span class="fail">失敗 ${pct(o.fail)}%</span>${o.charm ? '<span>🧿 護符生效</span>' : ''}</div>` : ''}
       ${risky ? `<div class="odds"><span class="bad">⚠️ 失控 ${pct(o.wrong)}%（${[hasDark() ? '🌑 黑暗徽章' : '', B.wrongN ? `💢 這場已失控 ${B.wrongN} 次` : ''].filter(Boolean).join('、')}）</span></div>` : ''}${o && !force && o.charm ? '<div class="odds"><span>🧿 護符生效：這次不會失控</span></div>' : ''}
       ${why ? `<div class="why">${why}</div>` : ''}</div>
-      <div class="cost">🔥 ${force ? `${Math.floor(RUN.courage)}/${cost}<br><small>全部用掉</small>` : cost}</div>`;
+      <div class="cost">${P2() && t >= 2 ? `🔰 ${crestCost(t)}<br><small>剩 ${RUN.crestTicks || 0}</small>` : `🔥 ${force ? `${Math.floor(RUN.courage)}/${cost}<br><small>全部用掉</small>` : cost}`}</div>`;
     if (!why) el.onclick = () => evolveTo(t);
     panel.appendChild(el);
   });

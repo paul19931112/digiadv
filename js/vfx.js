@@ -179,7 +179,7 @@ async function enemyVfx(moveId, m) {
   if (!B) return;
   if (m.kind === 'guard') return shieldFx(B.e);
   if (m.kind === 'heal') return aura(B.e, 'heal');
-  if (m.kind === 'buff') return aura(B.e, 'target');
+  if (m.kind === 'buff' || m.kind === 'serenade') return aura(B.e, 'target');
   const kind = MOVE_VFX[moveId];
   const big = m.power >= 15 || moveId === 'groundzero';
   if (!kind) { const back = await dashTo(B.e, B.p, .5); await slash(B.p, m.hits || 1, big); back(); return; }   // 近身招式：衝過來打

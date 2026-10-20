@@ -309,6 +309,7 @@ const BOSS_LINES = {
   1: () => cutscene([bossScene('volcano', 'fire', 'Meramon', [['meramon', '好燙…好痛苦…！全部燒光！燒光！'], ['partner', '是火焰獸！牠背上插著黑色齒輪！打倒牠就能把齒輪弄掉！']])]),
   city: () => cutscene([bossScene('city', null, 'Andromon', [['andromon', '偵測到入侵者。執行排除程序。'], ['partner', '機械人獸的身體裡有黑色齒輪在轉動！我們要救牠！']])]),
   forest: () => cutscene([bossScene('forest', 'wind', 'Jyureimon', [['jyureimon', '呵呵呵…踏進這座森林的人，誰都別想出去…'], ['partner', '就是牠製造了迷霧！大家一起上！']])]),
+  4: () => cutscene([bossScene('stage', 'crowd', 'Etemon', [['etemon', 'Yeah～！歡迎來到本大爺的黑暗演唱會！'], ['etemon', '聽完我的「愛之小夜曲」，你們就會乖乖變成我的歌迷啦～'], ['partner', '別被歌聲迷住了！要在他唱之前打斷他！']])]),
   3: async () => {
     const scenes = [bossScene('castle', 'drone', 'Devimon', [['devimon', '哼哼哼…被選召的孩子，竟然能走到這裡。不過，你們的冒險就到此為止了！'], ['partner', '惡魔獸！我們絕對不會輸給你！']])];
     if (F().leomon) scenes.push({ bg: 'burst', amb: null, sting: true, chars: [['Leomon', 50, 76, 48, 'in-l']], fx: '<div class="cutSpeed"></div>',
@@ -343,6 +344,9 @@ async function chapterComplete() {
     unlockKid('jou');
     await cutscene([{ bg: 'castle', music: 'route', amb: 'wind', chars: [['partner', 28, 78, 32, 'in-l']], lines: [['partner', '看！山頂就在前面了！那裡就是惡魔獸的城堡！']] }]);
     startChapter(3);
+  } else if (CHAPTERS[RUN.chapter].next === 'p2done') {
+    await part2ChapterDone();
+    return;
   } else {
     await ending();
     return;
@@ -406,10 +410,11 @@ async function ending() {
     { bg: 'sea', music: 'route', amb: 'waves', chars: [['Whamon', 56, 74, 46, 'in-r']], fx: '<div class="cutRays" style="--rx:72%;--ry:42%"></div>',
       lines: [[null, '檔案島恢復了和平。但在大海的另一邊……'], [null, '還有一塊被選召的孩子們沒去過的土地——「伺服大陸」。']] },
     { bg: 'stage', music: null, amb: null, chars: [['Etemon', 50, 78, 58, 'dark']], lines: [['shadow', '嘿嘿嘿……下一場演唱會，就等你們來囉～']] },
-    { bg: 'void', amb: 'drone', fx: '<div class="cutEyes"><i style="--r:12deg"></i><i style="--r:-12deg"></i></div><div class="cutTitle"><b>第二部</b><strong>伺服大陸篇</strong><small>製作中・敬請期待</small></div>',
+    { bg: 'void', amb: 'drone', fx: '<div class="cutEyes"><i style="--r:12deg"></i><i style="--r:-12deg"></i></div><div class="cutTitle"><b>第二部</b><strong>伺服大陸篇</strong><small>標題畫面已經可以開始第二部了！</small></div>',
       lines: [['shadow', '……第八個孩子。必須在他們之前找到。']] }]);
   META.clears++;
   recordDex();
+  await saveClearRecord(kind);   // 第二部從通關紀錄接續
   clearRun();
   const o = $('#overlay');
   o.innerHTML = `<div class="chapterCard"><div style="font-size:80px">${e.icon}</div><h1>${e.name}</h1>

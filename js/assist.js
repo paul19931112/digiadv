@@ -22,7 +22,7 @@ const ASSISTS = {
   angemon:     { sp: 'patamon',  name: '天使獸',   img: 'Angemon',     move: '天堂之拳', desc: '造成大傷害',
                  fx: a => assistHit(a, 38) },
 };
-const assistOn = () => P1();
+const assistOn = () => NEW();
 const assistList = () => (RUN.assists || []).filter(x => x.n > 0);
 // 還能遇到的援護：沒拿過、不是自己的搭檔、隊伍裡沒有
 function assistPool() {
