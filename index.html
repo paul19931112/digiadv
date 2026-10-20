@@ -12,7 +12,7 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>數碼冒險：肉鴿版</title>
-<link rel="stylesheet" href="style.css?v=13.2">
+<link rel="stylesheet" href="style.css?v=14.0">
 </head>
 <body>
 
@@ -24,6 +24,7 @@
   <div class="selectBtns col">
     <button class="btn big hidden" id="btnContinue"></button>
     <button class="btn primary big" id="btnNew">開始新的冒險</button>
+    <button class="btn big hidden" id="btnPart2">🌍 第二部・伺服大陸篇</button>
     <button class="btn big" id="btnTutorial">📖 新手教學</button>
   </div>
   <div id="titleMeta"></div>
@@ -120,6 +121,7 @@
       <div class="bar atb" title="行動條：集滿就輪到你行動，輪到你時時間會暫停"><i></i></div>
       <div class="row"><span>🔥 勇氣值</span><span class="courageVal"></span></div>
       <div class="bar courage courageBar" title="勇氣值（全隊共用）：用來進化。刻度是 30／60／100，戰鬥結束後保留一半"><i></i><s style="left:25%"></s><s style="left:50%"></s><s style="left:83.3%"></s></div>
+      <div class="row crestRow hidden"><span>🔰 徽章刻度</span><span class="crestVal"></span></div>
       <div class="statuses"></div>
       <div class="bench"></div>
     </div>
@@ -171,21 +173,22 @@
 <div id="verTag"></div>
 <div id="updateBar" class="hidden">🆕 有新版本了！點這裡更新（存檔會保留）</div>
 
-<script src="js/version.js?v=13.2"></script>
-<script src="js/data.js?v=13.2"></script>
-<script src="js/ui.js?v=13.2"></script>
-<script src="js/sfx.js?v=13.2"></script>
-<script src="js/bgm.js?v=13.2"></script>
-<script src="js/vfx.js?v=13.2"></script>
-<script src="js/scene.js?v=13.2"></script>
-<script src="js/battle.js?v=13.2"></script>
-<script src="js/world.js?v=13.2"></script>
-<script src="js/cutscene.js?v=13.2"></script>
-<script src="js/story.js?v=13.2"></script>
-<script src="js/puzzle.js?v=13.2"></script>
-<script src="js/assist.js?v=13.2"></script>
-<script src="js/tutorial.js?v=13.2"></script>
-<script src="js/main.js?v=13.2"></script>
+<script src="js/version.js?v=14.0"></script>
+<script src="js/data.js?v=14.0"></script>
+<script src="js/ui.js?v=14.0"></script>
+<script src="js/sfx.js?v=14.0"></script>
+<script src="js/bgm.js?v=14.0"></script>
+<script src="js/vfx.js?v=14.0"></script>
+<script src="js/scene.js?v=14.0"></script>
+<script src="js/battle.js?v=14.0"></script>
+<script src="js/world.js?v=14.0"></script>
+<script src="js/cutscene.js?v=14.0"></script>
+<script src="js/story.js?v=14.0"></script>
+<script src="js/puzzle.js?v=14.0"></script>
+<script src="js/assist.js?v=14.0"></script>
+<script src="js/part2.js?v=14.0"></script>
+<script src="js/tutorial.js?v=14.0"></script>
+<script src="js/main.js?v=14.0"></script>
 <script>
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     let hadController = !!navigator.serviceWorker.controller;
