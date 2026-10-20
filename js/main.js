@@ -554,6 +554,7 @@ $('#hud').addEventListener('click', e => { if (e.target.closest('button')) retur
 // =========================================================
 function wantMusic() {
   if (!VOICE.music) return null;
+  if (G.cut) return G.cut.music || null;   // 劇情插畫播放中
   if (B && G.mode === 'battle') return B.opt.boss ? 'boss' : 'battle';
   if (G.screen === 'area') return 'field';
   return 'route';   // 路線圖、標題、選角

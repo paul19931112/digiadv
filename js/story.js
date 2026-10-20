@@ -284,13 +284,15 @@ const EVENTS = {
 // =========================================================
 async function prologue() {
   const name = SPECIES[RUN.team[0].sp].name;
-  await say(null, '某個夏天的午後，天空突然出現了極光…');
-  await say(null, '一台奇怪的裝置從天而降。回過神來，你已經站在一座陌生的島嶼上。');
-  await say('jijimon', '歡迎來到數碼世界，被選召的孩子。老夫是長老獸。');
-  await say('jijimon', '邪惡的惡魔獸用「黑色齒輪」控制了島上的數碼寶貝，整個檔案島正被黑暗吞噬…');
-  await say('me', KIDS[RUN.kid].line);
-  await say('partner', `${KIDS[RUN.kid].nick}！我是${name}！我一直在等你！我們一起去打倒惡魔獸吧！`);
-  await say('jijimon', '記住，數碼寶貝的進化，來自你的「勇氣」。不斷前進、勇敢戰鬥，夥伴就會變得更強！');
+  await cutscene([
+    { bg: 'aurora', music: 'route', lines: [[null, '某個夏天，天空突然出現了極光…'], [null, '一台奇怪的裝置從天而降。回過神來，你已經站在一座陌生的島嶼上。']] },
+    { bg: 'island', music: 'field', amb: 'waves', chars: [['Jijimon', 40, 74, 32, 'in-l']],
+      lines: [['jijimon', '歡迎來到數碼世界，被選召的孩子。老夫是長老獸。'], ['jijimon', '邪惡的惡魔獸用「黑色齒輪」控制了島上的數碼寶貝，整個檔案島正被黑暗吞噬…']] },
+    { bg: 'burst', amb: null, sting: true, chars: [['partner', 50, 76, 46, 'in-l']], fx: '<div class="cutSpeed"></div>',
+      lines: [['me', KIDS[RUN.kid].line], ['partner', `${KIDS[RUN.kid].nick}！我是${name}！我一直在等你！我們一起去打倒惡魔獸吧！`]] },
+    { bg: 'island', amb: 'waves', chars: [['Jijimon', 26, 74, 30], ['partner', 72, 76, 32, 'flip']],
+      lines: [['jijimon', '記住，數碼寶貝的進化，來自你的「勇氣」。不斷前進、勇敢戰鬥，夥伴就會變得更強！']] },
+  ]);
 }
 
 async function chapterCard(title, sub) {
@@ -301,28 +303,18 @@ async function chapterCard(title, sub) {
   o.classList.add('hidden');
 }
 
+// 頭目登場：插畫（頭目在右、夥伴在左）
+const bossScene = (bg, amb, img, lines) => ({ bg, music: 'boss', amb, chars: [[img, 64, 76, 50, 'in-r'], ['partner', 20, 78, 26, 'in-l']], lines });
 const BOSS_LINES = {
-  1: async () => {
-    await say('meramon', '好燙…好痛苦…！全部燒光！燒光！');
-    await say('partner', '是火焰獸！牠背上插著黑色齒輪！打倒牠就能把齒輪弄掉！');
-  },
-  city: async () => {
-    await say('andromon', '偵測到入侵者。執行排除程序。');
-    await say('partner', '機械人獸的身體裡有黑色齒輪在轉動！我們要救牠！');
-  },
-  forest: async () => {
-    await say('jyureimon', '呵呵呵…踏進這座森林的人，誰都別想出去…');
-    await say('partner', '就是牠製造了迷霧！大家一起上！');
-  },
+  1: () => cutscene([bossScene('volcano', 'fire', 'Meramon', [['meramon', '好燙…好痛苦…！全部燒光！燒光！'], ['partner', '是火焰獸！牠背上插著黑色齒輪！打倒牠就能把齒輪弄掉！']])]),
+  city: () => cutscene([bossScene('city', null, 'Andromon', [['andromon', '偵測到入侵者。執行排除程序。'], ['partner', '機械人獸的身體裡有黑色齒輪在轉動！我們要救牠！']])]),
+  forest: () => cutscene([bossScene('forest', 'wind', 'Jyureimon', [['jyureimon', '呵呵呵…踏進這座森林的人，誰都別想出去…'], ['partner', '就是牠製造了迷霧！大家一起上！']])]),
   3: async () => {
-    await say('devimon', '哼哼哼…被選召的孩子，竟然能走到這裡。不過，你們的冒險就到此為止了！');
-    await say('partner', '惡魔獸！我們絕對不會輸給你！');
-    if (F().leomon) {
-      await say('leomon', '等等！我來報恩了！——獸王拳！！');
-      await say(null, '獅子獸的拳頭重重打在惡魔獸身上！（惡魔獸的 HP 減少 25%）');
-      const b = AREA.objs.find(o => o.role === 'boss');
-      if (b) b.opt = { preDamage: .25 };
-    }
+    const scenes = [bossScene('castle', 'drone', 'Devimon', [['devimon', '哼哼哼…被選召的孩子，竟然能走到這裡。不過，你們的冒險就到此為止了！'], ['partner', '惡魔獸！我們絕對不會輸給你！']])];
+    if (F().leomon) scenes.push({ bg: 'burst', amb: null, sting: true, chars: [['Leomon', 50, 76, 48, 'in-l']], fx: '<div class="cutSpeed"></div>',
+      lines: [['leomon', '等等！我來報恩了！——獸王拳！！'], [null, '獅子獸的拳頭重重打在惡魔獸身上！（惡魔獸的 HP 減少 25%）']] });
+    await cutscene(scenes);
+    if (F().leomon) { const b = AREA.objs.find(o => o.role === 'boss'); if (b) b.opt = { preDamage: .25 }; }
   },
 };
 async function bossIntro() { G.mode = 'busy'; await BOSS_LINES[RUN.chapter](); backToArea(); }
@@ -339,8 +331,8 @@ async function chapterComplete() {
   if (RUN.chapter === 1) {
     unlockStarter('patamon');
     unlockKid('mimi');
-    await say('jijimon', '你們打倒了火焰獸！太了不起了！');
-    await say('jijimon', '前面有兩條路通往無限山。一條是到處都是機械的「齒輪城市」，一條是被迷霧籠罩的「迷霧森林」。');
+    await cutscene([{ bg: 'island', music: 'field', amb: 'waves', chars: [['Jijimon', 30, 74, 32, 'in-l'], ['partner', 72, 76, 30, 'flip']],
+      lines: [['jijimon', '你們打倒了火焰獸！太了不起了！'], ['jijimon', '前面有兩條路通往無限山。一條是到處都是機械的「齒輪城市」，一條是被迷霧籠罩的「迷霧森林」。']] }]);
     const c = await ask('partner', '要走哪一條路？', [
       { text: '⚙️ 齒輪城市', note: '機械系的敵人，頭目：機械人獸' },
       { text: '🌲 迷霧森林', note: '植物和毒系的敵人，頭目：樹人獸' },
@@ -349,7 +341,7 @@ async function chapterComplete() {
   } else if (RUN.chapter === 'city' || RUN.chapter === 'forest') {
     unlockStarter('gomamon');
     unlockKid('jou');
-    await say('partner', '看！山頂就在前面了！那裡就是惡魔獸的城堡！');
+    await cutscene([{ bg: 'castle', music: 'route', amb: 'wind', chars: [['partner', 28, 78, 32, 'in-l']], lines: [['partner', '看！山頂就在前面了！那裡就是惡魔獸的城堡！']] }]);
     startChapter(3);
   } else {
     await ending();
@@ -380,24 +372,29 @@ async function ending() {
   // 黑暗結局：打倒惡魔獸時身上還有黑暗徽章（黑色齒輪／黑暗之力），或錯誤進化 3 次以上
   const kind = (has('darkgear') || has('darkpower') || (F().wrongEvo || 0) >= 3) ? 'dark' : (F().saved || 0) >= 4 ? 'hidden' : 'light';
   const sp = SPECIES[RUN.team[0].sp], mega = sp.evo[2];
-  await say(null, '惡魔獸發出最後的慘叫，化成無數的黑色碎片…');
+  const fall = { bg: 'castle', music: null, amb: 'drone', chars: [['Devimon', 50, 78, 52, 'dark']], lines: [[null, '惡魔獸發出最後的慘叫，化成無數的黑色碎片…']] };
   if (kind === 'light') {
-    await say(null, '黑色齒輪一個接一個化為光點，消失在天空中。檔案島恢復了和平。');
-    await say('partner', '我們做到了！我們真的做到了！');
-    await say('jijimon', '你們才是真正的被選召的孩子。數碼世界會永遠記得你們。');
-    await say(null, '極光再次出現。該回家了——但你知道，夥伴永遠在這裡等你。');
+    await cutscene([fall,
+      { bg: 'light', music: 'route', amb: null, chars: [['partner', 50, 76, 40, 'in-l']], fx: '<div class="cutRays" style="--rx:50%;--ry:30%"></div>',
+        lines: [[null, '黑色齒輪一個接一個化為光點，消失在天空中。檔案島恢復了和平。'], ['partner', '我們做到了！我們真的做到了！']] },
+      { bg: 'island', amb: 'waves', chars: [['Jijimon', 30, 74, 30], ['partner', 72, 76, 30, 'flip']], lines: [['jijimon', '你們才是真正的被選召的孩子。數碼世界會永遠記得你們。']] },
+      { bg: 'aurora', amb: null, lines: [[null, '極光再次出現。該回家了——但你知道，夥伴永遠在這裡等你。']] }]);
   } else if (kind === 'hidden') {
-    await say(null, '就在這時，島上各處亮起了光——');
-    await say('leomon', '我們都來了！是你們救了大家！');
-    await say(null, '火焰獸、機械人獸、樹人獸、守衛獸…所有被你們拯救過的數碼寶貝，把光聚集到一起。');
-    await say('partner', `這是我們一路上結下的羈絆！大家的力量，全部借給我吧——！`);
-    await dlgShow(mega.img, sp.emoji, mega.name, '耀眼的光芒照亮了整個數碼世界，連最深處的黑暗也消失了。', null);
-    await say('jijimon', '黑暗再也不會回來了。這是只有心地善良的你，才能開啟的未來。');
+    await cutscene([fall,
+      { bg: 'light', music: 'route', amb: null, chars: [['Meramon', 14, 70, 22, 'in-l'], ['Andromon', 34, 66, 24, 'in-l'], ['Jyureimon', 66, 66, 24, 'in-r'], ['Leomon', 86, 70, 24, 'in-r flip']],
+        lines: [[null, '就在這時，島上各處亮起了光——'], ['leomon', '我們都來了！是你們救了大家！'], [null, '火焰獸、機械人獸、樹人獸、守衛獸…所有被你們拯救過的數碼寶貝，把光聚集到一起。']] },
+      { bg: 'burst', sting: true, chars: [['partner', 50, 76, 42, 'in-l']], fx: '<div class="cutSpeed"></div>', lines: [['partner', '這是我們一路上結下的羈絆！大家的力量，全部借給我吧——！']] },
+      { bg: 'light', chars: [[mega.img, 50, 78, 56, 'glow']], fx: '<div class="cutRays" style="--rx:50%;--ry:40%"></div>',
+        lines: [[{ img: mega.img, name: mega.name }, '耀眼的光芒照亮了整個數碼世界，連最深處的黑暗也消失了。']] },
+      { bg: 'island', amb: 'waves', chars: [['Jijimon', 30, 74, 30], ['partner', 72, 76, 30, 'flip']], lines: [['jijimon', '黑暗再也不會回來了。這是只有心地善良的你，才能開啟的未來。']] }]);
   } else {
-    await say(null, '黑暗之力擊敗了惡魔獸…但那股力量並沒有消失，而是在你的心中擴散。');
-    await dlgShow('Skull_Greymon', '💀', '？？？', '夥伴的身體開始扭曲、發出可怕的咆哮——', null);
-    await say('partner', '……醒醒啊！是我！我不要變成這樣！我只想跟你在一起！');
-    await say(null, '夥伴的聲音把你拉了回來。黑暗退去了，但數碼裝置上，留下了一道再也消不掉的黑色裂痕…');
+    // 夥伴的黑暗型態（第一部是成熟期的黑暗型態）
+    const dk = (P1() && sp.dark1) || sp.dark || { img: sp.evo[0].img };
+    await cutscene([fall,
+      { bg: 'void', amb: 'drone', chars: [[dk.img, 50, 78, 50, 'evil']],
+        lines: [[null, '黑暗之力擊敗了惡魔獸…但那股力量並沒有消失，而是在你的心中擴散。'], ['shadow', '夥伴的身體開始扭曲、發出可怕的咆哮——']] },
+      { bg: 'void', chars: [['partner', 50, 76, 36]], lines: [['partner', '……醒醒啊！是我！我不要變成這樣！我只想跟你在一起！'],
+        [null, '夥伴的聲音把你拉了回來。黑暗退去了，但數碼裝置上，留下了一道再也消不掉的黑色裂痕…']] }]);
   }
   const e = ENDINGS[kind];
   const first = !META.endings.includes(kind);
@@ -405,6 +402,12 @@ async function ending() {
   unlockStarter('palmon');
   unlockKid('takeru');
   if (META.endings.length >= 2) { unlockKid('hikari'); unlockStarter('plotmon'); }
+  if (first && META.endings.length === 2) await cutscene([   // 第一次收集到 2 種結局：第二部的預告
+    { bg: 'sea', music: 'route', amb: 'waves', chars: [['Whamon', 56, 74, 46, 'in-r']], fx: '<div class="cutRays" style="--rx:72%;--ry:42%"></div>',
+      lines: [[null, '檔案島恢復了和平。但在大海的另一邊……'], [null, '還有一塊被選召的孩子們沒去過的土地——「伺服大陸」。']] },
+    { bg: 'stage', music: null, amb: null, chars: [['Etemon', 50, 78, 58, 'dark']], lines: [['shadow', '嘿嘿嘿……下一場演唱會，就等你們來囉～']] },
+    { bg: 'void', amb: 'drone', fx: '<div class="cutEyes"><i style="--r:12deg"></i><i style="--r:-12deg"></i></div><div class="cutTitle"><b>第二部</b><strong>伺服大陸篇</strong><small>製作中・敬請期待</small></div>',
+      lines: [['shadow', '……第八個孩子。必須在他們之前找到。']] }]);
   META.clears++;
   recordDex();
   clearRun();
