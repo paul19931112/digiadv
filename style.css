@@ -702,7 +702,7 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .vfx.reticle::before, .vfx.reticle::after { content: ''; position: absolute; background: #f87171; }
 .vfx.reticle::before { left: 50%; top: -18px; bottom: -18px; width: 3px; transform: translateX(-50%); }
 .vfx.reticle::after { top: 50%; left: -18px; right: -18px; height: 3px; transform: translateY(-50%); }
-.vfx.cutin { z-index: 30; }
+.vfx.cutin { z-index: 30; transform: none; border-radius: 0; }
 .vfx.cutin .dim { position: absolute; inset: 0; background: rgba(0,0,0,.6); opacity: 0; transition: opacity .2s; }
 .vfx.cutin .band { position: absolute; left: -10%; right: -10%; top: 30%; height: 34%; transform: skewY(-8deg) translateX(-110%); overflow: hidden;
   background: linear-gradient(90deg, rgba(249,115,22,0), #f97316 15%, #fbbf24 50%, #f97316 85%, rgba(249,115,22,0)); box-shadow: 0 0 40px #f97316; transition: transform .28s cubic-bezier(.2,.9,.3,1); }
@@ -713,6 +713,7 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
   text-shadow: 0 0 10px #b45309, 0 4px 0 #7c2d12; letter-spacing: 4px; white-space: nowrap; }
 .vfx.cutin.on .dim { opacity: 1; } .vfx.cutin.on .band { transform: skewY(-8deg) translateX(0); }
 .vfx.cutin.out .band { transform: skewY(-8deg) translateX(120%); transition: transform .22s ease-in; } .vfx.cutin.out .dim { opacity: 0; }
+@media (orientation: portrait) { .vfx.cutin .band { top: 34%; height: 22%; } .vfx.cutin .band img { right: 6%; } .vfx.cutin .band .nm { left: 13%; font-size: clamp(22px, 7.5vw, 44px); letter-spacing: 2px; } }
 /* 手機直拿 */
 @media (orientation: portrait) and (max-width: 700px) {
   #battle .fighter { width: min(200px, 52vw); padding: 4px 7px 5px; } #battle .fighter .fattr { display: none; }
