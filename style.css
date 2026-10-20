@@ -808,3 +808,29 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .crestRow .crestVal { color: #fbbf24; letter-spacing: 1px; font-size: 12px; }
 #btnPart2 { background: linear-gradient(135deg, #b45309, #f59e0b); color: #fff; border-color: #fde68a; }
 .recordCard .rd { line-height: 1.5; }
+
+/* v14.2 第五章：駭客小遊戲（密碼配對）、演唱會小遊戲 */
+.hackBox,.bandBox{background:#0b1220;border:3px solid #22d3ee;border-radius:18px;padding:18px 20px;max-width:560px;width:calc(100vw - 32px);text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;box-shadow:0 0 30px #22d3ee55}
+.bandBox{border-color:#facc15;box-shadow:0 0 30px #facc1555;background:#1c1206}
+.hackBox h2,.bandBox h2{margin:0;font-size:24px}
+.hackTip,.bandTip{margin:0;color:#cbd5e1;font-size:15px}
+.hackShow{height:96px;display:flex;align-items:center;justify-content:center;font-size:52px}
+.hackShow.pop{animation:hackPop .35s ease-out}
+@keyframes hackPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+.hackSlots{display:flex;gap:6px}
+.hackSlots i{width:18px;height:18px;border-radius:50%;background:#1e293b;border:2px solid #334155}
+.hackSlots i.on{background:#22d3ee}.hackSlots i.ok{background:#4ade80}
+.hackLives{font-size:18px;letter-spacing:2px}
+.hackGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%}
+.hackGrid.dim{opacity:.35;pointer-events:none}
+.hackBtn{background:#111c33;border:2px solid #334155;border-radius:12px;padding:6px;cursor:pointer;display:flex;justify-content:center}
+.hackBtn:hover{border-color:#22d3ee}.hackBtn.bad{border-color:#ef4444;background:#3f1111}
+.bandLane{position:relative;width:100%;height:70px;background:linear-gradient(90deg,#3b2a08,#1c1206);border-radius:35px;overflow:hidden;touch-action:none;cursor:pointer}
+.bandRing{position:absolute;left:calc(12% - 22px);top:13px;width:44px;height:44px;border-radius:50%;border:4px solid #facc15;box-shadow:0 0 14px #facc15}
+.bandNote{position:absolute;top:21px;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#f472b6 60%,#9d174d);opacity:0}
+.bandNote.hitOk{transform:scale(1.8);opacity:0!important;transition:.2s}.bandNote.gone{display:none}
+.bandJudge{height:28px;font-size:22px;font-weight:bold}
+.bandJudge.perfect{color:#facc15}.bandJudge.good{color:#4ade80}.bandJudge.miss{color:#94a3b8}
+.bandJudge.pop{animation:hackPop .2s ease-out}
+.bandScore{font-size:16px;color:#fde68a}
+.bandTap{width:100%;font-size:22px;touch-action:none}
