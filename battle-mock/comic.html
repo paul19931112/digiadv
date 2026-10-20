@@ -51,14 +51,18 @@
   @keyframes blink { 50% { opacity: .2; } }
   .top { position: fixed; top: 8px; right: 10px; z-index: 6; display: flex; gap: 8px; }
   .top button { border: 2px solid #ffcc33; background: #1a1f3dcc; color: #ffcc33; font-weight: 900; border-radius: 10px; padding: 6px 12px; font-family: inherit; cursor: pointer; }
+  .start { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: radial-gradient(circle, #1e3a8a, #05010a); color: #fde68a; text-align: center; font-weight: 900; cursor: pointer; }
+  .start b { display: block; font-size: 7vmin; margin-bottom: 10px; } .start span { font-size: 4vmin; color: #cbd5e1; animation: blink 1.4s infinite; }
   .tag { position: fixed; top: 10px; left: 10px; z-index: 6; color: #cbd5e1; font-size: 12px; background: #0008; padding: 4px 8px; border-radius: 8px; }
 </style>
 </head>
 <body>
 <div id="scene"></div>
 <div class="tag">劇情插畫樣品：第一部 → 第二部</div>
-<div class="top"><button id="replay">↻ 重播</button></div>
+<div class="top"><button id="mute">🔊</button><button id="replay">↻ 重播</button></div>
+<div class="start" id="start"><div><b>▶ 點一下開始</b><span>（有音樂和音效，iPhone 請關掉靜音模式）</span></div></div>
 <div class="box" id="box"><div class="name" id="name"></div><div class="txt" id="txt"></div><div class="more">▼</div></div>
+<script src="bgm.js?v=3"></script>
 <script>
 const IMG = '../images/';
 const KID = { taichi: ['🥽', '#fdba74', '太一'], koushiro: ['💻', '#d8b4fe', '光子郎'], mimi: ['👒', '#86efac', '美美'], sora: ['🧢', '#fca5a5', '素娜'] };
@@ -109,18 +113,70 @@ const PAINT = {
   },
 };
 
+// ---------- 環境音（Web Audio 合成）：海浪、風、低沉的持續音、熱血的提示音 ----------
+const AMB = (() => {
+  let stopCur = null, muted = false;
+  const A = () => BGM.audio();
+  function noiseSrc(ctx, buf) { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.playbackRate.value = .9 + Math.random() * .2; return s; }
+  function lfo(ctx, rate, depth, target, base) { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = rate; g.gain.value = depth; o.connect(g); g.connect(target); target.value = base; o.start(); return o; }
+  const KINDS = {
+    waves(ctx, out, buf) {   // 海浪：低沉的浪聲＋高頻的浪花，音量慢慢起伏
+      const nodes = [];
+      [[500, .12, .22, 0], [2400, .09, .07, 1.7]].forEach(([fq, rate, depth, ph]) => {
+        const n = noiseSrc(ctx, buf), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        f.type = fq < 1000 ? 'lowpass' : 'highpass'; f.frequency.value = fq; g.gain.value = 0;
+        n.connect(f); f.connect(g); g.connect(out); n.start();
+        const o = lfo(ctx, rate, depth, g.gain, depth * 1.05); o.frequency.setValueAtTime(rate, ctx.currentTime + ph);
+        nodes.push(n, o);
+      });
+      return nodes;
+    },
+    wind(ctx, out, buf) {   // 沙漠的風：頻率慢慢飄移的噪音
+      const n = noiseSrc(ctx, buf), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      f.type = 'bandpass'; f.Q.value = 2.5; g.gain.value = .16; n.connect(f); f.connect(g); g.connect(out); n.start();
+      return [n, lfo(ctx, .07, 350, f.frequency, 650), lfo(ctx, .11, .08, g.gain, .14)];
+    },
+    drone(ctx, out) {   // 黑暗：很低的持續音＋心跳
+      const g = ctx.createGain(), f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260; g.gain.value = .09; f.connect(g); g.connect(out);
+      const os = [55, 55.6, 82.4].map(fq => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fq; o.connect(f); o.start(); return o; });
+      const beat = setInterval(() => { const t = ctx.currentTime; [0, .22].forEach(d => { const o = ctx.createOscillator(), gg = ctx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(70, t + d); o.frequency.exponentialRampToValueAtTime(40, t + d + .2);
+        gg.gain.setValueAtTime(.35, t + d); gg.gain.exponentialRampToValueAtTime(.001, t + d + .25); o.connect(gg); gg.connect(out); o.start(t + d); o.stop(t + d + .3); }); }, 1300);
+      return [...os, { stop: () => clearInterval(beat) }];
+    },
+  };
+  function play(kind) {
+    stop();
+    if (muted || !kind) return;
+    const a = A(); if (!a) return;
+    const out = a.ctx.createGain(); out.gain.value = 0; out.gain.linearRampToValueAtTime(1, a.ctx.currentTime + 1.2); out.connect(a.out);
+    const nodes = KINDS[kind](a.ctx, out, a.noiseBuf);
+    stopCur = () => { const t = a.ctx.currentTime; out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(out.gain.value, t); out.gain.linearRampToValueAtTime(0, t + .8);
+      setTimeout(() => { nodes.forEach(n => { try { n.stop(); } catch (e) { } }); out.disconnect(); }, 900); };
+  }
+  function stop() { if (stopCur) { stopCur(); stopCur = null; } }
+  // 熱血的提示音：往上爬的琶音＋鈸
+  function sting() {
+    if (muted) return; const a = A(); if (!a) return; const { ctx, out, noiseBuf } = a, t = ctx.currentTime;
+    [523, 659, 784, 1047, 1319].forEach((fq, i) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square'; o.frequency.value = fq;
+      g.gain.setValueAtTime(.07, t + i * .07); g.gain.exponentialRampToValueAtTime(.001, t + i * .07 + .25); o.connect(g); g.connect(out); o.start(t + i * .07); o.stop(t + i * .07 + .3); });
+    const n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); n.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = 3000;
+    g.gain.setValueAtTime(.18, t + .35); g.gain.exponentialRampToValueAtTime(.001, t + 1.4); n.connect(f); f.connect(g); g.connect(out); n.start(t + .35); n.stop(t + 1.5);
+  }
+  return { play, stop, sting, set muted(v) { muted = v; if (v) stop(); }, get muted() { return muted; } };
+})();
+
 // ---------- 劇本：每一幕＝一張插畫＋幾句台詞 ----------
 // chars：[圖, x%, 腳底 y%, 身高 vh, 特效]；lines：[說話者, 台詞]（說話者 null＝旁白）
 const SCENES = [
-  { bg: 'sea', px: '-2%', chars: [['Whamon', 56, 74, 46, 'in-r']], fx: '<div class="rays" style="--rx:72%;--ry:42%"></div>',
+  { bg: 'sea', music: 'route', amb: 'waves', px: '-2%', chars: [['Whamon', 56, 74, 46, 'in-r']], fx: '<div class="rays" style="--rx:72%;--ry:42%"></div>',
     lines: [[null, '打倒惡魔獸之後——'], [null, '大家搭上鯨魚獸，前往大海另一邊的「伺服大陸」。'], ['whamon', '抓緊囉～我要潛下去了！']] },
-  { bg: 'burst', chars: [['Agumon', 50, 76, 50, 'in-l']], fx: '<div class="speed"></div>',
+  { bg: 'burst', music: 'route', amb: 'waves', sting: true, chars: [['Agumon', 50, 76, 50, 'in-l']], fx: '<div class="speed"></div>',
     lines: [['taichi', '出發吧！新的冒險！'], ['agumon', '嗯！太一，我們走！']] },
-  { bg: 'stage', py: '-2%', chars: [['Etemon', 50, 78, 58, 'dark']], fx: '',
+  { bg: 'stage', music: 'battle', amb: null, py: '-2%', chars: [['Etemon', 50, 78, 58, 'dark']], fx: '',
     lines: [['etemon', '嘿嘿嘿……新的觀眾自己送上門啦～'], ['etemon', '就讓本大爺的演唱會，好好「招待」你們吧！']] },
-  { bg: 'desert', chars: [['Piyomon', 22, 72, 24, 'in-l'], ['Tentomon', 78, 74, 27, 'in-r flip']], fx: '<div class="crest">🔥</div>', crestAt: 1,
+  { bg: 'desert', music: 'field', amb: 'wind', chars: [['Piyomon', 22, 72, 24, 'in-l'], ['Tentomon', 78, 74, 27, 'in-r flip']], fx: '<div class="crest">🔥</div>', crestAt: 1,
     lines: [['mimi', '好熱喔～沙漠一直走都走不完……'], ['koushiro', '咦？這個發光的東西是……「標籤」？'], ['tentomon', '它好像在跟什麼東西產生反應呢！']] },
-  { bg: 'void', chars: [], fx: '<div class="eyes"><i style="--r:12deg"></i><i style="--r:-12deg"></i></div><div class="title"><b>第二部</b><strong>伺服大陸篇</strong></div>',
+  { bg: 'void', music: null, amb: 'drone', chars: [], fx: '<div class="eyes"><i style="--r:12deg"></i><i style="--r:-12deg"></i></div><div class="title"><b>第二部</b><strong>伺服大陸篇</strong></div>',
     lines: [[null, '……在某個遙遠的城堡裡。'], ['shadow', '……第八個孩子。必須在他們之前找到。']] },
 ];
 
@@ -161,14 +217,24 @@ function next() {
   if (si >= SCENES.length - 1) return;
   si++; li = 0;
   const old = cur; cur = buildCG(SCENES[si]);
+  sceneAudio(SCENES[si]);
   if (old) { old.classList.remove('on'); setTimeout(() => old.remove(), 900); }
   showLine();
 }
+function sceneAudio(S) {
+  if (AMB.muted) { BGM.stop(); return; }
+  if (S.music) BGM.play(S.music); else BGM.stop();
+  if (S.amb !== (sceneAudio.amb || null) || !S.amb) { AMB.play(S.amb); sceneAudio.amb = S.amb || null; }
+  if (S.sting) AMB.sting();
+}
+BGM.volume(.32);
 addEventListener('resize', () => cur && cur._size());
-document.addEventListener('click', e => { if (!e.target.closest('.top')) next(); });
+document.addEventListener('click', e => { if (!e.target.closest('.top') && !e.target.closest('.start')) next(); });
 document.addEventListener('keydown', e => { if ([' ', 'Enter', 'ArrowRight'].includes(e.key)) next(); });
-document.getElementById('replay').onclick = () => { scene.innerHTML = ''; cur = null; si = -1; li = 0; next(); };
-next();
+document.getElementById('replay').onclick = () => { scene.innerHTML = ''; cur = null; si = -1; li = 0; sceneAudio.amb = undefined; next(); };
+document.getElementById('mute').onclick = () => { AMB.muted = !AMB.muted; document.getElementById('mute').textContent = AMB.muted ? '🔇' : '🔊'; if (AMB.muted) BGM.stop(); else { sceneAudio.amb = undefined; sceneAudio(SCENES[si]); } };
+// 手機規定要先點一下才能出聲，所以先放一個「點一下開始」
+document.getElementById('start').onclick = () => { document.getElementById('start').remove(); BGM.audio(); next(); };
 </script>
 </body>
 </html>
