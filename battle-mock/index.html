@@ -302,7 +302,7 @@
 </div>
 
 <script src="scene.js?v=3"></script>
-<script src="bgm.js?v=1"></script>
+<script src="bgm.js?v=2"></script>
 <script>
 const $ = s => document.querySelector(s);
 const field = $('#field');
@@ -388,15 +388,16 @@ document.querySelectorAll('[data-bgm]').forEach(b => b.onclick = () => {
   document.querySelectorAll('[data-bgm]').forEach(x => x.classList.toggle('on', x === b));
 });
 $('#bgmStop').onclick = () => { BGM.stop(); document.querySelectorAll('[data-bgm]').forEach(x => x.classList.remove('on')); };
-const LANGS = [['ja', '語音：日文'], ['zh', '語音：中文'], ['off', '語音：關閉']];
+const LANGS = [['ja', '語音：日文'], ['zh', '語音：中文（國語）'], ['robot', '語音：機械音'], ['off', '語音：關閉']];
 function voiceNote() {
   if (VOICE.lang === 'off') { $('#vNote').textContent = '進化時不念台詞'; return; }
   const ok = VOICE.available(VOICE.lang);
-  $('#vNote').textContent = ok ? '按「▶ 進化」也會念' : (VOICE.lang === 'ja' ? '⚠️ 這台裝置好像沒有日文語音，可能會用別的聲音念或不出聲' : '⚠️ 這台裝置好像沒有中文語音');
+  $('#vNote').textContent = VOICE.lang === 'robot' ? '合成的機械音「Evolution」，每台裝置聽起來都一樣' : ok ? '按「▶ 進化」也會念' : (VOICE.lang === 'ja' ? '⚠️ 這台裝置好像沒有日文語音，可能會用別的聲音念或不出聲' : '⚠️ 這台裝置好像沒有國語語音');
 }
 $('#vLang').onclick = () => { const i = (LANGS.findIndex(l => l[0] === VOICE.lang) + 1) % LANGS.length; VOICE.lang = LANGS[i][0]; $('#vLang').textContent = LANGS[i][1]; voiceNote(); VOICE.evo('agumon'); };
 $('#vAll').onclick = async () => {
   const lang = VOICE.lang === 'off' ? 'ja' : VOICE.lang;
+  if (lang === 'robot') { VOICE.robot(); return; }
   for (const sp of Object.keys(VOICE.JA)) {
     VOICE.evo(sp, lang);
     await new Promise(r => { const t0 = Date.now(); const w = () => (!speechSynthesis.speaking && Date.now() - t0 > 400) || Date.now() - t0 > 5000 ? r() : setTimeout(w, 150); setTimeout(w, 300); });

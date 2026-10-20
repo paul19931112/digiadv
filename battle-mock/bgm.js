@@ -91,7 +91,8 @@ const BGM = (() => {
     }, 25);
   }
   function stop() { clearInterval(timer); timer = null; cur = null; if (master) { const old = master; old.gain.setTargetAtTime(0, ctx.currentTime, .05); setTimeout(() => old.disconnect(), 300); master = ctx.createGain(); master.gain.value = vol * .6; master.connect(ctx.destination); } }
-  return { play, stop, volume: v => { vol = v; if (master) master.gain.value = v * .6; }, get playing() { return cur && cur.key; }, TRACKS };
+  const audio = () => { if (!init()) return null; if (ctx.state === 'suspended') ctx.resume(); return { ctx, out: ctx.destination, noiseBuf }; };
+  return { play, stop, audio, volume: v => { vol = v; if (master) master.gain.value = v * .6; }, get playing() { return cur && cur.key; }, TRACKS };
 })();
 
 const VOICE = (() => {
@@ -102,10 +103,43 @@ const VOICE = (() => {
                palmon: ['巴魯獸', '仙人掌獸'], gomamon: ['哥瑪獸', '海象獸'], patamon: ['巴達獸', '天使獸'], plotmon: ['小狗獸', '迪路獸'] };
   const V = { lang: 'ja', JA, ZH };
   function pickVoice(lang) {
-    const vs = speechSynthesis.getVoices(), want = lang === 'ja' ? /^ja/i : /^zh[-_](TW|HK|Hant)/i;
-    return vs.find(v => want.test(v.lang)) || (lang === 'zh' ? vs.find(v => /^zh/i.test(v.lang)) : null);
+    const vs = speechSynthesis.getVoices(), L = v => v.lang.replace('_', '-').toLowerCase();
+    if (lang === 'ja') return vs.find(v => L(v).startsWith('ja')) || null;
+    // 中文要台灣國語：zh-TW 優先，其次普通話（zh-CN），不要香港的粵語（zh-HK）
+    return vs.find(v => L(v) === 'zh-tw') || vs.find(v => L(v).startsWith('zh-hant') && !/hk|yue|canton|粵/i.test(v.lang + v.name))
+        || vs.find(v => L(v) === 'zh-cn' || L(v).startsWith('cmn')) || vs.find(v => L(v).startsWith('zh') && !/hk|yue|canton|粵/i.test(v.lang + v.name)) || null;
   }
-  V.available = lang => 'speechSynthesis' in window && !!pickVoice(lang);
+  V.available = lang => lang === 'robot' ? !!(window.AudioContext || window.webkitAudioContext) : 'speechSynthesis' in window && !!pickVoice(lang);
+  // 機械音「E・VO・LU・TION」：像數碼暴龍機那樣的合成人聲（用濾波器做出母音，不用語音檔）
+  V.robot = () => {
+    const A = BGM.audio(); if (!A) return;
+    const { ctx, out, noiseBuf } = A, t0 = ctx.currentTime + .05;
+    const master = ctx.createGain(); master.gain.value = .9; master.connect(out);
+    // 開頭的電子提示音
+    [1047, 1319, 1568, 2093].forEach((f, i) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(.06, t0 + i * .06); g.gain.exponentialRampToValueAtTime(.001, t0 + i * .06 + .09); o.connect(g); g.connect(master); o.start(t0 + i * .06); o.stop(t0 + i * .06 + .1); });
+    const t = t0 + .32;
+    // 聲帶：鋸齒波＋方波，音高幾乎不變（機器人的感覺）
+    const src = ctx.createGain(); src.gain.value = 0;
+    const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(); o1.type = 'sawtooth'; o2.type = 'square';
+    [o1, o2].forEach(o => { o.connect(src); o.start(t); o.stop(t + 1.3); });
+    const P = [[0, 128], [.24, 128], [.46, 150], [.62, 132], [.85, 118], [1.1, 92]];
+    P.forEach(([dt, f]) => { o1.frequency.linearRampToValueAtTime(f, t + dt); o2.frequency.linearRampToValueAtTime(f * 1.003, t + dt); });
+    // 三個共振峰（F1、F2、F3）
+    const F = [0, 1, 2].map(() => { const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.Q.value = 9; src.connect(b); b.connect(master); return b; });
+    // [時間, 音量, F1, F2, F3]：e → v → o → l → u → (sh) → ə → n
+    const K = [[0, .9, 500, 1850, 2500], [.16, .9, 500, 1850, 2500], [.2, .3, 260, 1300, 2300], [.26, .9, 560, 880, 2400], [.4, .9, 560, 880, 2400],
+               [.44, .5, 360, 1050, 2400], [.5, 1, 320, 850, 2300], [.62, 1, 320, 850, 2300], [.66, 0, 320, 850, 2300], [.82, 0, 500, 1450, 2500],
+               [.86, .85, 500, 1450, 2500], [1.0, .85, 480, 1500, 2500], [1.06, .5, 260, 1750, 2600], [1.22, 0, 250, 1750, 2600]];
+    src.gain.setValueAtTime(0, t); K[0].slice(2).forEach((f, i) => F[i].frequency.setValueAtTime(f, t)); o1.frequency.setValueAtTime(128, t); o2.frequency.setValueAtTime(128, t);
+    K.forEach(([dt, v, f1, f2, f3]) => { src.gain.linearRampToValueAtTime(v * .55, t + dt); [f1, f2, f3].forEach((f, i) => F[i].frequency.linearRampToValueAtTime(f, t + dt)); });
+    // 「ション」的 sh：高頻噪音
+    const n = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), ng = ctx.createGain();
+    n.buffer = noiseBuf; n.loop = true; hp.type = 'bandpass'; hp.frequency.value = 3200; hp.Q.value = 1.2;
+    ng.gain.setValueAtTime(0, t); ng.gain.setValueAtTime(0, t + .63); ng.gain.linearRampToValueAtTime(.5, t + .7); ng.gain.linearRampToValueAtTime(.4, t + .8); ng.gain.linearRampToValueAtTime(0, t + .86);
+    n.connect(hp); hp.connect(ng); ng.connect(master); n.start(t); n.stop(t + 1.3);
+    setTimeout(() => master.disconnect(), 2000);
+  };
   V.say = (text, lang) => {
     if (!('speechSynthesis' in window)) return false;
     speechSynthesis.cancel();
@@ -117,6 +151,7 @@ const VOICE = (() => {
   };
   V.evo = (sp, lang = V.lang) => {
     if (lang === 'off') return;
+    if (lang === 'robot') return V.robot();
     const n = (lang === 'ja' ? JA : ZH)[sp]; if (!n) return;
     return V.say(lang === 'ja' ? `${n[0]}、進化ーっ！　${n[1]}！` : `${n[0]}進化——${n[1]}！`, lang);
   };
