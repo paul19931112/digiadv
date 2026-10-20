@@ -22,7 +22,13 @@ const PIN_MAX = 2;        // 回合結束時最多能釘住（保留）幾張牌
 const ENERGY = 3;
 const CARRY_MAX = 2;      // 沒用完的能量最多保留幾點到下回合
 const COURAGE_MAX = 120;
-const COURAGE_SAFE = 40;   // 保留線：戰鬥結束後勇氣值 40 以下完全保留，超過的部分減半
+const COURAGE_SAFE = 40;   // 保留線：戰鬥結束後勇氣值 40 以下完全保留，超過的部分減半（舊存檔才用）
+// 第一部規則（v13 起新開的冒險）：只能進化到成熟期、沒有徽章、勇氣值上限 40、不會減半
+const P1 = () => typeof RUN !== 'undefined' && !!RUN && RUN.rules === 'p1';
+const COURAGE_MAX_P1 = 40;
+const courageMax = () => P1() ? COURAGE_MAX_P1 : COURAGE_MAX;
+const tierCap = f => P1() ? 1 : (f.leader ? 3 : 1);   // 能進化到的最高階段
+const CREST_KEYS = ['courage', 'friendship', 'love', 'knowledge', 'sincerity', 'purity', 'hope', 'light'];
 const teamMax = () => 6 + (K().teamPlus || 0);
 const RECRUIT_CHANCE = 0.2;
 const expNeed = lv => 15 + lv * 10;
@@ -59,46 +65,46 @@ const STATUS = {
 const SPECIES = {
   // ----- 初代夥伴 -----
   agumon: { name: '亞古獸', img: 'Agumon', emoji: '🦖', attr: 'vaccine', hp: 62, atk: 14, def: 8, spd: 10, starter: true,
-    flavor: 'burn', desc: '攻擊力高，招式會燒傷對手', sig: { name: '小火球', power: 12 }, dark: { name: '骷髏暴龍獸', img: 'Skull_Greymon' },
+    flavor: 'burn', desc: '攻擊力高，招式會燒傷對手', sig: { name: '小火球', power: 12 }, dark1: { name: '黑暴龍獸', img: 'Greymon', tint: true }, dark: { name: '骷髏暴龍獸', img: 'Skull_Greymon' },
     evo: [{ name: '暴龍獸', img: 'Greymon', ult: '超級火焰' },
           { name: '機械暴龍獸', img: 'Metal_Greymon', ult: '巨型毀滅者' },
           { name: '戰鬥暴龍獸', img: 'War_Greymon', ult: '蓋亞能量炮' }] },
   gabumon: { name: '加布獸', img: 'Gabumon', emoji: '🦊', attr: 'data', hp: 68, atk: 12, def: 11, spd: 9, starter: true,
-    flavor: 'shield', desc: '防禦力高，攻擊同時獲得護盾', sig: { name: '藍色火焰', power: 11 }, dark: { name: '黑色獸人加魯魯', img: 'Were_Garurumon_(Black)' },
+    flavor: 'shield', desc: '防禦力高，攻擊同時獲得護盾', sig: { name: '藍色火焰', power: 11 }, dark1: { name: '黑加魯魯獸', img: 'Garurumon', tint: true }, dark: { name: '黑色獸人加魯魯', img: 'Were_Garurumon_(Black)' },
     evo: [{ name: '加魯魯獸', img: 'Garurumon', ult: '狐火' },
           { name: '獸人加魯魯', img: 'Were_Garurumon', ult: '狼人之爪', hits: 2 },
           { name: '鋼鐵加魯魯', img: 'Metal_Garurumon', ult: '冰河吐息' }] },
   piyomon: { name: '比丘獸', img: 'Piyomon', emoji: '🐤', attr: 'vaccine', hp: 54, atk: 12, def: 7, spd: 13, starter: true,
-    flavor: 'haste', desc: '速度最快，能讓自己加速多次行動', sig: { name: '魔法之火', power: 10 }, dark: { name: '黑暗鳥獸', img: 'Saberdramon' },
+    flavor: 'haste', desc: '速度最快，能讓自己加速多次行動', sig: { name: '魔法之火', power: 10 }, dark1: { name: '黑暗鳥獸', img: 'Saberdramon' }, dark: { name: '黑暗鳥獸', img: 'Saberdramon' },
     evo: [{ name: '巴多拉獸', img: 'Birdramon', ult: '流星之翼', hits: 3 },
           { name: '迦樓羅獸', img: 'Garudamon', ult: '火焰之翼', hits: 2 },
           { name: '鳳凰獸', img: 'Hououmon', ult: '星光爆發' }] },
   patamon: { name: '巴達獸', img: 'Patamon', emoji: '🐹', attr: 'data', hp: 58, atk: 11, def: 9, spd: 12, starter: true,
-    flavor: 'heal', desc: '必殺技便宜，進化後擅長補血', sig: { name: '空氣炮', power: 8, cost: 1 }, dark: { name: '惡魔獸', img: 'Devimon' },
+    flavor: 'heal', desc: '必殺技便宜，進化後擅長補血', sig: { name: '空氣炮', power: 8, cost: 1 }, dark1: { name: '惡魔獸', img: 'Devimon' }, dark: { name: '惡魔獸', img: 'Devimon' },
     unlock: '通過第一章後解鎖',
     evo: [{ name: '天使獸', img: 'Angemon', ult: '天堂之拳' },
           { name: '神聖天使獸', img: 'Holy_Angemon', ult: '天國之門' },
           { name: '熾天使獸', img: 'Seraphimon', ult: '七重天', hits: 3 }] },
   gomamon: { name: '哥瑪獸', img: 'Gomamon', emoji: '🦦', attr: 'vaccine', hp: 64, atk: 11, def: 10, spd: 10, starter: true,
-    flavor: 'delay', desc: '擅長把對手的行動條往回拉', sig: { name: '魚群行進', power: 10 }, dark: { name: '邪惡海龍獸', img: 'Waru_Seadramon' },
+    flavor: 'delay', desc: '擅長把對手的行動條往回拉', sig: { name: '魚群行進', power: 10 }, dark1: { name: '蓋索獸', img: 'Ikkakumon', tint: true }, dark: { name: '邪惡海龍獸', img: 'Waru_Seadramon' },
     unlock: '抵達第三章後解鎖',
     evo: [{ name: '海獅獸', img: 'Ikkakumon', ult: '魚雷鋼角' },
           { name: '祖頓獸', img: 'Zudomon', ult: '雷神之錘' },
           { name: '維京獸', img: 'Vikemon', ult: '北極風暴', hits: 2 }] },
   palmon: { name: '巴魯獸', img: 'Palmon', emoji: '🌺', attr: 'data', hp: 60, atk: 11, def: 9, spd: 11, starter: true,
-    flavor: 'poison', desc: '用毒持續削減對手 HP', sig: { name: '毒藤', power: 9 }, dark: { name: '莉莉絲獸', img: 'Lilithmon' },
+    flavor: 'poison', desc: '用毒持續削減對手 HP', sig: { name: '毒藤', power: 9 }, dark1: { name: '樹木獸', img: 'Woodmon' }, dark: { name: '莉莉絲獸', img: 'Lilithmon' },
     unlock: '達成任一結局後解鎖',
     evo: [{ name: '仙人掌獸', img: 'Togemon', ult: '千刺拳', hits: 4 },
           { name: '百合獸', img: 'Lilimon', ult: '花之炮' },
           { name: '薔薇獸', img: 'Rosemon', ult: '禁忌的誘惑', hits: 2 }] },
 
   tentomon: { name: '甲蟲獸', img: 'Tentomon', emoji: '🐞', attr: 'vaccine', hp: 58, atk: 12, def: 10, spd: 10, starter: true,
-    flavor: 'para', desc: '雷電攻擊會麻痺對手', sig: { name: '小雷擊', power: 10 },
+    flavor: 'para', desc: '雷電攻擊會麻痺對手', sig: { name: '小雷擊', power: 10 }, dark1: { name: '鍬形獸', img: 'Kuwagamon' },
     evo: [{ name: '比多獸', img: 'Kabuterimon', ult: '超級雷電' },
           { name: '超比多獸', img: 'Atlur_Kabuterimon_(Red)', ult: '巨角衝擊' },
           { name: '赫拉克比多獸', img: 'Herakle_Kabuterimon', ult: '雷電加農炮' }] },
   plotmon: { name: '小狗獸', img: 'Plotmon', emoji: '🐶', attr: 'vaccine', hp: 56, atk: 12, def: 8, spd: 12, starter: true,
-    flavor: 'holy', desc: '神聖之力能淨化敵人的強化與護盾', sig: { name: '幼犬之吼', power: 9 }, dark: { name: '黑迪路獸', img: 'Black_Tailmon' },
+    flavor: 'holy', desc: '神聖之力能淨化敵人的強化與護盾', sig: { name: '幼犬之吼', power: 9 }, dark1: { name: '黑迪路獸', img: 'Black_Tailmon' }, dark: { name: '黑迪路獸', img: 'Black_Tailmon' },
     unlock: '解鎖八神嘉兒後可選',
     evo: [{ name: '迪路獸', img: 'Tailmon', ult: '迪路貓拳', hits: 3 },
           { name: '天女獸', img: 'Angewomon', ult: '神聖之箭' },
@@ -226,7 +232,7 @@ function curDef() { return B ? B.p.def : (RUN && RUN.team[0]) ? memberStats(RUN.
 // 友情之力的次數：每 2 隻夥伴多 1 下（算到 6 隻），超過 6 隻每隻 +1，最少 1 下
 function friendHits() { const n = B ? B.fighters.filter(f => f.hp > 0).length : (RUN ? RUN.team.length : 1); return Math.max(1, Math.floor(Math.min(n, 6) / 2) + Math.max(0, n - 6)); }
 // 希望之光能進化到的最高階段
-const hopeTier = f => Math.min(f.leader ? 3 : 1, f.m.level >= TIERS[3].lv ? 3 : f.m.level >= TIERS[2].lv ? 2 : 1);   // 只有隊長能超進化以上，其他夥伴最多到成熟期
+const hopeTier = f => Math.min(tierCap(f), f.m.level >= TIERS[3].lv ? 3 : f.m.level >= TIERS[2].lv ? 2 : 1);   // 只有隊長能超進化以上，其他夥伴最多到成熟期
 const hpPct = (f, pc) => Math.round(f.maxhp * pc);
 // 護盾量 = 基礎值 ＋ 出戰夥伴最大 HP × 比例（進化後 HP 變大，護盾也跟著變大）
 function curMaxHp() { return B ? B.p.maxhp : (RUN && RUN.team[0]) ? memberStats(RUN.team[0]).maxhp : 60; }
@@ -360,7 +366,7 @@ const RELICS = {
   boots:     { name: '疾風之靴', icon: '👟', desc: '戰鬥開始時行動條 +35%' },
   coin:      { name: '招財貓',   icon: '🐱', desc: '戰鬥獲得的數碼幣 +50%' },
   radar:     { name: '數碼探測器', icon: '📡', desc: '探索地圖時的視野 +2 格' },
-  bigbag:    { name: '大背包',   icon: '🎒', desc: '背包上限 +1（變成 4 格）' },
+  bigbag:    { name: '大背包',   icon: '🎒', desc: '背包上限 +1' },
   ultboost:  { name: '究極強化', icon: '💠', desc: '所有究極技威力 +25%（商店購買）', special: true },
   ultproof:  { name: '究極之證', icon: '🏅', desc: '進化時多拿 1 張究極技卡（隱藏獎勵）', special: true },
   darkgear:  { name: '黑色齒輪', icon: '⚙️', desc: '全隊攻擊 ×1.25，但每回合開始失去 3% HP、進化失控機率 +50%；帶著它打倒惡魔獸會走向黑暗結局（回復泉可以淨化）', dark: true },
@@ -369,9 +375,9 @@ const RELICS = {
 const has = k => RUN.relics.includes(k);
 
 // =========================================================
-//   背包道具（戰鬥中使用，不花能量；最多帶 3 個）
+//   背包道具（戰鬥中使用，不花能量；最多帶 4 個，舊存檔 3 個）
 // =========================================================
-const bagMax = () => 3 + (has('bigbag') ? 1 : 0);
+const bagMax = () => (P1() ? 4 : 3) + (has('bigbag') ? 1 : 0);
 const ITEMS = {
   potion: { name: '回復藥',   icon: '💊', desc: '一隻夥伴回復 30% HP（戰鬥中給出戰夥伴，戰鬥外可以自己選）' },
   juice:  { name: '勇氣飲料', icon: '🧃', desc: '勇氣值 +25' },
@@ -412,7 +418,7 @@ async function addItem(k) {
     return true;
   }
 }
-const relicPool = () => Object.keys(RELICS).filter(k => !RELICS[k].dark && !RELICS[k].special && !has(k) && !(k === 'hope' && RUN.flags.hopeUsed));
+const relicPool = () => Object.keys(RELICS).filter(k => !RELICS[k].dark && !RELICS[k].special && !has(k) && !(k === 'hope' && RUN.flags.hopeUsed) && !(P1() && CREST_KEYS.includes(k)));   // 第一部沒有徽章
 
 // =========================================================
 //   章節
@@ -487,24 +493,24 @@ function memberStats(m) {
 //   被選召的孩子（加成與弱點）
 // =========================================================
 const KIDS = {
-  taichi:   { name: '八神太一', nick: '太一',   crest: '勇氣', icon: '🔥', color: '#f97316', plus: '夥伴造成的傷害 +20%，強行進化成功率 +15%', minus: '受到的傷害 +15%，強行進化成功時更容易失控',
-              card: 'reckless', line: '好！不管遇到什麼，衝就對了！', mods: { atk: 1.2, taken: 1.15, forceSuccess: .15, forceWrong: .1 }, partner: 'agumon' },
+  taichi:   { name: '八神太一', nick: '太一',   crest: '勇氣', icon: '🔥', color: '#f97316', plus: '夥伴造成的傷害 +20%，強行進化成功率 +15%，每場戰鬥開始勇氣值 +5', minus: '受到的傷害 +15%，強行進化成功時更容易失控',
+              card: 'reckless', line: '好！不管遇到什麼，衝就對了！', mods: { atk: 1.2, taken: 1.15, forceSuccess: .15, forceWrong: .1, startCourage: 5 }, partner: 'agumon' },
   yamato:   { name: '石田大和', nick: '大和',   crest: '友情', icon: '🤝', color: '#3b82f6', plus: '每回合第一次換手不消耗能量，候補也拿全額經驗，隊伍上限 7 隻；第 4 隻起每隻攻擊 +2%（最多 +5%）', minus: '隊伍少於 3 隻時，夥伴攻擊 -15%',
               card: 'friendship', line: '…我會保護好大家的。', mods: { freeSwitch: true, benchFull: true, teamPlus: 1, teamAtk: true }, partner: 'gabumon' },
   sora:     { name: '武之內素娜', nick: '素娜', crest: '愛心', icon: '💗', color: '#ef4444', plus: '愛的守護：每場戰鬥中，夥伴第一次被打倒時會以 1 HP 撐住；勝利後全隊回復 15% HP，勸降成功率 +15%', minus: '夥伴的攻擊 -10%',
               card: 'tender', line: '大家都不要受傷喔，我會照顧好每一個人。', mods: { winHeal: .15, persuade: .15, atk: .9, loveGuard: true }, partner: 'piyomon' },
   koushiro: { name: '泉光子郎', nick: '光子郎',   crest: '知識', icon: '📘', color: '#a855f7', plus: '每回合多抽 1 張牌、商店 85 折、探索視野 +2', minus: '全隊 HP -15%',
               card: 'analyze', line: '這個世界的構造…真是太有意思了！', mods: { draw: 1, shop: .85, hp: .85, sight: 2 }, partner: 'tentomon' },
-  mimi:     { name: '太刀川美美', nick: '美美', crest: '純真', icon: '🌟', color: '#22c55e', plus: '勇氣值累積 +40%', minus: '數碼幣收入 -30%',
-              card: 'blossom', line: '哇～好多可愛的數碼寶貝！大家一起加油吧！', mods: { courage: 1.4, bits: .7 }, partner: 'palmon', unlock: '通過第一章後解鎖' },
+  mimi:     { name: '太刀川美美', nick: '美美', crest: '純真', icon: '🌟', color: '#22c55e', plus: '勇氣值累積 +40%，回復泉的回復量提高', minus: '數碼幣收入 -30%',
+              card: 'blossom', line: '哇～好多可愛的數碼寶貝！大家一起加油吧！', mods: { courage: 1.4, bits: .7, springPlus: .15 }, partner: 'palmon', unlock: '通過第一章後解鎖' },
   jou:      { name: '城戶丈', nick: '阿丈',     crest: '誠實', icon: '💧', color: '#94a3b8', plus: '每回合開始獲得護盾（3＋最大 HP×5%）', minus: '速度 -10%',
               card: 'prepare', line: '等、等一下！我們先擬定計畫再出發比較安全！', mods: { blockDef: true, spd: .9 }, partner: 'gomamon', unlock: '抵達第三章後解鎖' },
   takeru:   { name: '高石武', nick: '阿武',     crest: '希望', icon: '🕊️', color: '#facc15', plus: '每局可以復活一次（全隊 40% HP），強行進化失敗不受反噬', minus: '進化消耗的勇氣值 +20%',
               card: 'hopelight', line: '只要不放棄，一定會有希望的！', mods: { revive: true, evo: 1.2, noRecoil: true }, partner: 'patamon', unlock: '達成任一結局後解鎖' },
-  hikari:   { name: '八神嘉兒', nick: '嘉兒',     crest: '光明', icon: '☀️', color: '#f9a8d4', plus: '所有回復效果 +50%，強行進化成功時不會失控', minus: '牌組上限 18 張（一般是 20 張）',
-              card: 'lightward', line: '…我感覺得到，數碼寶貝們在呼喚我們。', mods: { heal: 1.5, deckMax: 18, noWrong: true }, partner: 'plotmon', unlock: '收集 2 種結局後解鎖' },
+  hikari:   { name: '八神嘉兒', nick: '嘉兒',     crest: '光明', icon: '☀️', color: '#f9a8d4', plus: '所有回復效果 +50%，強行進化成功時不會失控，每場戰鬥第一回合出的第一張牌少 1 能量', minus: '牌組上限 18 張（一般是 20 張）',
+              card: 'lightward', line: '…我感覺得到，數碼寶貝們在呼喚我們。', mods: { heal: 1.5, deckMax: 18, noWrong: true, firstDisc: true }, partner: 'plotmon', unlock: '收集 2 種結局後解鎖' },
 };
-const KID_DEFAULT = { teamPlus: 0, teamAtk: false, lowHpPenalty: false, loveGuard: false, blockDef: false, forceSuccess: 0, forceWrong: 0, noWrong: false, noRecoil: false, sight: 0, atk: 1, taken: 1, courage: 1, bits: 1, shop: 1, hp: 1, spd: 1, heal: 1, evo: 1, draw: 0, block: 0, persuade: 0, winHeal: 0, deckMax: 20 };
+const KID_DEFAULT = { teamPlus: 0, teamAtk: false, lowHpPenalty: false, loveGuard: false, blockDef: false, forceSuccess: 0, forceWrong: 0, startCourage: 0, springPlus: 0, firstDisc: false, noWrong: false, noRecoil: false, sight: 0, atk: 1, taken: 1, courage: 1, bits: 1, shop: 1, hp: 1, spd: 1, heal: 1, evo: 1, draw: 0, block: 0, persuade: 0, winHeal: 0, deckMax: 20 };
 function K() { return { ...KID_DEFAULT, ...((typeof RUN !== 'undefined' && RUN && KIDS[RUN.kid]) ? KIDS[RUN.kid].mods : {}) }; }
 function gainBits(n) { const v = Math.round(n * K().bits); RUN.bits += v; return v; }
 // ---------- 牌組上限：整副 20 張（嘉兒 18），每一類也有上限 ----------

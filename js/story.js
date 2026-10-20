@@ -259,7 +259,10 @@ const EVENTS = {
     await say(null, '一道溫暖的光從天而降。');
     await say('angemon_npc', '被選召的孩子，你一路上守護了光明，沒有被黑暗動搖。');
     await say('angemon_npc', '這是給你的祝福。最後的戰鬥，就拜託你了。');
-    if (!has('hope') && !F().hopeUsed) await giveRelic('hope'); else { teamHeal(1); await say(null, '全隊 HP 全滿了！'); }
+    if (P1()) {   // 第一部沒有徽章：天使獸答應來援護
+      teamHeal(1); await say(null, '全隊 HP 全滿了！');
+      if (assistPool().includes('angemon')) { await say('angemon_npc', '最後的戰鬥，我也會助你一臂之力。'); await giveAssist('angemon'); }
+    } else if (!has('hope') && !F().hopeUsed) await giveRelic('hope'); else { teamHeal(1); await say(null, '全隊 HP 全滿了！'); }
   } },
 
   friends: { ch: [3], npc: 'jijimon', run: async () => {

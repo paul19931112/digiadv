@@ -41,19 +41,25 @@ function gainCourage(n, show) {
   n = hv(n);
   const before = Math.floor(RUN.courage);
   if (n > 0) n *= K().courage * (B && B.dom === 'fog' ? .5 : 1);
-  RUN.courage = Math.min(COURAGE_MAX, RUN.courage + n);
+  RUN.courage = Math.min(courageMax(), RUN.courage + n);
   if (show && B && Math.floor(RUN.courage) > before) sfx('courage');
   if (show && B && Math.floor(RUN.courage) > before) floatText(B.p, `🔥+${Math.floor(RUN.courage) - before}`, 'courage', -40);
   updateCourageUI();
 }
-function coolDownCourage() {   // 40 以下完全保留，超過的部分減半
+function coolDownCourage() {   // 40 以下完全保留，超過的部分減半（第一部上限就是 40，不用減半）
+  if (P1()) { RUN.courage = Math.min(RUN.courage, courageMax()); updateCourageUI(); return; }
   const c = RUN.courage;
   RUN.courage = Math.floor(c <= COURAGE_SAFE ? c : COURAGE_SAFE + (c - COURAGE_SAFE) / 2);
   updateCourageUI();
 }
 function updateCourageUI() {
-  const v = Math.floor(RUN.courage), pct = v / COURAGE_MAX * 100 + '%';
-  document.querySelectorAll('.courageVal').forEach(e => e.textContent = `${v} / ${COURAGE_MAX}`);
+  const mx = courageMax(), v = Math.floor(RUN.courage), pct = v / mx * 100 + '%';
+  document.querySelectorAll('.courageVal').forEach(e => e.textContent = `${v} / ${mx}`);
+  document.querySelectorAll('.courageBar').forEach(e => {   // 刻度：第一部只有成熟期 30
+    const ticks = mx === COURAGE_MAX ? [30, 60, 100] : [30];
+    e.querySelectorAll('s').forEach((t, i) => { t.style.display = i < ticks.length ? '' : 'none'; if (i < ticks.length) t.style.left = ticks[i] / mx * 100 + '%'; });
+    e.title = mx === COURAGE_MAX ? '勇氣值（全隊共用）：用來進化。刻度是 30／60／100，戰鬥結束後保留一半' : `勇氣值（全隊共用）：用來進化，成熟期要 30，最多存 ${mx}`;
+  });
   document.querySelectorAll('.courageBar>i').forEach(e => e.style.width = pct);
 }
 
@@ -139,7 +145,7 @@ function togglePin(i) {
 // ---------- 手牌上的標記：🔥 燃燒、🌫️ 霧化、☠️ 汙染、🔍 看破（卡片離開手牌就消失） ----------
 function clearMarks(c) { delete c.burn; delete c.fog; delete c.pol; delete c.seen; }
 const baseId = id => id.replace('+', '');
-const cardCost = (c, d = cardDef(c.id)) => d.cost + (c.seen ? 1 : 0);
+const cardCost = (c, d = cardDef(c.id)) => Math.max(0, d.cost + (c.seen ? 1 : 0) - (B && B.firstDisc && B.turnNo <= 1 ? 1 : 0));
 const isHalf = (c, d = cardDef(c.id)) => !d.noHalf && !!(c.pol || (B.spread && B.spread[baseId(c.id)] >= B.turnNo));
 // 頭目行動時先預告，等玩家下一回合抽完牌才套用到手牌上（不然只會打到保留的牌）
 function bossHandAct(e) {
@@ -237,6 +243,8 @@ function runBattle(enemyId, lv, opt = {}) {
     if (opt.preDamage) log(`${e.name} 已經受了重傷！`);
     if (RUN.stats.wins === 0) log('提示：把敵人的血量壓低，再按「🤝 勸降」就有機會讓牠加入隊伍！');
     if (has('courage')) { gainCourage(10); log('🔥 勇氣徽章發光了！勇氣值 +10'); }
+    if (P1() && K().startCourage) { gainCourage(K().startCourage); log(`🔥 ${KIDS[RUN.kid].nick}鼓起勇氣！勇氣值 +${K().startCourage}`); }
+    B.firstDisc = P1() && K().firstDisc;   // 嘉兒：第一回合第一張牌 -1 能量
     const db = $('#domainBar');
     hideDomain();
     $('#domBadge').classList.toggle('hidden', !dom);
@@ -324,6 +332,7 @@ async function playCard(i, forced) {
   sfx('card');
   const node = $('#hand').children[i], from = node ? node.getBoundingClientRect() : null;
   B.energy -= cost;
+  B.firstDisc = false;
   B.hand.splice(i, 1);
   log(`${B.p.name} 使用了「${d.name}」`);
   B.anim = true;
@@ -487,6 +496,7 @@ function evoBlock(f, tier) {
   if (B && B.sealTurn && B.turnNo <= B.sealTurn) return '被黑暗封印，暫時無法進化';
   if (f.dark) return '暴走中，無法控制';
   if (tier <= f.tier) return f.tier === tier ? '目前型態' : '已經超越';
+  if (P1() && tier >= 2) return '第一部只能進化到成熟期';
   if (tier >= 2 && !f.leader) return '只有隊長 👑 能超進化以上';
   if (f.m.level < TIERS[tier].lv) return `需要 Lv.${TIERS[tier].lv}`;
   if (RUN.courage < evoCost(f, tier) && RUN.courage < FORCE_MIN) return `勇氣值不足（強行進化至少要 ${FORCE_MIN}）`;
@@ -514,6 +524,7 @@ function evoOdds(f, tier) {
 const pct = x => Math.round(x * 100);
 
 function darkForm(f, tier) {
+  if (P1() && tier === 1 && f.sp.dark1) return { name: f.sp.dark1.name, img: f.sp.dark1.img, tint: !!f.sp.dark1.tint };   // 第一部：成熟期的黑暗型態
   if (f.sp.dark) return { name: f.sp.dark.name, img: f.sp.dark.img, tint: false };
   const ev = f.sp.evo[tier - 1];
   return { name: '暗黑' + ev.name, img: ev.img, tint: true };
@@ -612,6 +623,7 @@ function openBag() {
   const panel = $('#bagPanel');
   panel.innerHTML = `<h3><span>🎒 背包（${RUN.items.length}/${bagMax()}）　使用不花能量</span><button class="btn" id="bagClose">關閉</button></h3>` +
     (RUN.items.length ? '' : '<div class="why" style="padding:8px">背包是空的。探索地圖、開寶箱、逛商店都能拿到道具。</div>');
+  const ah = assistBagHtml();
   RUN.items.forEach((k, i) => {
     const it = ITEMS[k], why = itemBlock(k), el = document.createElement('div');
     el.className = 'swOpt' + (why ? ' off' : '');
@@ -619,6 +631,7 @@ function openBag() {
     if (!why) el.onclick = () => useItem(i);
     panel.appendChild(el);
   });
+  if (ah) { panel.insertAdjacentHTML('beforeend', ah); panel.querySelectorAll('.assistOpt:not(.off)').forEach(el => el.onclick = () => useAssist(el.dataset.ak)); }
   panel.querySelector('#bagClose').onclick = closePopups;
   panel.classList.remove('hidden');
 }
@@ -810,7 +823,7 @@ function win() {
       lvUp = true;
     }
     msgs.push(`${SPECIES[m.sp].name} 經驗 +${got}${lvUp ? `　🎉 Lv.${m.level}！` : ''}` +
-      (lvUp && [4, 7].includes(m.level) ? `　<b style="color:#f9a8d4">解鎖${TIERS[m.level === 4 ? 2 : 3].verb}！</b>` : ''));
+      (lvUp && !P1() && [4, 7].includes(m.level) ? `　<b style="color:#f9a8d4">解鎖${TIERS[m.level === 4 ? 2 : 3].verb}！</b>` : ''));
   });
   const bits = gainBits((e.lvl * 4 + randInt(5, 12)) * (opt.boss ? 4 : opt.elite ? 2 : 1) * (has('coin') ? 1.5 : 1));
   const cg = 1 + (opt.boss ? 15 : opt.elite ? 5 : 0);
@@ -818,7 +831,7 @@ function win() {
   const cBefore = Math.floor(RUN.courage);
   coolDownCourage();
   msgs.push(`💰 數碼幣 +${bits}　　🔥 勇氣值 +${Math.round(cg * K().courage)}`);
-  if (Math.floor(RUN.courage) < cBefore) msgs.push(`<span style="color:#fdba74">🔥 勇氣值冷靜下來：${cBefore} → ${Math.floor(RUN.courage)}（${COURAGE_SAFE} 以下完全保留，超過的部分減半）</span>`);
+  if (!P1() && Math.floor(RUN.courage) < cBefore) msgs.push(`<span style="color:#fdba74">🔥 勇氣值冷靜下來：${cBefore} → ${Math.floor(RUN.courage)}（${COURAGE_SAFE} 以下完全保留，超過的部分減半）</span>`);
   RUN.stats.wins++;
   if (persuaded) RUN.stats.persuaded = (RUN.stats.persuaded || 0) + 1;
   renderBattle();
@@ -1040,7 +1053,7 @@ function renderBattle() {
   $('#btnFlee').textContent = noFlee ? '無法逃跑' : '逃跑';
   $('#btnSwitch').disabled = !my || B.energy < switchCost() || !B.fighters.some(f => f !== p && f.hp > 0 && !isLocked(f));
   $('#btnBag').disabled = !my;
-  $('#btnBag').textContent = `🎒 道具 ${RUN.items.length}`;
+  $('#btnBag').textContent = `🎒 道具 ${RUN.items.length}` + (assistOn() && assistList().length && !B.assistUsed ? ' 🤝' : '');
   const pb = $('#btnPersuade'), why = persuadeBlock(), hard = persuadeHard();
   pb.disabled = !my || !!why;
   pb.innerHTML = hard ? `🤝 ${hard}` : `🤝 勸降 ${Math.round(persuadeChance() * 100)}%<small>${why ? why : '可選擇代價'}</small>`;
@@ -1067,7 +1080,7 @@ function openEvo() {
   closePopups(); sfx('open');
   const f = B.p, panel = $('#evoPanel');
   panel.innerHTML = `<h3><span>選擇進化的強度　🔥 勇氣值 ${Math.floor(RUN.courage)}</span><button class="btn" id="evoClose">關閉</button></h3>`;
-  [1, 2, 3].forEach(t => {
+  (P1() ? [1] : [1, 2, 3]).forEach(t => {
     const T = TIERS[t], ev = f.sp.evo[t - 1], why = evoBlock(f, t), cost = Math.max(0, evoCost(f, t));
     const o = why ? null : evoOdds(f, t), force = !!(o && o.force), risky = !!(o && !force && o.wrong > 0);
     const el = document.createElement('div');

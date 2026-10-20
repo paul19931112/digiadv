@@ -214,11 +214,12 @@ function genArea(nd) {
       place({ kind: 'pickup' }, dead.length && Math.random() < .6 ? dead : far.length && Math.random() < .6 ? far : cand);
     if (['battle', 'treasure', 'event'].includes(nd.type) && Math.random() < .2) place({ kind: 'stone' }, free(5));
   }
+  maybePlaceAssist(place, free, nd.type);   // 援護事件：任何地圖都可能出現
   return { T, objs, start, exit, theme, nd, x: start.x, y: start.y, mv: { moving: false, t: 0 }, facing: 1, seen: new Uint8Array(COLS * ROWS) };
 }
 
 function exitLocked() {
-  return AREA.objs.some(o => !o.done && ((o.kind === 'enemy' && o.role !== 'roam') || o.kind === 'npc'));
+  return AREA.objs.some(o => !o.done && ((o.kind === 'enemy' && o.role !== 'roam') || (o.kind === 'npc' && !o.opt)));   // opt：可以不理的 NPC（援護事件）
 }
 
 // ---------- 迷霧：只看得到身邊，走過的地方會記住地形 ----------
@@ -342,7 +343,7 @@ function updateArea(dt) {
 }
 
 function tryExit() {
-  if (exitLocked()) { sfx('error'); toast(AREA.objs.some(o => !o.done && o.kind === 'npc') ? '🔒 先去跟附近的數碼寶貝說說話吧' : '🔒 出口被擋住了，先打倒守門的敵人！'); keys.clear(); return; }
+  if (exitLocked()) { sfx('error'); toast(AREA.objs.some(o => !o.done && o.kind === 'npc' && !o.opt) ? '🔒 先去跟附近的數碼寶貝說說話吧' : '🔒 出口被擋住了，先打倒守門的敵人！'); keys.clear(); return; }
   keys.clear();
   leaveArea();
 }
@@ -365,7 +366,7 @@ async function interact(o) {
     return;
   }
   if (o.kind === 'chest') { o.done = true; await openChest(o.rich); }
-  else if (o.kind === 'npc') { await runEvent(o.ev); o.done = true; }
+  else if (o.kind === 'npc') { if (o.asp) await assistEvent(o); else await runEvent(o.ev); o.done = true; }
   else if (o.kind === 'spring') { if (await restSpot()) o.done = true; }
   else if (o.kind === 'shop') { await openShop(o); }
   else if (o.kind === 'egg') { o.done = true; await hatchEgg(); }
@@ -453,7 +454,7 @@ async function openPickup() {
   updateHUD();
 }
 async function restSpot() {
-  const amt = has('purity') ? .7 : .4;
+  const amt = (has('purity') ? .7 : .4) + (P1() ? K().springPlus : 0);   // 美美：回復泉 +15%
   const c = await ask(null, '清澈的回復泉閃閃發光。要怎麼休息呢？', [
     { text: `休息`, note: `全隊回復 ${Math.min(100, Math.round(amt * K().heal * 100))}% HP` },
     { text: '特訓', note: '強化一張卡片', disabled: !RUN.deck.some(canUpgrade) },

@@ -62,7 +62,7 @@ function askTutorial() {
 async function runTutorial() {
   G.tutorial = true;
   Object.keys(TUT).forEach(k => delete TUT[k]);
-  RUN = { kid: 'taichi', team: [newMember('agumon', 3)], items: ['potion'], deck: [...STARTER_DECK], courage: 0, bits: 0, relics: [], flags: {},
+  RUN = { kid: 'taichi', team: [newMember('agumon', 3)], items: ['potion'], deck: [...STARTER_DECK], courage: 0, bits: 0, relics: [], flags: {}, rules: 'p1',
           chapter: 1, route: null, pos: null, visited: [], usedEvents: [], seen: [], stats: { wins: 0, chapters: 0 } };
   preloadLine('agumon'); ['Numemon', 'Goburimon', 'Kunemon', 'Jijimon'].forEach(loadImg);
   G.mode = 'story'; showScreen('');
@@ -85,11 +85,11 @@ async function runTutorial() {
   RUN.courage = 35;
   const p2 = runBattle('goblimon', 2, { tutorial: 2, noFlee: true });
   B.hold = true; await sleep(500);
-  await coach('#pPanel .courageBar', '這是<b>勇氣值</b>（全隊共用）。出牌、被攻擊都會慢慢增加。<br>⚠️ 戰鬥結束後，<b>40 以下完全保留</b>，超過的部分會減半，所以存不到太多。');
+  await coach('#pPanel .courageBar', '這是<b>勇氣值</b>（全隊共用）。出牌、被攻擊都會慢慢增加，最多存 <b>40</b>。<br>集到 <b>30</b> 就能讓夥伴進化成<b>成熟期</b>！');
   B.hold = false;
   await waitFor(isPlayerTurn);
   if (B) await coach('#btnEvo', '老夫先幫你存了 35 點勇氣值。按<b>「進化」</b>（E 鍵）試試看！', { wait: () => !B || !$('#evoPanel').classList.contains('hidden') || B.p.tier > 0 });
-  if (B && !B.p.tier) await coach('#evoPanel', '這裡可以選擇<b>進化的強度</b>：成熟期 30、完全體 60、究極體 100，等級也要夠。<br>點<b>「進化 → 暴龍獸」</b>！', { wait: () => !B || B.p.tier > 0 });
+  if (B && !B.p.tier) await coach('#evoPanel', '進化成<b>成熟期</b>要 30 點勇氣值。（完全體、究極體要等到第二部拿到徽章才會開放）<br>點<b>「進化 → 暴龍獸」</b>！', { wait: () => !B || B.p.tier > 0 });
   await sleep(1900);
   if (B) await coach('#hand', '進化後能力大增，這回合還多 1 點能量，並拿到 2 張<b>究極技</b>卡（金色的）！<br>究極技卡會<b>保留在手上</b>，能量不夠可以下回合再用。進化持續 3 回合後會退化。用究極技打倒哥布林獸吧！');
   await coach(null, '💡 <b>強行進化</b>：勇氣值不夠也能硬上（至少要 10 點），勇氣值會全部用掉。<br>先判定<b>成功</b>或<b>失敗</b>（失敗會受到反噬）；成功之後，缺越多越容易<b>失控</b>，變成會暴走的黑暗型態。<br>進化面板會顯示機率，自己判斷要不要賭！', {});

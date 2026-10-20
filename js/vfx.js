@@ -143,9 +143,9 @@ async function reticleFx(f) {   // 準星鎖定敵人
             { transform: 'translate(-50%,-50%) rotate(135deg) scale(.7)', opacity: 1, borderColor: '#fff', offset: .8 }, { transform: 'translate(-50%,-50%) rotate(135deg) scale(.7)', opacity: 0 }], { duration: 950, easing: 'ease-out' });
   await wait(450);
 }
-async function cutIn(f, name) {   // 究極技的招式特寫
+async function cutIn(f, name, src) {   // 究極技的招式特寫（src：援護用別的圖）
   const img = unitOf(f).querySelector('img'), c = mk('cutin', 0, 0, innerWidth, innerHeight);
-  c.innerHTML = `<div class="dim"></div><div class="band"><img src="${img ? img.src : ''}" alt=""><div class="nm">${name}！</div></div>`;
+  c.innerHTML = `<div class="dim"></div><div class="band"><img src="${src || (img ? img.src : '')}" alt=""><div class="nm">${name}！</div></div>`;
   await wait(20); c.classList.add('on'); sfx('evolve');
   await wait(950); c.classList.add('out'); await wait(240); c.remove();
 }

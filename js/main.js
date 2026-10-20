@@ -116,7 +116,7 @@ function showSelect() {
 }
 
 async function newRun(id) {
-  RUN = { kid: chosenKid, team: [], items: ['potion'], deck: [...STARTER_DECK, KIDS[chosenKid].card], courage: 10, bits: 30, relics: [], flags: {},
+  RUN = { kid: chosenKid, team: [], items: ['potion'], deck: [...STARTER_DECK, KIDS[chosenKid].card], courage: 10, bits: 30, relics: [], flags: {}, rules: 'p1',
           chapter: 1, route: null, pos: null, visited: [], usedEvents: [], seen: [], stats: { wins: 0, chapters: 0 } };
   RUN.team.push(newMember(id, 1));
   if (META.tutBonus) { RUN.items.push('potion'); META.tutBonus = false; saveMeta(); }
@@ -196,7 +196,7 @@ function closeModal() {
 function openTeam() {
   if (!RUN || !['area', 'route'].includes(G.mode)) return;
   const m = openModal(`<h2>我的隊伍（${RUN.team.length}/${teamMax()}）</h2>
-    <p class="sub">隊長會帶頭出戰，而且只有隊長 👑 能超進化到完全體、究極體（其他夥伴最多進化到成熟期）。🔥 勇氣值全隊共用：目前 ${Math.floor(RUN.courage)} / ${COURAGE_MAX}</p>
+    <p class="sub">${P1() ? '隊長會帶頭出戰。第一部的夥伴最多進化到成熟期（第二部拿到徽章後，隊長 👑 才能超進化）' : '隊長會帶頭出戰，而且只有隊長 👑 能超進化到完全體、究極體（其他夥伴最多進化到成熟期）'}。🔥 勇氣值全隊共用：目前 ${Math.floor(RUN.courage)} / ${courageMax()}</p>
     <div class="teamList"></div>
     <div class="relicList"></div>
     <button class="btn primary" id="mClose">關閉 (Esc)</button>`);
@@ -241,6 +241,8 @@ function openBagField() {
     dropB.onclick = () => { RUN.items.splice(i, 1); toast(`丟掉了 ${it.name}`); updateHUD(); saveRun(); closeModal(); openBagField(); };
     list.appendChild(el);
   });
+  if (assistOn() && assistList().length) list.insertAdjacentHTML('beforeend', '<p class="sub" style="margin:10px 0 4px">🤝 援護（不佔背包，戰鬥中從「道具」叫出來）</p>' +
+    assistList().map(x => { const a = ASSISTS[x.k]; return `<div class="relic"><div class="ri">${dpic(a.img, '🤝', 's44')}</div><div style="flex:1"><b>${a.name}・${a.move}</b><div class="rd">${a.desc}　剩 ${x.n} 次</div></div></div>`; }).join(''));
   m.querySelector('#mClose').onclick = closeModal;
 }
 // 戰鬥外使用道具（背包、撿到道具但背包滿了的時候）：用掉了回傳 true
@@ -283,10 +285,11 @@ const HELP = [
   ['🗂️ 牌組上限', '牌組最多 20 張（嘉兒 18 張），每一類也有上限：⚔️ 攻擊 8、🛡️ 防禦回復 6、🔥 勇氣 3、💨 強化干擾 4、✴️ 必殺 3。滿了之後拿新卡要換掉一張同類的卡。卡片右上角的圖示就是它的類型。'],
   ['🧸 商店', '商店的 4 張卡裡有 2 張是只能在這裡買到的「限定卡」。牌組超過「上限 − 2」張時可以賣卡（每間店 2 張）。強化一張卡可以一直買，第一次 30，之後每次 ×1.5。第二章以後還會賣「💠 究極強化」。'],
   ['⚔️ 敵人預告', '敵人頭上會顯示下一招和大概的傷害。看到大招可以先防禦，或用干擾類卡片拖慢牠。'],
-  ['🔥 勇氣值', '全隊共用。出攻擊卡、必殺卡、被攻擊都會增加，勇氣卡增加最多。戰鬥結束後，40 以下完全保留，超過 40 的部分減半。'],
-  ['✨ 進化', '按 E 選擇強度：成熟期 30、完全體 60（Lv.4）、究極體 100（Lv.7）。持續 3 回合，送 2 張究極技卡；究極技卡在進化期間會保留在手上，用掉或退化才會消失。進化結束後，夥伴會力氣用盡、強制退場 2 回合（沒有夥伴可以換的話會留下來，但疲勞：傷害 -20%、速度 -10%）。只有隊長 👑（隊伍第一隻）能進化到完全體、究極體，其他夥伴最多到成熟期。'],
+  ['🔥 勇氣值', () => P1() ? '全隊共用，最多存 40。出攻擊卡、必殺卡、被攻擊都會增加，勇氣卡增加最多；勇氣飲料、回復泉、事件也能補充。戰鬥結束後會全部保留。' : '全隊共用。出攻擊卡、必殺卡、被攻擊都會增加，勇氣卡增加最多。戰鬥結束後，40 以下完全保留，超過 40 的部分減半。'],
+  ['✨ 進化', () => P1() ? '按 E 進化到成熟期，需要 30 勇氣值。持續 3 回合，送 2 張究極技卡；究極技卡在進化期間會保留在手上，用掉或退化才會消失。進化結束後，夥伴會力氣用盡、強制退場 2 回合（沒有夥伴可以換的話會留下來，但疲勞：傷害 -20%、速度 -10%）。第一部最多只能進化到成熟期；完全體以上要等第二部拿到徽章。' : '按 E 選擇強度：成熟期 30、完全體 60（Lv.4）、究極體 100（Lv.7）。持續 3 回合，送 2 張究極技卡；究極技卡在進化期間會保留在手上，用掉或退化才會消失。進化結束後，夥伴會力氣用盡、強制退場 2 回合（沒有夥伴可以換的話會留下來，但疲勞：傷害 -20%、速度 -10%）。只有隊長 👑（隊伍第一隻）能進化到完全體、究極體，其他夥伴最多到成熟期。'],
   ['⚠️ 強行進化', '勇氣值不夠（但至少 10）也能硬上，勇氣值全部用掉。先判定成功或失敗（失敗會反噬＋麻痺）；成功後，缺越多越容易失控，變成會暴走的黑暗型態。'],
   ['🤝 勸降', '每次可以選擇代價：1 能量＋10 勇氣值／1 能量＋30 數碼幣／2 能量。敵人血越少成功率越高；失敗敵人會被激怒。頭目不能勸降。'],
+  ['🤝 援護', () => P1() ? '冒險途中救出其他孩子的夥伴，牠們就會在戰鬥中來幫你一招。從「道具」叫出來，花 1 能量，每場戰鬥 1 次；每種援護整趟可以用 3 次，同時最多帶 2 種，不佔隊伍位置。' : '新開的冒險才有這個系統。'],
   ['💞 原作搭檔', '孩子帶著原作的搭檔數碼寶貝（例如太一和亞古獸），那隻夥伴的進化消耗 -10%。'],
   ['🔄 換手', '按 Q 換其他夥伴上場（花 1 能量）。出戰夥伴倒下時可以選下一隻，全隊倒下就輸了。'],
   ['💉 屬性', '疫苗種剋病毒種、病毒種剋資料種、資料種剋疫苗種，剋制時傷害 ×1.5。'],
@@ -383,7 +386,7 @@ function openAbout() {
   m.querySelector('#mClose').onclick = closeModal;
 }
 function openHelp() {
-  const m = openModal(`<h2>❓ 遊戲說明</h2><div class="helpGrid">${HELP.map(([t, d]) => `<div class="helpCard"><b>${t}</b><p>${d}</p></div>`).join('')}</div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
+  const m = openModal(`<h2>❓ 遊戲說明</h2><div class="helpGrid">${HELP.map(([t, d]) => `<div class="helpCard"><b>${t}</b><p>${typeof d === 'function' ? d() : d}</p></div>`).join('')}</div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
   m.querySelector('#mClose').onclick = closeModal;
 }
 
