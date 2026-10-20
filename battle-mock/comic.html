@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>劇情插畫樣品</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+  #scene { position: fixed; inset: 0; overflow: hidden; }
+  /* 一張插畫 = 背景畫布 + 角色 + 光影特效，整張慢慢推近（Ken Burns） */
+  .cg { position: absolute; inset: 0; opacity: 0; transition: opacity .8s; }
+  .cg.on { opacity: 1; }
+  .cg .cam { position: absolute; inset: -4%; animation: push 14s ease-out forwards; }
+  @keyframes push { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(var(--px, 0), var(--py, 0)); } }
+  .cg canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .cg .ch { position: absolute; transform: translate(-50%, -100%); transform-origin: 50% 100%; animation: floaty 4s ease-in-out infinite; }
+  .cg .ch img { display: block; height: 100%; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 14px var(--rim, #fff8)) drop-shadow(6px 10px 10px #0007); }
+  .cg .ch.flip img { transform: scaleX(-1); }
+  .cg .ch.dark img { filter: brightness(.12) saturate(1.5) drop-shadow(0 0 18px #a855f7) drop-shadow(0 0 40px #7c3aed); }
+  .cg .ch.in-l { animation: inL 1s cubic-bezier(.2,.9,.3,1) both, floaty 4s 1s ease-in-out infinite; }
+  .cg .ch.in-r { animation: inR 1s cubic-bezier(.2,.9,.3,1) both, floaty 4s 1s ease-in-out infinite; }
+  @keyframes floaty { 0%, 100% { margin-top: 0; } 50% { margin-top: -1.2%; } }
+  @keyframes inL { from { opacity: 0; margin-left: -18%; } to { opacity: 1; margin-left: 0; } }
+  @keyframes inR { from { opacity: 0; margin-left: 18%; } to { opacity: 1; margin-left: 0; } }
+  .cg .shadow { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(#0008, transparent 70%); }
+  /* 光芒、暗角 */
+  .rays { position: absolute; inset: -30%; background: repeating-conic-gradient(from 0deg at var(--rx, 70%) var(--ry, 20%), #fff0 0 7deg, #fff3 7deg 9deg); animation: spin 40s linear infinite; mix-blend-mode: screen; pointer-events: none; }
+  @keyframes spin { to { transform: rotate(8deg); } }
+  .speed { position: absolute; inset: -40%; background: repeating-conic-gradient(from 0deg at 50% 52%, #fff0 0 3deg, #fff8 3deg 3.6deg); -webkit-mask: radial-gradient(circle at 50% 52%, transparent 22%, #000 55%); mask: radial-gradient(circle at 50% 52%, transparent 22%, #000 55%); animation: spin 2s linear infinite; pointer-events: none; }
+  .vig { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 55%, #000a 100%); pointer-events: none; }
+  .crest { position: absolute; left: 50%; top: 36%; width: 26vmin; aspect-ratio: 3 / 4; transform: translate(-50%, -50%); border-radius: 14px; background: linear-gradient(160deg, #fff7c2, #f59e0b 60%, #b45309);
+           border: 4px solid #fff; display: grid; place-items: center; font-size: 13vmin; box-shadow: 0 0 40px #fbbf24, 0 0 120px #f59e0b; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 60px #fde68a, 0 0 160px #f59e0b; } }
+  .eyes { position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%); width: 40vmin; display: flex; justify-content: space-between; opacity: 0; animation: fadein 2.5s .6s forwards; }
+  .eyes i { width: 28%; height: 5vmin; background: #ef4444; border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%; box-shadow: 0 0 20px #ef4444, 0 0 60px #b91c1c; transform: rotate(var(--r)); }
+  @keyframes fadein { to { opacity: 1; } }
+  .title { position: absolute; left: 0; right: 0; bottom: 36%; text-align: center; opacity: 0; animation: fadein 1.5s 1.5s forwards; }
+  .title b { display: block; font-size: 5vmin; letter-spacing: 1.2vmin; color: #fde68a; }
+  .title strong { display: block; font-size: 12vmin; color: #fff; letter-spacing: 1vmin; text-shadow: 0 0 20px #f97316, 0 4px 0 #7c2d12; }
+  /* 對話框 */
+  .box { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(94vw, 760px); min-height: 22vh; z-index: 5;
+         background: linear-gradient(#14183aee, #0b0e25f2); border: 2px solid #ffcc33; border-radius: 16px; padding: 18px 18px 14px; color: #f1f5f9; box-shadow: 0 8px 30px #000a; }
+  .box .name { position: absolute; top: -18px; left: 16px; display: flex; align-items: center; gap: 6px; background: #ffcc33; color: #1a1f3d; font-weight: 900; padding: 4px 12px 4px 6px; border-radius: 999px; font-size: 15px; }
+  .box .name i { font-style: normal; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--c, #fff); border: 2px solid #1a1f3d; font-size: 15px; }
+  .box .name img { width: 28px; height: 28px; object-fit: contain; background: #fff; border-radius: 50%; border: 2px solid #1a1f3d; }
+  .box .name.hide { display: none; }
+  .box .txt { font-size: clamp(16px, 4.4vw, 21px); line-height: 1.6; font-weight: 700; }
+  .box .txt.narr { color: #fde68a; font-style: italic; }
+  .box .more { position: absolute; right: 16px; bottom: 8px; color: #ffcc33; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .2; } }
+  .top { position: fixed; top: 8px; right: 10px; z-index: 6; display: flex; gap: 8px; }
+  .top button { border: 2px solid #ffcc33; background: #1a1f3dcc; color: #ffcc33; font-weight: 900; border-radius: 10px; padding: 6px 12px; font-family: inherit; cursor: pointer; }
+  .tag { position: fixed; top: 10px; left: 10px; z-index: 6; color: #cbd5e1; font-size: 12px; background: #0008; padding: 4px 8px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+<div class="tag">劇情插畫樣品：第一部 → 第二部</div>
+<div class="top"><button id="replay">↻ 重播</button></div>
+<div class="box" id="box"><div class="name" id="name"></div><div class="txt" id="txt"></div><div class="more">▼</div></div>
+<script>
+const IMG = '../images/';
+const KID = { taichi: ['🥽', '#fdba74', '太一'], koushiro: ['💻', '#d8b4fe', '光子郎'], mimi: ['👒', '#86efac', '美美'], sora: ['🧢', '#fca5a5', '素娜'] };
+const MON = { whamon: ['Whamon', '鯨魚獸'], agumon: ['Agumon', '亞古獸'], etemon: ['Etemon', '？？？'], tentomon: ['Tentomon', '甲蟲獸'], piyomon: ['Piyomon', '比丘獸'] };
+
+// ---------- 背景畫布（每一幕自己畫，會動） ----------
+function cloud(g, x, y, s) { g.beginPath(); g.ellipse(x, y, s, s * .28, 0, 0, 7); g.ellipse(x + s * .5, y - s * .12, s * .55, s * .3, 0, 0, 7); g.ellipse(x - s * .45, y + s * .02, s * .5, s * .22, 0, 0, 7); g.fill(); }
+const PAINT = {
+  sea(g, W, H, t) {   // 清晨的海：天空漸層、太陽光暈、雲、好幾層浪
+    const sk = g.createLinearGradient(0, 0, 0, H * .55); sk.addColorStop(0, '#1e3a8a'); sk.addColorStop(.55, '#f472b6'); sk.addColorStop(1, '#fdba74');
+    g.fillStyle = sk; g.fillRect(0, 0, W, H);
+    const sx = W * .72, sy = H * .42, sun = g.createRadialGradient(sx, sy, 0, sx, sy, H * .5); sun.addColorStop(0, '#fff7d6'); sun.addColorStop(.12, '#fde68a'); sun.addColorStop(.4, '#fb923c55'); sun.addColorStop(1, '#0000');
+    g.fillStyle = sun; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#fff6'; for (let i = 0; i < 5; i++) cloud(g, ((i * .27 + t * .006) % 1.3 - .15) * W, H * (.12 + i * .06), W * .12);
+    for (let l = 0; l < 5; l++) {
+      const y0 = H * (.55 + l * .1), wy = x => y0 + Math.sin(x / (60 + l * 20) + t * (1 + l * .4)) * (4 + l * 3);
+      g.fillStyle = ['#1d4ed8', '#1e40af', '#1e3a8a', '#172554', '#0b1437'][l]; g.beginPath(); g.moveTo(0, H);
+      for (let x = 0; x <= W; x += 10) g.lineTo(x, wy(x)); g.lineTo(W, H); g.fill();
+      g.strokeStyle = l < 2 ? '#fde68a66' : '#fde68a22'; g.lineWidth = 2; g.beginPath(); for (let x = 0; x <= W; x += 10) g.lineTo(x, wy(x)); g.stroke();
+    }
+    g.fillStyle = '#fde68a55'; for (let i = 0; i < 40; i++) g.fillRect((Math.sin(i * 91.3) * .5 + .5) * W + Math.sin(t * 2 + i) * 6, H * (.56 + (i % 9) * .045), 14 + (i % 4) * 6, 2);
+  },
+  burst(g, W, H) {   // 熱血特寫：橘色放射光
+    const r = g.createRadialGradient(W / 2, H * .5, 0, W / 2, H * .5, Math.max(W, H) * .7); r.addColorStop(0, '#fff7d6'); r.addColorStop(.25, '#fbbf24'); r.addColorStop(.6, '#ea580c'); r.addColorStop(1, '#7c2d12');
+    g.fillStyle = r; g.fillRect(0, 0, W, H);
+  },
+  stage(g, W, H, t) {   // 陰暗的舞台＋兩道聚光燈
+    g.fillStyle = '#0b0414'; g.fillRect(0, 0, W, H);
+    for (const [x, c] of [[.3, '#a855f7'], [.7, '#ec4899']]) {
+      const sway = Math.sin(t * .8 + x * 9) * W * .05; g.save(); g.globalCompositeOperation = 'screen';
+      const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, c + 'aa'); gr.addColorStop(1, c + '00'); g.fillStyle = gr;
+      g.beginPath(); g.moveTo(W * x + sway, 0); g.lineTo(W * .25, H * .95); g.lineTo(W * .75, H * .95); g.fill(); g.restore();
+    }
+    const fl = g.createRadialGradient(W / 2, H * .9, 0, W / 2, H * .9, W * .45); fl.addColorStop(0, '#f0abfc55'); fl.addColorStop(1, '#0000'); g.fillStyle = fl; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#fff'; for (let i = 0; i < 50; i++) { g.globalAlpha = .3 + .3 * Math.sin(t * 3 + i); g.fillRect((Math.sin(i * 12.9) * .5 + .5) * W, (Math.cos(i * 7.7) * .5 + .5) * H * .7, 2, 2); } g.globalAlpha = 1;
+  },
+  desert(g, W, H, t) {   // 正午的沙漠：太陽、好幾層沙丘、遠方的金字塔
+    const sk = g.createLinearGradient(0, 0, 0, H * .5); sk.addColorStop(0, '#38bdf8'); sk.addColorStop(1, '#fde68a'); g.fillStyle = sk; g.fillRect(0, 0, W, H);
+    const sun = g.createRadialGradient(W * .2, H * .15, 0, W * .2, H * .15, H * .35); sun.addColorStop(0, '#fff'); sun.addColorStop(.1, '#fffbeb'); sun.addColorStop(.4, '#fde68a55'); sun.addColorStop(1, '#0000'); g.fillStyle = sun; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#92400e66'; g.beginPath(); g.moveTo(W * .56, H * .47); g.lineTo(W * .64, H * .32); g.lineTo(W * .72, H * .47); g.fill();
+    ['#fcd34d', '#fbbf24', '#f59e0b', '#d97706', '#b45309'].forEach((c, l) => { const y0 = H * (.45 + l * .11); g.fillStyle = c; g.beginPath(); g.moveTo(0, H);
+      for (let x = 0; x <= W; x += 8) g.lineTo(x, y0 + Math.sin(x / (W * (.18 - l * .02)) + l * 2) * H * .04 + (l === 0 ? Math.sin(x / 40 + t * 3) * 1.5 : 0)); g.lineTo(W, H); g.fill(); });
+  },
+  void(g, W, H, t) {   // 黑暗：紫色霧氣慢慢流動
+    g.fillStyle = '#05010a'; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 6; i++) { const x = W * (.5 + .45 * Math.sin(t * .2 + i * 1.7)), y = H * (.5 + .35 * Math.cos(t * .17 + i * 2.3));
+      const f = g.createRadialGradient(x, y, 0, x, y, W * .5); f.addColorStop(0, '#4c1d9533'); f.addColorStop(1, '#0000'); g.fillStyle = f; g.fillRect(0, 0, W, H); }
+  },
+};
+
+// ---------- 劇本：每一幕＝一張插畫＋幾句台詞 ----------
+// chars：[圖, x%, 腳底 y%, 身高 vh, 特效]；lines：[說話者, 台詞]（說話者 null＝旁白）
+const SCENES = [
+  { bg: 'sea', px: '-2%', chars: [['Whamon', 56, 74, 46, 'in-r']], fx: '<div class="rays" style="--rx:72%;--ry:42%"></div>',
+    lines: [[null, '打倒惡魔獸之後——'], [null, '大家搭上鯨魚獸，前往大海另一邊的「伺服大陸」。'], ['whamon', '抓緊囉～我要潛下去了！']] },
+  { bg: 'burst', chars: [['Agumon', 50, 76, 50, 'in-l']], fx: '<div class="speed"></div>',
+    lines: [['taichi', '出發吧！新的冒險！'], ['agumon', '嗯！太一，我們走！']] },
+  { bg: 'stage', py: '-2%', chars: [['Etemon', 50, 78, 58, 'dark']], fx: '',
+    lines: [['etemon', '嘿嘿嘿……新的觀眾自己送上門啦～'], ['etemon', '就讓本大爺的演唱會，好好「招待」你們吧！']] },
+  { bg: 'desert', chars: [['Piyomon', 22, 72, 24, 'in-l'], ['Tentomon', 78, 74, 27, 'in-r flip']], fx: '<div class="crest">🔥</div>', crestAt: 1,
+    lines: [['mimi', '好熱喔～沙漠一直走都走不完……'], ['koushiro', '咦？這個發光的東西是……「標籤」？'], ['tentomon', '它好像在跟什麼東西產生反應呢！']] },
+  { bg: 'void', chars: [], fx: '<div class="eyes"><i style="--r:12deg"></i><i style="--r:-12deg"></i></div><div class="title"><b>第二部</b><strong>伺服大陸篇</strong></div>',
+    lines: [[null, '……在某個遙遠的城堡裡。'], ['shadow', '……第八個孩子。必須在他們之前找到。']] },
+];
+
+// ---------- 播放 ----------
+const scene = document.getElementById('scene'), nameEl = document.getElementById('name'), txt = document.getElementById('txt');
+let si = -1, li = 0, typing = null, cur = null;
+const DPR = () => Math.min(2, devicePixelRatio || 1);
+function buildCG(S) {
+  const cg = document.createElement('div'); cg.className = 'cg';
+  cg.innerHTML = `<div class="cam" style="--px:${S.px || 0};--py:${S.py || 0}"><canvas></canvas>` +
+    S.chars.map(([img, x, y, h, cls]) => `<div class="shadow" style="left:${x}%;top:${y}%;width:${h * .5}vh;height:${h * .08}vh"></div><div class="ch ${cls || ''}" style="left:${x}%;top:${y}%;height:${h}vh"><img src="${IMG}${img}.png" alt=""></div>`).join('') +
+    `${S.fx}<div class="vig"></div></div>`;
+  scene.appendChild(cg);
+  const cv = cg.querySelector('canvas'), g = cv.getContext('2d');
+  cg._size = () => { const r = cv.getBoundingClientRect(), d = DPR(); cv.width = r.width * d; cv.height = r.height * d; g.setTransform(d, 0, 0, d, 0, 0); };
+  cg._size();
+  cg._paint = t => PAINT[S.bg](g, cv.width / DPR(), cv.height / DPR(), t);
+  requestAnimationFrame(() => cg.classList.add('on'));
+  return cg;
+}
+(function loop(now) { if (cur) cur._paint((now || 0) / 1000); requestAnimationFrame(loop); })();
+function showLine() {
+  const S = SCENES[si], [who, text] = S.lines[li];
+  if (S.crestAt != null) cur.querySelector('.crest').style.display = li >= S.crestAt ? '' : 'none';
+  if (!who) { nameEl.className = 'name hide'; txt.className = 'txt narr'; }
+  else {
+    nameEl.className = 'name'; txt.className = 'txt';
+    if (KID[who]) nameEl.innerHTML = `<i style="--c:${KID[who][1]}">${KID[who][0]}</i>${KID[who][2]}`;
+    else if (who === 'shadow') nameEl.innerHTML = `<i style="--c:#111;color:#ef4444">👁</i>？？？`;
+    else nameEl.innerHTML = `<img src="${IMG}${MON[who][0]}.png" alt="">${MON[who][1]}`;
+  }
+  clearInterval(typing); let n = 0; txt.textContent = '';
+  typing = setInterval(() => { n++; txt.textContent = text.slice(0, n); if (n >= text.length) { clearInterval(typing); typing = null; } }, 35);
+}
+function next() {
+  if (typing) { clearInterval(typing); typing = null; txt.textContent = SCENES[si].lines[li][1]; return; }   // 還在打字：先把這句顯示完
+  if (si >= 0 && li < SCENES[si].lines.length - 1) { li++; showLine(); return; }
+  if (si >= SCENES.length - 1) return;
+  si++; li = 0;
+  const old = cur; cur = buildCG(SCENES[si]);
+  if (old) { old.classList.remove('on'); setTimeout(() => old.remove(), 900); }
+  showLine();
+}
+addEventListener('resize', () => cur && cur._size());
+document.addEventListener('click', e => { if (!e.target.closest('.top')) next(); });
+document.addEventListener('keydown', e => { if ([' ', 'Enter', 'ArrowRight'].includes(e.key)) next(); });
+document.getElementById('replay').onclick = () => { scene.innerHTML = ''; cur = null; si = -1; li = 0; next(); };
+next();
+</script>
+</body>
+</html>
