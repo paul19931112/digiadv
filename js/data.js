@@ -68,12 +68,12 @@ const STATUS = {
 const SPECIES = {
   // ----- 初代夥伴 -----
   agumon: { name: '亞古獸', img: 'Agumon', emoji: '🦖', attr: 'vaccine', hp: 62, atk: 14, def: 8, spd: 10, starter: true,
-    flavor: 'burn', desc: '攻擊力高，招式會燒傷對手', sig: { name: '小火球', power: 12 }, dark1: { name: '黑暴龍獸', img: 'Greymon', tint: true }, dark: { name: '骷髏暴龍獸', img: 'Skull_Greymon' },
+    flavor: 'burn', desc: '攻擊力高，招式會燒傷對手', sig: { name: '小火球', power: 12 }, dark1: { name: '黑暴龍獸', img: 'Dark_Tyranomon' }, dark: { name: '骷髏暴龍獸', img: 'Skull_Greymon' },
     evo: [{ name: '暴龍獸', img: 'Greymon', ult: '超級火焰' },
           { name: '機械暴龍獸', img: 'Metal_Greymon', ult: '巨型毀滅者' },
           { name: '戰鬥暴龍獸', img: 'War_Greymon', ult: '蓋亞能量炮' }] },
   gabumon: { name: '加布獸', img: 'Gabumon', emoji: '🦊', attr: 'data', hp: 68, atk: 12, def: 11, spd: 9, starter: true,
-    flavor: 'shield', desc: '防禦力高，攻擊同時獲得護盾', sig: { name: '藍色火焰', power: 11 }, dark1: { name: '黑加魯魯獸', img: 'Garurumon', tint: true }, dark: { name: '黑色獸人加魯魯', img: 'Were_Garurumon_(Black)' },
+    flavor: 'shield', desc: '防禦力高，攻擊同時獲得護盾', sig: { name: '藍色火焰', power: 11 }, dark1: { name: '黑加魯魯獸', img: 'Garurumon_(Black)' }, dark: { name: '黑色獸人加魯魯', img: 'Were_Garurumon_(Black)' },
     evo: [{ name: '加魯魯獸', img: 'Garurumon', ult: '狐火' },
           { name: '獸人加魯魯', img: 'Were_Garurumon', ult: '狼人之爪', hits: 2 },
           { name: '鋼鐵加魯魯', img: 'Metal_Garurumon', ult: '冰河吐息' }] },
@@ -89,7 +89,7 @@ const SPECIES = {
           { name: '神聖天使獸', img: 'Holy_Angemon', ult: '天國之門' },
           { name: '熾天使獸', img: 'Seraphimon', ult: '七重天', hits: 3 }] },
   gomamon: { name: '哥瑪獸', img: 'Gomamon', emoji: '🦦', attr: 'vaccine', hp: 64, atk: 11, def: 10, spd: 10, starter: true,
-    flavor: 'delay', desc: '擅長把對手的行動條往回拉', sig: { name: '魚群行進', power: 10 }, dark1: { name: '蓋索獸', img: 'Ikkakumon', tint: true }, dark: { name: '邪惡海龍獸', img: 'Waru_Seadramon' },
+    flavor: 'delay', desc: '擅長把對手的行動條往回拉', sig: { name: '魚群行進', power: 10 }, dark1: { name: '蓋索獸', img: 'Gesomon' }, dark: { name: '邪惡海龍獸', img: 'Waru_Seadramon' },
     unlock: '抵達第三章後解鎖',
     evo: [{ name: '海獅獸', img: 'Ikkakumon', ult: '魚雷鋼角' },
           { name: '祖頓獸', img: 'Zudomon', ult: '雷神之錘' },
@@ -468,7 +468,7 @@ const DOMAINS = {
   jam:   { name: '干擾電波', icon: '📡', desc: '手牌少補 1 張、換手多花 1 能量；鎖定分析：進化中的夥伴傷害 +40%；看破手牌、召喚小齒輪' },
   fog:   { name: '迷霧森林', icon: '🌫️', desc: '看不到招式預告，勇氣值獲得減半；寄生之根；霧化手牌、種植回血' },
   dark:  { name: '黑暗壓迫', icon: '🌑', desc: '進化消耗 +30%、持續回合 -1；卡片汙染；血量剩一半時進入第二階段' },
-  concert: { name: '黑暗演唱會', icon: '🎤', desc: '每 3 次行動唱一次「愛之小夜曲」（會先預告），出攻擊卡可以打斷；沒打斷的話下回合能量 -1' },
+  concert: { name: '黑暗演唱會', icon: '🎤', desc: '每 3 次行動唱一次「愛之小夜曲」（會先預告），預告後打出最大 HP 3% 的傷害才能打斷，沒打斷下回合能量 -1；🎵 安可：沒打出去的標記卡會讓他變強' },
   armor: { name: '暗黑之軀', icon: '🛡️', desc: '被黑色齒輪強化，受到的傷害 -15%' },
 };
 // 頭目戰開始前的說明視窗
@@ -488,8 +488,9 @@ const BOSS_INFO = {
          ['💥 第二階段', '血量剩一半時：進化中的夥伴會被<b>強制退化</b>（沒進化的受到 30% 傷害），接下來 1 回合不能進化；之後每 3 次行動發動「☠️ 死亡宣告」（會先預告）。']],
 };
 BOSS_INFO.concert = [['🎤 黑暗演唱會', '猴子獸每 3 次行動會唱一次「<b>愛之小夜曲・全力</b>」，唱之前的那次行動就會預告。'],
-  ['💥 打斷', '預告出現後，你的回合只要<b>出一張攻擊卡</b>（必殺、究極技也算）就能打斷這首歌。'],
-  ['💘 陶醉', '沒打斷的話，你的夥伴會聽得陶醉，<b>下回合能量 -1</b>。']];
+  ['💥 打斷', '預告出現後，在他唱之前打出他<b>最大 HP 3%</b> 以上的傷害（大約要進化後的 2～3 張攻擊卡）（燒傷、援護、反擊也算）就能打斷。敵人頭上會顯示還差多少。'],
+  ['💘 陶醉', '沒打斷的話，你的夥伴會聽得陶醉，<b>下回合能量 -1</b>。'],
+  ['🎵 安可', '每次行動後，你下一手牌會有 1 張（血量一半以下 2 張）被標上 🎵。<b>這回合沒打出去</b>的話，他會攻擊↑，每張再回復 3% HP。']];
 // 究極之證的謎語（撿到神聖計畫時出現）
 const PROOF_RIDDLE = '當孩子懷抱著屬於自己的徽章，<br>與最初相遇的夥伴一同登上究極之巔，<br>幾乎毫髮無傷地擊倒強大的敵人——<br>那份證明，將會顯現。';
 // 孩子自己的徽章道具（太一 → 勇氣徽章…）

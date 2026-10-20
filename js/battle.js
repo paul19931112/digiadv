@@ -13,6 +13,7 @@ $('#domainBar').addEventListener('click', hideDomain);
 
 // 被汙染的卡：效果減半（數值、回合數都減半，小數進位）。只在出牌結算的瞬間為 true
 let HALF = false;
+let SERENADE_PCT = .03;   // 猴子獸：打斷愛之小夜曲要打出的傷害（最大 HP 的比例；電腦模擬約一半打得斷）
 let CHARGE = 1;   // 蓄力一擊：下一張攻擊卡傷害 ×2
 const hv = n => HALF ? Math.ceil(n / 2) : n;
 
@@ -162,7 +163,7 @@ function togglePin(i) {
   renderBattle();
 }
 // ---------- 手牌上的標記：🔥 燃燒、🌫️ 霧化、☠️ 汙染、🔍 看破（卡片離開手牌就消失） ----------
-function clearMarks(c) { delete c.burn; delete c.fog; delete c.pol; delete c.seen; }
+function clearMarks(c) { delete c.burn; delete c.fog; delete c.pol; delete c.seen; delete c.encore; }
 const baseId = id => id.replace('+', '');
 const cardCost = (c, d = cardDef(c.id)) => Math.max(0, d.cost + (c.seen ? 1 : 0) - (B && B.firstDisc && (B.turnNo <= 1 || K().discEvery) ? 1 : 0));
 const isHalf = (c, d = cardDef(c.id)) => !d.noHalf && !!(c.pol || (B.spread && B.spread[baseId(c.id)] >= B.turnNo));
@@ -184,6 +185,9 @@ function bossHandAct(e) {
   } else if (B.dom === 'dark') {
     P.pol = e.phase2 ? 2 : 1;
     floatText(e, '☠️ 汙染手牌', 'info', 60); log(`☠️ ${e.name} 汙染了你的下一手牌（${P.pol} 張）！`);
+  } else if (B.dom === 'concert') {
+    P.encore = low ? 2 : 1;
+    floatText(e, '🎵 安可！', 'info', 60); log(`🎵 ${e.name} 喊「安可！」你的下一手牌有 ${P.encore} 張要跟著唱（這回合沒打出去，他會變強）`);
   }
 }
 function applyBossHand() {
@@ -195,6 +199,7 @@ function applyBossHand() {
   if (P.seen) pickN(1, c => !c.seen).forEach(c => { c.seen = true; got.push('🔍'); });
   if (P.fog) pickN(1, c => !c.fog && !c.pin && !c.temp).forEach(c => { c.fog = true; got.push('🌫️'); });
   if (P.pol) pickN(P.pol, c => !c.pol && !cardDef(c.id).noTarget).forEach(c => { c.pol = true; got.push('☠️'); });
+  if (P.encore) pickN(P.encore, c => !c.encore && !c.temp).forEach(c => { c.encore = true; got.push('🎵'); });
   if (got.length) floatText(B.p, got.join(' ') + ' 手牌被干擾了', 'dot', 60);
 }
 // ✨ 淨化（商店限定卡）
@@ -296,7 +301,7 @@ function intentText(e) {
   if (B.dom === 'fog') return '❓ ？？？';
   const m = MOVES[e.intent];
   if (m.kind === 'doom') return '☠️ 死亡宣告（出戰夥伴會被打到 1 血並強制換下）';
-  if (m.kind === 'serenade') return B.serenadeBroken ? '🎤 （已經打斷）' : '🎤 愛之小夜曲（出攻擊卡打斷！）';
+  if (m.kind === 'serenade') return B.serenadeBroken ? '🎤 （已經打斷）' : `🎤 愛之小夜曲（再打 ${Math.max(0, B.serenadeNeed - (B.serenadeHp - e.hp))} 傷害打斷！）`;
   if (m.kind === 'atk') {
     const est = Math.max(1, Math.round(calcRaw(e, B.p, m.power)));
     const st = m.status ? ` ${STATUS[m.status[0]].icon}` : '';
@@ -382,7 +387,7 @@ async function playCard(i, forced) {
     if (atkCard && B.chargeNext) { CHARGE = 2; B.chargeNext = false; log('💥 蓄力一擊！這張卡傷害加倍'); }
     if (atkCard && B.aoeTurn === B.turnNo) B.aoeTurn = 0;   // 擴散用掉了（多部位的敵人在第六章）
     try { d.fx(); } finally { HALF = false; CHARGE = 1; }
-    if (atkCard && B.dom === 'concert' && B.e.intent === 'loveSerenade' && !B.serenadeBroken && B.e.hp > 0) {   // 猴子獸：打斷愛之小夜曲
+    if (B.dom === 'concert' && B.e.intent === 'loveSerenade' && !B.serenadeBroken && B.e.hp > 0 && B.serenadeHp - B.e.hp >= B.serenadeNeed) {   // 猴子獸：傷害夠了就打斷愛之小夜曲
       B.serenadeBroken = true; floatText(B.e, '🎤 打斷！', 'super', 40); log('💥 打斷了猴子獸的歌！');
     }
   }
@@ -406,6 +411,12 @@ function endTurn() {
   if (B.carry) log(`⚡ 保留 ${B.carry} 點能量到下回合`);
   // 究極技卡（進化時拿到的）和 📌 釘住的牌會保留在手上，其他的進棄牌堆
   const kept = c => c.temp || c.pin;
+  const enc = B.hand.filter(c => c.encore);   // 🎵 安可：沒打出去的卡讓猴子獸變強
+  if (enc.length && B.e.hp > 0) {
+    enc.forEach(c => delete c.encore);
+    addStatus(B.e, 'atkUp', 1); healF(B.e, Math.round(B.e.maxhp * .03 * enc.length));
+    log(`🎵 ${enc.length} 張安可卡沒有打出去——${B.e.name} 唱得更起勁了！（攻擊↑、回復 ${enc.length * 3}% HP）`);
+  }
   const nPin = B.hand.filter(c => c.pin && !c.temp).length;
   if (nPin) log(`📌 保留 ${nPin} 張牌到下回合`);
   B.hand.filter(c => !kept(c)).forEach(clearMarks);
@@ -439,6 +450,7 @@ function enemyTurn() {
       for (let i = 0; i < (m.hits ?? 1); i++) applyHit(e, p, m.power);
       if (m.status && p.hp > 0 && Math.random() < (m.chance ?? 1)) addStatus(p, m.status[0], m.status[1]);
     } else if (m.kind === 'serenade') {   // 猴子獸：愛之小夜曲・全力
+      if (!B.serenadeBroken && B.serenadeHp - e.hp >= B.serenadeNeed) B.serenadeBroken = true;   // 燒傷、援護、反擊也算
       if (B.serenadeBroken) { floatText(e, '🎤 唱不下去…', 'info'); log('🎤 歌被打斷了，猴子獸愣在原地！'); }
       else { B.charmed = true; floatText(p, '💘 陶醉', 'dot'); log('💘 愛之小夜曲！夥伴聽得陶醉了——下回合能量 -1'); }
     } else if (m.kind === 'guard') {
@@ -467,7 +479,7 @@ function enemyTurn() {
     // 第二階段：每 3 次行動發動一次死亡宣告（前一次行動時就會預告）
     if (B.dom === 'concert') e.cn = (e.cn || 0) + 1;
     if (e.phase2 && e.p2n % 3 === 2) { e.intent = 'deathmark'; log(`⚠️ ${e.name} 正在準備「死亡宣告」！`); }
-    else if (B.dom === 'concert' && e.cn % 3 === 2) { e.intent = 'loveSerenade'; B.serenadeBroken = false; log(`🎤 ${e.name} 準備唱「愛之小夜曲・全力」！出攻擊卡可以打斷！`); }
+    else if (B.dom === 'concert' && e.cn % 3 === 2) { e.intent = 'loveSerenade'; B.serenadeBroken = false; B.serenadeHp = e.hp; B.serenadeNeed = Math.round(e.maxhp * SERENADE_PCT); log(`🎤 ${e.name} 準備唱「愛之小夜曲・全力」！在他唱之前打出 ${B.serenadeNeed} 以上的傷害就能打斷！`); }
     else chooseIntent(e);
     if (checkEnd()) return;
     renderBattle();
@@ -1094,7 +1106,7 @@ function renderBattle() {
   if (my) {
     B.hand.forEach((c, i) => {
       const d = cardDef(c.id);
-      const marks = (c.burn ? '🔥' : '') + (isHalf(c, d) ? '☠️' : '') + (c.seen ? '🔍' : '') + (c.fog ? '🌫️' : '');
+      const marks = (c.burn ? '🔥' : '') + (isHalf(c, d) ? '☠️' : '') + (c.seen ? '🔍' : '') + (c.fog ? '🌫️' : '') + (c.encore ? '🎵' : '');
       hand.appendChild(cardEl(c.id, { cost: cardCost(c, d), marks, fog: c.fog, playable: cardCost(c, d) <= B.energy && !(p.dark && !['atk', 'sig', 'ult'].includes(d.type)) && (!d.canPlay || d.canPlay()), key: i + 1, keep: c.temp, pin: c.temp ? undefined : !!c.pin, onPin: () => togglePin(i), onClick: () => playCard(i) }));
     });
     if (!B.hand.length) hand.innerHTML = '<div class="waiting">沒有手牌了，按「結束回合」</div>';
