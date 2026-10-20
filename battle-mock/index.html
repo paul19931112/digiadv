@@ -93,6 +93,10 @@
   body.mirror .fixPanel.e { left: auto; right: 10px; } body.mirror .fixPanel.p { left: auto; right: 10px; }
   body.mirror .demo { top: 140px; }
   .demo.collapsed > :not(#dToggle) { display: none !important; }
+  .audio { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ffcc3388; color: #ffcc33; font-size: 12px; }
+  .audio button.on { background: #ffcc33; color: #1a1f3d; }
+  .audio small { color: #cbd5e1; font-size: 10px; max-width: 170px; }
+  @media (orientation: portrait) and (max-width: 700px) { .audio { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; } .audio b, .audio small { grid-column: 1 / -1; } }
   #dToggle { background: #ffcc33 !important; color: #3a2000 !important; }
   body.mirror .cutin .band img { left: auto; right: 14%; transform: skewY(8deg); } body.mirror .cutin .band .nm { right: auto; left: 16%; }
   .miniHp { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 4px; width: 60px; height: 6px; border-radius: 3px; background: #000a; overflow: hidden; }
@@ -201,6 +205,7 @@
     .demo { top: 32px; gap: 3px; display: grid; grid-template-columns: 1fr 1fr; width: 190px; } .demo button { padding: 3px 6px; font-size: 10px; } .themes { grid-column: 1 / -1; margin-top: 0; }
     .themes select { padding: 2px 4px; font-size: 10px; }
     .label { top: 4px; font-size: 10px; }
+    body.mirror .demo { top: 32px; right: auto; left: 10px; }
   }
   /* ================= 手機直拿 ================= */
   @media (orientation: portrait) and (max-width: 700px) {
@@ -285,19 +290,30 @@
   <button id="dDebuff">▶ 干擾敵人</button>
   <button id="dUlt">▶ 究極技特寫</button>
   <div class="themes" id="themes"></div>
+  <div class="audio" id="audioBox">
+    <b>🎵 背景音樂（原創）</b>
+    <button data-bgm="field">刷圖（探索）</button><button data-bgm="route">選節點</button>
+    <button data-bgm="battle">打怪</button><button data-bgm="boss">打王</button>
+    <button id="bgmStop">⏹ 停止</button>
+    <b>🗣️ 進化語音</b>
+    <button id="vLang">語音：日文</button><button id="vAll">▶ 8 隻輪流念</button>
+    <small id="vNote"></small>
+  </div>
 </div>
 
 <script src="scene.js?v=3"></script>
+<script src="bgm.js?v=1"></script>
 <script>
 const $ = s => document.querySelector(s);
 const field = $('#field');
 // 依 data-x / data-y（戰場的百分比位置）和 data-h（身高佔戰場高度的百分比）擺放
 // 站位：依 slot 決定（電腦／手機直拿各一組），[x%, y%, 身高佔戰場高度 %]
-const SLOTS = { enemy: { d: [28, 60, 32], p: [30, 60, 25] }, front: { d: [68, 88, 26], p: [62, 94, 23.4] },
-                b1: { d: [86, 72, 15], p: [88, 74, 12.8] }, b2: { d: [92, 86, 14], p: [91, 88, 11.9] } };
+// w：手機橫拿這種很扁的畫面（寬 ÷ 高 > 2.2）——角色往中間靠，避開兩邊的資訊框，身高也照比例調整
+const SLOTS = { enemy: { d: [28, 60, 32], p: [30, 60, 25], w: [38, 62, 44] }, front: { d: [68, 88, 26], p: [62, 94, 23.4], w: [64, 95, 36] },
+                b1: { d: [86, 72, 15], p: [88, 74, 12.8], w: [80, 70, 22] }, b2: { d: [92, 86, 14], p: [91, 88, 11.9], w: [86, 88, 21] } };
 function place(el) {
   const W = field.clientWidth, H = field.clientHeight, portrait = H > W;
-  let [x, y, h] = SLOTS[el.dataset.slot][portrait ? 'p' : 'd'];
+  let [x, y, h] = SLOTS[el.dataset.slot][W / H > 2.2 ? 'w' : portrait ? 'p' : 'd'];
   if (document.body.classList.contains('mirror')) x = 100 - x;   // 左右對調：我方在左、敵人在右
   h *= +(el.dataset.scale || 1);
   el.style.left = x + '%'; el.style.top = y + '%';
@@ -364,7 +380,30 @@ $('#dEvo').onclick = run(async () => {
   place(H); showPanel(H);
   $('#flash').style.opacity = 0; await sleep(450); $('#flash').style.transition = 'opacity .15s';
   $('.log').textContent = H.dataset.evo ? `✨ ${H.dataset.name} 進化——${ev[1]}！` : `${H.dataset.name} 的回合！`;
+  if (H.dataset.evo) VOICE.evo(H.dataset.sp.toLowerCase());
 });
+// ---- 背景音樂、進化語音試聽 ----
+document.querySelectorAll('[data-bgm]').forEach(b => b.onclick = () => {
+  BGM.play(b.dataset.bgm);
+  document.querySelectorAll('[data-bgm]').forEach(x => x.classList.toggle('on', x === b));
+});
+$('#bgmStop').onclick = () => { BGM.stop(); document.querySelectorAll('[data-bgm]').forEach(x => x.classList.remove('on')); };
+const LANGS = [['ja', '語音：日文'], ['zh', '語音：中文'], ['off', '語音：關閉']];
+function voiceNote() {
+  if (VOICE.lang === 'off') { $('#vNote').textContent = '進化時不念台詞'; return; }
+  const ok = VOICE.available(VOICE.lang);
+  $('#vNote').textContent = ok ? '按「▶ 進化」也會念' : (VOICE.lang === 'ja' ? '⚠️ 這台裝置好像沒有日文語音，可能會用別的聲音念或不出聲' : '⚠️ 這台裝置好像沒有中文語音');
+}
+$('#vLang').onclick = () => { const i = (LANGS.findIndex(l => l[0] === VOICE.lang) + 1) % LANGS.length; VOICE.lang = LANGS[i][0]; $('#vLang').textContent = LANGS[i][1]; voiceNote(); VOICE.evo('agumon'); };
+$('#vAll').onclick = async () => {
+  const lang = VOICE.lang === 'off' ? 'ja' : VOICE.lang;
+  for (const sp of Object.keys(VOICE.JA)) {
+    VOICE.evo(sp, lang);
+    await new Promise(r => { const t0 = Date.now(); const w = () => (!speechSynthesis.speaking && Date.now() - t0 > 400) || Date.now() - t0 > 5000 ? r() : setTimeout(w, 150); setTimeout(w, 300); });
+  }
+};
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = voiceNote;
+setTimeout(voiceNote, 500);
 // 換手：出戰的退到最後面，後排第一隻走到前面（三隻輪流）
 function doSwitch() {
   const F = front(), N = document.querySelector('.unit[data-slot="b1"]'), L = document.querySelector('.unit[data-slot="b2"]');
