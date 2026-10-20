@@ -1,6 +1,6 @@
 // 離線快取：玩過一次之後，沒有網路也能玩
 // 更新遊戲時，VERSION 要跟 js/version.js 的 GAME_VERSION 一起改
-const VERSION = 'digimon-rogue-14.0';
+const VERSION = 'digimon-rogue-14.1';
 const FILES = [
 "./",
 "index.html",
@@ -26,6 +26,23 @@ const FILES = [
 "icons/icon-192.png",
 "icons/icon-512.png",
 "icons/icon-maskable-512.png",
+"images/Bakemon.png",
+"images/Dark_Tyranomon.png",
+"images/Datamon.png",
+"images/Deltamon.png",
+"images/Garurumon_(Black).png",
+"images/Gazimon.png",
+"images/Gesomon.png",
+"images/Kokatorimon.png",
+"images/Mummymon.png",
+"images/Nanimon.png",
+"images/Otamamon.png",
+"images/Phantomon.png",
+"images/Pico_Devimon.png",
+"images/Tyranomon.png",
+"images/Vamdemon.png",
+"images/Venom_Vamdemon.png",
+"images/Wizarmon.png",
 "images/Agumon.png",
 "images/Ancient_Volcamon.png",
 "images/Andromon.png",
