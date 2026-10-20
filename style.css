@@ -716,14 +716,14 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 @media (orientation: portrait) { .vfx.cutin .band { top: 34%; height: 22%; } .vfx.cutin .band img { right: 6%; } .vfx.cutin .band .nm { left: 13%; font-size: clamp(22px, 7.5vw, 44px); letter-spacing: 2px; } }
 /* 手機直拿 */
 @media (orientation: portrait) and (max-width: 700px) {
-  #battle .fighter { width: min(200px, 52vw); padding: 4px 7px 5px; } #battle .fighter .fattr { display: none; }
+  #battle .fighter { width: min(200px, 52vw); padding: 4px 7px 5px; }
   #battle #ePanel { top: 38px; } #battle #pPanel { bottom: 34px; }
   #battle .fighter .fhead { font-size: 12px; } #battle .fighter .row { font-size: 10px; }
   #battle .arena .log { font-size: 11px; max-width: 90%; }
 }
 /* 手機橫拿：畫面很矮，下方的卡片和按鈕縮小，把空間留給戰場 */
 @media (orientation: landscape) and (max-height: 500px) {
-  #battle .fighter { width: 170px; padding: 3px 7px 4px; } #battle .fighter .fattr, #battle .fighter .statuses, #battle .fighter .bench { display: none; }
+  #battle .fighter { width: 170px; padding: 3px 7px 4px; } #battle .fighter .statuses, #battle .fighter .bench { display: none; }
   #battle #ePanel { top: 32px; } #battle #pPanel { bottom: 26px; }
   #battle .fighter .fhead { font-size: 11px; } #battle .fighter .row { font-size: 9px; } #battle .fighter .bar { height: 6px; }
   #battle #ePanel .intent { font-size: 10px; padding: 1px 6px; margin-bottom: 2px; }
@@ -747,3 +747,12 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 
 /* v12.2：隊長 👑 */
 .bench .tm { position: relative; } .bench .tm .crown { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font-size: 11px; line-height: 1; z-index: 1; }
+
+/* v13.1：屬性標籤可以點、聲音設定 */
+#battle .fighter .fattr { cursor: pointer; border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; white-space: nowrap; font-size: 11px; background: rgba(255,255,255,.06); }
+#battle .fighter .fattr:hover { border-color: var(--accent); }
+.audioSet { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 12px; text-align: left; }
+.audioSet .aRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.audioSet .aRow.col { flex-direction: column; align-items: stretch; }
+.audioSet .aLangs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.audioSet .aLangs .btn, .audioSet .aRow > .btn { padding: 6px 8px; min-width: 64px; }
