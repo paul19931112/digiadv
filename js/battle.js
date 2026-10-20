@@ -32,6 +32,17 @@ function closeNotice(res) {
   if (B) B.hold = false;
   (res || n._res || (() => {}))();
 }
+// 屬性相剋表（點戰鬥資訊框上的屬性標籤）
+function showAttrChart() {
+  if (!B) return;
+  const P = B.p, E = B.e, nm = a => `${ATTR_ICON[a]} ${ATTR_NAME[a]}`;
+  const vs = (x, y) => { const m = attrMult(x.attr, y.attr); return m > 1 ? '<b style="color:#4ade80">×1.5 效果拔群</b>' : m < 1 ? '<b style="color:#f87171">×0.75 效果不好</b>' : '×1 普通'; };
+  battleNotice('💉 屬性相剋', [
+    ['相剋的順序', `<div style="font-size:18px;text-align:center;margin:4px 0">💉 疫苗 ➜ 🦠 病毒 ➜ 💾 資料 ➜ 💉 疫苗</div>箭頭前面的打箭頭後面的：傷害 <b>×1.5</b>（效果拔群）<br>反過來打：傷害 <b>×0.75</b>；同屬性 ×1`],
+    ['你打牠', `${P.name}（${nm(P.attr)}）➜ ${E.name}（${nm(E.attr)}）：${vs(P, E)}`],
+    ['牠打你', `${E.name}（${nm(E.attr)}）➜ ${P.name}（${nm(P.attr)}）：${vs(E, P)}`],
+  ], '💡 換手時可以挑剋制敵人的夥伴上場。');
+}
 function showBossInfo() {
   if (!B || !BOSS_INFO[B.dom]) return;
   battleNotice(`😈 頭目 ${B.e.name} 的能力`, BOSS_INFO[B.dom], '💡 商店的「✨ 淨化」卡可以清除手牌和夥伴身上的負面效果。之後點敵人面板右下角的標籤可以再看一次。');
@@ -537,6 +548,9 @@ function doEvolve(f, tier, dark) {
   f.spd = +(f.base.spd * T.m.spd).toFixed(1);
   f.hp = Math.min(f.maxhp, Math.round(f.maxhp * ratio + f.maxhp * .2));
   const form = dark ? darkForm(f, tier) : { name: ev.name, img: ev.img, tint: false };
+  // 進化語音：進化／超進化／究極進化（跳級到究極體＝ワープ進化）／錯誤進化＝暗黑進化
+  const prevTier = f.tier || 0, kind = dark ? 'dark' : tier - prevTier === 1 ? ['evo', 'super', 'ult'][tier - 1] : tier === 3 ? 'warp' : tier === 2 ? 'super' : 'evo';
+  try { VOICE.evoLine({ img: f.img, name: old }, form, kind); } catch (e) { /* 沒有語音就算了 */ }
   Object.assign(f, { name: form.name, img: form.img, darkTint: form.tint, dark, tier, evoTurns: evoTurnsNow() });
   removeTemp();
   B.hand.push({ uid: ++uidSeq, id: 'ult', temp: true }, { uid: ++uidSeq, id: 'ult', temp: true });
@@ -986,7 +1000,7 @@ function renderFighter(f) {
   u.querySelector('.miniHp i').style.width = (f.hp / f.maxhp * 100) + '%';
   el.querySelector('.fname').innerHTML = (f.leader ? '👑 ' : '') + f.name + (f.dark ? '<span class="tierTag dark">錯誤進化</span>' : f.tier ? `<span class="tierTag">${TIERS[f.tier].name}</span>` : '') + (f.boss ? '<span class="tierTag boss">頭目</span>' : f.elite ? '<span class="tierTag boss">精英</span>' : '');
   el.querySelector('.flv').textContent = `Lv.${f.lvl}`;
-  el.querySelector('.fattr').textContent = `${ATTR_ICON[f.attr]} ${ATTR_NAME[f.attr]}`;
+  el.querySelector('.fattr').textContent = `${ATTR_ICON[f.attr]} ${ATTR_NAME[f.attr].replace('種', '')}`;
   const emo = u.querySelector('.emo');
   if (emo.dataset.k !== f.img) { emo.innerHTML = dpic(f.img, f.emoji, 'big'); emo.dataset.k = f.img; }
   const spr = u.querySelector('.sprite');

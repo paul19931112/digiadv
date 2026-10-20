@@ -17,7 +17,7 @@ const ASSISTS = {
                  fx: a => { assistHit(a, 26); if (B.e.hp > 0) addStatus(B.e, 'para', 1); } },
   togemon:     { sp: 'palmon',   name: '仙人掌獸', img: 'Togemon',     move: '千針刺',   desc: '造成 4 段傷害',
                  fx: a => assistHit(a, 10, 4) },
-  ikkakumon:   { sp: 'gomamon',  name: '海象獸',   img: 'Ikkakumon',   move: '魚雷',     desc: '出戰夥伴獲得大量護盾',
+  ikkakumon:   { sp: 'gomamon',  name: '海獅獸',   img: 'Ikkakumon',   move: '魚雷',     desc: '出戰夥伴獲得大量護盾',
                  fx: a => gainBlock(B.p, blockVal(20, .35)) },
   angemon:     { sp: 'patamon',  name: '天使獸',   img: 'Angemon',     move: '天堂之拳', desc: '造成大傷害',
                  fx: a => assistHit(a, 38) },

@@ -292,9 +292,9 @@ const HELP = [
   ['🤝 援護', () => P1() ? '冒險途中救出其他孩子的夥伴，牠們就會在戰鬥中來幫你一招。從「道具」叫出來，花 1 能量，每場戰鬥 1 次；每種援護整趟可以用 3 次，同時最多帶 2 種，不佔隊伍位置。' : '新開的冒險才有這個系統。'],
   ['💞 原作搭檔', '孩子帶著原作的搭檔數碼寶貝（例如太一和亞古獸），那隻夥伴的進化消耗 -10%。'],
   ['🔄 換手', '按 Q 換其他夥伴上場（花 1 能量）。出戰夥伴倒下時可以選下一隻，全隊倒下就輸了。'],
-  ['💉 屬性', '疫苗種剋病毒種、病毒種剋資料種、資料種剋疫苗種，剋制時傷害 ×1.5。'],
+  ['💉 屬性', '疫苗種剋病毒種、病毒種剋資料種、資料種剋疫苗種，剋制時傷害 ×1.5，反過來 ×0.75。戰鬥中點資訊框上的屬性標籤可以看相剋表。'],
   ['🌑 領域效果', '頭目和精英怪會帶來對你不利的效果，顯示在戰鬥畫面上方。'],
-  ['⌨️ 快捷鍵', '1～8 出牌｜空白鍵 結束回合｜E 進化｜Q 換手｜R 勸降｜B 道具｜H 說明｜M 音效開關'],
+  ['⌨️ 快捷鍵', '1～8 出牌｜空白鍵 結束回合｜E 進化｜Q 換手｜R 勸降｜B 道具｜H 說明｜M 全部靜音（🔊 按鈕：音樂、音效、進化語音設定）'],
 ];
 // ---------- 存檔備份：把存檔變成一串代碼，換裝置或換 App 時貼上就能帶過去 ----------
 // 代碼只用英文字母、數字、- 和 _（手機輸入法不會亂改），開頭是 DG2，後面帶檢查碼，能壓縮就壓縮
@@ -406,7 +406,7 @@ function openDeck() {
 document.addEventListener('keydown', e => {
   if (e.target && /^(TEXTAREA|INPUT)$/.test(e.target.tagName)) return;   // 在輸入框打字時不觸發快捷鍵
   const k = e.key.toLowerCase();
-  if (k === 'm' && !e.repeat) { toggleSound(); return; }
+  if (k === 'm' && !e.repeat) { toggleAllSound(); return; }
   if (G.dialog) {
     if (DLG.choices) { if (/^[1-9]$/.test(k)) { const i = +k - 1, c = DLG.choices[i]; if (c && !c.disabled) DLG.resolve(i); } }
     else if (k === ' ' || k === 'enter') { e.preventDefault(); DLG.resolve && DLG.resolve(0); }
@@ -466,7 +466,8 @@ $('#btnNew').onclick = async () => {
 };
 $('#btnTutorial').onclick = () => runTutorial();   // 教學不會動到冒險存檔
 $('#btnHelp').onclick = openHelp;
-document.querySelectorAll('.soundBtn').forEach(b => { b.textContent = SFX.on ? '🔊' : '🔇'; b.onclick = e => { e.stopPropagation(); toggleSound(); }; });
+document.querySelectorAll('.soundBtn').forEach(b => { b.textContent = SFX.on || VOICE.music ? '🔊' : '🔇'; b.onclick = e => { e.stopPropagation(); openAudioSettings(); }; });
+['#pPanel', '#ePanel'].forEach(s => $(s + ' .fattr').addEventListener('click', e => { e.stopPropagation(); sfx('click'); showAttrChart(); }));
 $('#btnAbout').onclick = () => { G.mode = 'title'; openAbout(); };
 $('#btnSave').onclick = () => { G.mode = 'title'; openSaveTransfer(); };
 $('#btnContinue').onclick = continueRun;
@@ -549,6 +550,55 @@ document.querySelectorAll('#dpad [data-k]').forEach(b => {
 $('#hud').addEventListener('click', e => { if (e.target.closest('button')) return; $('#hud').classList.toggle('expanded'); });
 
 // =========================================================
+//   背景音樂：依目前的畫面換曲子
+// =========================================================
+function wantMusic() {
+  if (!VOICE.music) return null;
+  if (B && G.mode === 'battle') return B.opt.boss ? 'boss' : 'battle';
+  if (G.screen === 'area') return 'field';
+  return 'route';   // 路線圖、標題、選角
+}
+function updateMusic() {
+  const w = wantMusic();
+  if (w !== (BGM.playing || null)) { if (w) BGM.play(w); else BGM.stop(); }
+}
+// 瀏覽器要等玩家第一次點擊才能出聲；切到背景時暫停
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { if (VOICE.music) BGM.audio(); }, { capture: true }));
+document.addEventListener('visibilitychange', () => { const A = BGM.audio && BGM.ctxRaw && BGM.ctxRaw(); if (A) document.hidden ? A.suspend() : A.resume(); });
+// 聲音設定（🔊 按鈕）
+const VOICE_LANGS = [['ja', '日文'], ['zh', '國語'], ['robot', '機械音'], ['off', '關閉']];
+function openAudioSettings() {
+  const m = openModal(`<h2>🔊 聲音設定</h2><div class="audioSet">
+    <div class="aRow"><span>🎵 背景音樂</span><button class="btn" id="aMusic"></button></div>
+    <div class="aRow"><span>🔔 音效</span><button class="btn" id="aSfx"></button></div>
+    <div class="aRow col"><span>🗣️ 進化語音</span><div class="aLangs">${VOICE_LANGS.map(([k, t]) => `<button class="btn" data-lang="${k}">${t}</button>`).join('')}</div></div>
+    <p class="sub" id="aNote"></p></div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
+  const paint = () => {
+    m.querySelector('#aMusic').textContent = VOICE.music ? '開' : '關'; m.querySelector('#aMusic').classList.toggle('primary', VOICE.music);
+    m.querySelector('#aSfx').textContent = SFX.on ? '開' : '關'; m.querySelector('#aSfx').classList.toggle('primary', SFX.on);
+    m.querySelectorAll('[data-lang]').forEach(b => b.classList.toggle('primary', b.dataset.lang === VOICE.lang));
+    const L = VOICE.lang;
+    m.querySelector('#aNote').innerHTML = L === 'off' ? '進化時不念台詞。' : L === 'robot' ? '合成的機械音「Evolution」，每台裝置聽起來都一樣。'
+      : VOICE.available(L) ? `用這台裝置內建的${L === 'ja' ? '日文' : '國語'}語音念台詞（例如「${VOICE.lines({ img: 'Agumon', name: '亞古獸' }, { img: 'Greymon', name: '暴龍獸' }, 'evo')[L]}」）。iPhone 要關掉靜音模式才聽得到。`
+      : `⚠️ 這台裝置好像沒有${L === 'ja' ? '日文' : '國語'}語音。iPhone 可以到「設定 → 輔助使用 → 朗讀內容 → 聲音」下載。`;
+    document.querySelectorAll('.soundBtn').forEach(b => b.textContent = SFX.on || VOICE.music ? '🔊' : '🔇');
+  };
+  m.querySelector('#aMusic').onclick = () => { VOICE.music = !VOICE.music; VOICE.save(); if (!VOICE.music) BGM.stop(); paint(); };
+  m.querySelector('#aSfx').onclick = () => { toggleSound(); paint(); };
+  m.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { VOICE.lang = b.dataset.lang; VOICE.save(); paint(); VOICE.evoLine({ img: 'Agumon', name: '亞古獸' }, { img: 'Greymon', name: '暴龍獸' }, 'evo'); });
+  m.querySelector('#mClose').onclick = closeModal;
+  paint();
+}
+// M 鍵：音樂和音效一起開關
+function toggleAllSound() {
+  const on = !(SFX.on || VOICE.music);
+  if (SFX.on !== on) toggleSound();
+  VOICE.music = on; VOICE.save(); if (!on) BGM.stop();
+  document.querySelectorAll('.soundBtn').forEach(b => b.textContent = on ? '🔊' : '🔇');
+  toast(on ? '🔊 音樂、音效開啟' : '🔇 全部靜音');
+}
+
+// =========================================================
 //   主迴圈
 // =========================================================
 let last = performance.now();
@@ -557,6 +607,7 @@ function frame(now) {
   if (AREA && G.mode === 'area' && !G.dialog) updateArea(dt);
   if (G.mode === 'transition') G.trans.t += dt;
   if (G.mode === 'battle' && B) { updateBattle(dt); if (B) updateGauges(); }
+  updateMusic();
   if (AREA && RUN && G.screen === 'area' && !$('#areaScreen').classList.contains('hidden')) drawArea(now / 1000);
   requestAnimationFrame(frame);
 }
