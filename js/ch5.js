@@ -246,20 +246,50 @@ async function hackReward() {
 
 // ---------- 徽章探索 ----------
 const crestLeft = () => Object.keys(KIDS).filter(k => k !== RUN.kid && !(RUN.crests || []).includes(k));
-const crestPartner = f => P2() && !!f && !!f.m && (RUN.crests || []).some(k => KIDS[k] && KIDS[k].partner === f.m.sp);   // 撿到徽章的那個孩子的搭檔：不是隊長也能超進化
+const crestPartner = f => P2() && !!f && !!f.m && ((RUN.crests || []).some(k => KIDS[k] && KIDS[k].partner === f.m.sp) || (RUN.crestBinds || []).includes(f.m.uid));   // 徽章的主人（那個孩子的搭檔，或認主的夥伴）：不是隊長也能超進化
 async function crestFound() {
   const left = crestLeft(); if (!left.length) return;
-  const mine = left.filter(k => RUN.team.some(m => m.sp === KIDS[k].partner));
-  const k = pick(mine.length ? mine : left), kid = KIDS[k];
+  const k = pick(left), kid = KIDS[k];
   const rk = Object.keys(RELICS).find(r => RELICS[r].name === kid.crest + '徽章');
   RUN.crests = [...(RUN.crests || []), k];
   if (rk && !has(rk)) RUN.relics.push(rk);
   RUN.crestTicks = (RUN.crestTicks || 0) + 1;
-  const partner = SPECIES[kid.partner];
-  await cutscene([{ bg: RUN.chapter === 5 ? 'pyramid' : 'desert', music: 'route', amb: 'wind', chars: [['partner', 22, 76, 28, 'in-l']], fx: `<div class="cutCrest" data-from="1">${kid.icon}</div>`,
+  const partner = SPECIES[kid.partner], inTeam = RUN.team.some(m => m.sp === kid.partner);
+  const bg = RUN.chapter === 5 ? 'pyramid' : 'desert';
+  await cutscene([{ bg, music: 'route', amb: 'wind', chars: [['partner', 22, 76, 28, 'in-l']], fx: `<div class="cutCrest" data-from="1">${kid.icon}</div>`,
     lines: [[null, '數碼裝置的反應強到發燙——沙子底下埋著一枚發光的徽章！'], [null, `是<b>${kid.name}</b>的<b>${kid.crest}徽章</b>！`],
-      [null, `${rk ? `🔰 獲得 <b>${RELICS[rk].icon} ${RELICS[rk].name}</b>：${RELICS[rk].desc}<br>` : ''}🔰 徽章刻度 +1（現在 ${RUN.crestTicks} 格）<br>🔰 隊伍裡的<b>${partner.name}</b>就算不是隊長，也能超進化了！`]] }]);
+      [null, `${rk ? `🔰 獲得 <b>${RELICS[rk].icon} ${RELICS[rk].name}</b>：${RELICS[rk].desc}<br>` : ''}🔰 徽章刻度 +1（現在 ${RUN.crestTicks} 格）` +
+        (inTeam ? `<br>🔰 隊伍裡的<b>${partner.name}</b>就算不是隊長，也能超進化了！` : '')]] }]);
+  if (!inTeam) await crestCall(kid, partner);
   saveRun(); updateHUD();
+}
+// 隊伍裡沒有那個孩子的搭檔：搭檔循著徽章的光跑來；拒絕的話，徽章改成「認主」
+async function crestCall(kid, partner) {
+  loadImg(partner.img);
+  await cutscene([{ bg: RUN.chapter === 5 ? 'pyramid' : 'desert', music: 'route', amb: 'wind', chars: [[partner.img, 70, 76, 30, 'in-r'], ['partner', 22, 78, 26, 'in-l']],
+    lines: [[null, '徽章的光芒射向遠方——有誰朝這裡跑過來了！'], [{ img: partner.img, name: partner.name }, `這是${kid.nick}的徽章……！我感覺得到它在呼喚我！`]] }]);
+  const avg = Math.max(1, Math.round(RUN.team.reduce((a, m) => a + m.level, 0) / RUN.team.length));
+  const c = await ask(null, `<b>${partner.name}</b>想跟著${kid.crest}徽章一起戰鬥。<br>要讓牠加入隊伍嗎？（Lv.${avg}，不是隊長也能超進化）`, [
+    { text: `🤝 讓${partner.name}加入`, note: RUN.team.length >= teamMax() ? '隊伍滿了，要選一隻夥伴離開' : `Lv.${avg} 加入隊伍` },
+    { text: '🔰 不用了，讓徽章認主', note: '從隊伍裡選一隻夥伴綁定這枚徽章，牠不是隊長也能超進化' }]);
+  if (c === 0) {
+    let ok = true;
+    if (RUN.team.length >= teamMax()) {
+      const m = await pickScreen({ title: '隊伍已經滿了！', sub: `要讓哪一隻夥伴離開，換 ${partner.name} 加入？（隊長不能離開）`, skip: '還是不要了（改成讓徽章認主）',
+        items: RUN.team.slice(1), render: m => { const s = SPECIES[m.sp], el = document.createElement('div'); el.className = 'pickMon';
+          el.innerHTML = `${spPic(m.sp, 's80')}<b>${s.name}</b><span>Lv.${m.level}</span>`; return el; } });
+      if (!m) ok = false;
+      else { RUN.team.splice(RUN.team.indexOf(m), 1); toast(`${SPECIES[m.sp].name} 離開了隊伍`); }
+    }
+    if (ok) { joinTeam(kid.partner, avg); await say(null, `✨ <b>${partner.name}</b> 加入了隊伍！牠和${kid.crest}徽章心意相通，不是隊長也能超進化。`); return; }
+  }
+  const pickable = RUN.team.filter(m => !crestPartner({ m }) && m !== RUN.team[0]);
+  if (!pickable.length) { await say(null, '隊伍裡的夥伴都已經能超進化了，徽章的力量收進了數碼裝置裡。'); return; }
+  const m = await pickScreen({ title: `🔰 ${kid.crest}徽章要認誰當主人？`, sub: '被選中的夥伴不是隊長也能超進化（隊長本來就可以）', items: pickable, allowSkip: false,
+    render: m => { const s = SPECIES[m.sp], el = document.createElement('div'); el.className = 'pickMon';
+      el.innerHTML = `${spPic(m.sp, 's80')}<b>${s.name}</b><span>Lv.${m.level}</span>`; return el; } });
+  RUN.crestBinds = [...(RUN.crestBinds || []), m.uid];
+  await say(null, `🔰 ${kid.crest}徽章認 <b>${SPECIES[m.sp].name}</b> 當主人了！牠不是隊長也能超進化。`);
 }
 
 // ---------- 演唱會小遊戲（青蛙獸樂團） ----------

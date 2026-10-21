@@ -194,7 +194,7 @@ function genArea(nd) {
     }
     case 'rest':   place({ kind: 'spring' }, middle()); break;
     case 'shop':   place({ kind: 'shop', sp: 'monzaemon' }, middle()); break;
-    case 'egg':    place({ kind: 'egg' }, middle()); place(enemy('roam', pick(ch.zone), lv - 1), free(6)); break;
+    case 'egg':    place({ kind: 'egg', star: starterEggs().length > 0 && Math.random() < (P2() ? .4 : .25) }, middle()); place(enemy('roam', pick(ch.zone), lv - 1), free(6)); break;
     case 'treasure':
       for (let k = 0; k < randInt(2, 3); k++) place({ kind: 'chest' }, free(4));
       place(enemy('roam', pick(ch.zone), lv), free(6));
@@ -385,7 +385,7 @@ async function interact(o) {
   else if (o.kind === 'npc') { if (o.asp) await assistEvent(o); else await runEvent(o.ev); o.done = true; }
   else if (o.kind === 'spring') { if (await restSpot()) o.done = true; }
   else if (o.kind === 'shop') { await openShop(o); }
-  else if (o.kind === 'egg') { o.done = true; await hatchEgg(); }
+  else if (o.kind === 'egg') { o.done = true; await hatchEgg(o.star); }
   else if (o.kind === 'pickup') { o.done = true; await openPickup(); }
   else if (o.kind === 'stone') { if (await stoneTablet()) o.done = true; }
   else await ch5Interact(o);
@@ -494,13 +494,16 @@ async function restSpot() {
   return false;
 }
 function recruitables() { return Object.keys(SPECIES).filter(k => SPECIES[k].evo && !SPECIES[k].starter); }
-async function hatchEgg() {
+// 發光的數碼蛋能孵出的夥伴：孩子們的搭檔（已解鎖、不在隊伍裡）
+const starterEggs = () => Object.keys(SPECIES).filter(k => SPECIES[k].starter && META.unlocked.includes(k) && !RUN.team.some(m => m.sp === k));
+async function hatchEgg(star) {
   const avg = Math.max(1, Math.round(RUN.team.reduce((a, m) => a + m.level, 0) / RUN.team.length) - 1);
-  await say(null, '數碼蛋開始搖晃…裂開了！');
-  const opts = shuffle(recruitables()).slice(0, 2);
+  const stars = star ? starterEggs() : [];
+  await say(null, stars.length ? '✨ 發光的數碼蛋開始搖晃…裡面傳來熟悉的聲音！' : '數碼蛋開始搖晃…裂開了！');
+  const opts = stars.length ? shuffle([pick(stars), pick(recruitables())]) : shuffle(recruitables()).slice(0, 2);
   const id = await pickScreen({ title: '🥚 從數碼蛋裡誕生了！', sub: `選一隻加入隊伍（Lv.${avg}）`, items: opts, allowSkip: false,
     render: id => { const s = SPECIES[id], el = document.createElement('div'); el.className = 'pickMon';
-      el.innerHTML = `${spPic(id, 's110')}<b>${s.name}</b><span>${ATTR_ICON[s.attr]} ${ATTR_NAME[s.attr]}</span><small>${s.desc}</small><small>${s.evo.map(e => e.name).join(' → ')}</small>`; return el; } });
+      el.innerHTML = `${spPic(id, 's110')}<b>${s.starter ? '✨ ' : ''}${s.name}</b><span>${ATTR_ICON[s.attr]} ${ATTR_NAME[s.attr]}</span><small>${s.desc}</small><small>${s.evo.map(e => e.name).join(' → ')}</small>`; return el; } });
   if (RUN.team.length >= teamMax()) {
     const m = await pickScreen({ title: '隊伍已經滿了！', sub: `要讓哪一隻夥伴離開，換 ${SPECIES[id].name} 加入？`, skip: `不換了（${SPECIES[id].name} 送你 💰 50 後離開）`,
       items: RUN.team.slice(), render: m => { const s = SPECIES[m.sp], el = document.createElement('div'); el.className = 'pickMon';
@@ -730,6 +733,7 @@ function drawArea(t) {
       ctx.fillStyle = '#f472b6'; ctx.beginPath(); ctx.arc(cx, cy + 2, 14 * pulse, 0, 7); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✚', cx, cy + 3);
     } else if (o.kind === 'egg') {
+      if (o.star) { ctx.fillStyle = `rgba(253,224,71,${.35 + Math.sin(t * 4) * .15})`; ctx.beginPath(); ctx.arc(cx, cy + 2, 18, 0, 7); ctx.fill(); emojiAt('✨', cx + 12, cy - 12, 12); }   // 發光的數碼蛋：孩子們的夥伴
       emojiAt('🥚', cx + Math.sin(t * 8) * 1.5, cy + 2, 26);
     } else if (o.kind === 'pickup') {
       drawFragment(cx, cy, t + o.x);
