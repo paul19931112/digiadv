@@ -838,3 +838,10 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 #battle #ePanel .intent { white-space: normal; max-width: calc(100% - 30px); line-height: 1.35; }
 #btnEvo.blocked { opacity: .5; filter: grayscale(.6); }
 .statuses .st.sealSt { background: #4c1d95; color: #f5d0fe; }
+/* v15.0 吸血魔王獸：部位按鈕（點選攻擊目標） */
+.partRow { display: flex; gap: 4px; margin-top: 5px; }
+.partBtn { flex: 1; position: relative; background: #1e1b34; border: 2px solid #4c1d95; border-radius: 8px; color: #fff; padding: 2px 2px 6px; font-size: 14px; cursor: pointer; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
+.partBtn small { font-size: 10px; color: #e9d5ff; }
+.partBtn i { position: absolute; left: 0; bottom: 0; height: 4px; background: #ef4444; }
+.partBtn.on { border-color: #facc15; box-shadow: 0 0 8px #facc15aa; }
+.partBtn.dead { opacity: .35; cursor: default; }
