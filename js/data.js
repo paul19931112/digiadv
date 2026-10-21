@@ -222,6 +222,17 @@ const SPECIES = {
   phantomon:  { name: '死神獸',   img: 'Phantomon',   emoji: '💀', attr: 'virus', hp: 62, atk: 17, def: 11, spd: 12, moves: ['shadowscythe', 'darkwing', 'roar'] },
   vamdemon:   { name: '吸血魔獸', img: 'Vamdemon',    emoji: '🧛', attr: 'virus', hp: 66, atk: 17, def: 12, spd: 13, moves: ['nightraid', 'bloodylash', 'roar', 'guard'] },
   venomvamdemon:{ name: '吸血魔王獸', img: 'Venom_Vamdemon', emoji: '👹', attr: 'virus', hp: 70, atk: 18, def: 12, spd: 13, moves: ['venominfuse'] },
+  // 第三部・第七章：螺旋山（海與森林）
+  seadramon:  { name: '海龍獸',   img: 'Seadramon',   emoji: '🐉', attr: 'data',  hp: 60, atk: 16, def: 11, spd: 10, dragon: true, moves: ['water', 'bite', 'guard'] },
+  hangyomon:  { name: '潛水獸',   img: 'Hangyomon',   emoji: '🐟', attr: 'data',  hp: 56, atk: 16, def: 10, spd: 12, moves: ['harpoon', 'water', 'bite'] },
+  octmon:     { name: '章魚獸',   img: 'Octmon',      emoji: '🐙', attr: 'virus', hp: 54, atk: 15, def: 10, spd: 11, moves: ['inkgun', 'bite', 'guard'] },
+  coelamon:   { name: '腔棘魚獸', img: 'Coelamon',    emoji: '🐠', attr: 'data',  hp: 64, atk: 15, def: 14, spd: 7,  moves: ['heavy', 'guard', 'bite'] },
+  vegiemon:   { name: '蔬菜獸',   img: 'Vegiemon',    emoji: '🥬', attr: 'virus', hp: 56, atk: 15, def: 10, spd: 10, moves: ['spore', 'branch', 'bite'] },
+  kiwimon:    { name: '奇異鳥獸', img: 'Kiwimon',     emoji: '🥝', attr: 'data',  hp: 52, atk: 16, def: 9,  spd: 13, moves: ['peckpeck', 'bite', 'roar'] },
+  megaseadramon:{ name: '超級海龍獸', img: 'Mega_Seadramon', emoji: '🐲', attr: 'data', hp: 70, atk: 18, def: 13, spd: 11, dragon: true, moves: ['thunderjavelin', 'water', 'guard'] },
+  marindevimon:{ name: '海魔獸',  img: 'Marin_Devimon', emoji: '🦑', attr: 'virus', hp: 68, atk: 18, def: 12, spd: 10, moves: ['deathclaw', 'inkgun', 'roar'] },
+  metalseadramon:{ name: '鋼鐵海龍獸', img: 'Metal_Seadramon', emoji: '🐉', attr: 'data', hp: 72, atk: 19, def: 14, spd: 12, dragon: true, moves: ['ultimatestream', 'tidecrash', 'guard'] },
+  pinochimon: { name: '木偶獸',   img: 'Pinochimon',  emoji: '🎭', attr: 'virus', hp: 66, atk: 18, def: 12, spd: 14, moves: ['bulletsummer', 'pinocchihammer', 'roar'] },
   metaletemon:{ name: '機械猴子獸', img: 'Metal_Etemon', emoji: '🦍', attr: 'virus', hp: 68, atk: 16, def: 11, spd: 11, moves: ['darkspiritdx', 'metalpunch', 'guard', 'roar'] },
   andromon:   { name: '機械人獸', img: 'Andromon',  emoji: '🦾', attr: 'vaccine', hp: 60, atk: 15, def: 13, spd: 10, moves: ['spiral', 'missile', 'guard'] },
   jyureimon:  { name: '樹人獸',   img: 'Jyureimon', emoji: '🌲', attr: 'virus',   hp: 64, atk: 14, def: 11, spd: 9,  moves: ['cherry', 'branch', 'spore', 'regen'] },
@@ -344,6 +355,7 @@ function cardDef(id) {
   const sp = B ? B.p.sp : (RUN && RUN.team[0]) ? SPECIES[RUN.team[0].sp] : SPECIES.agumon;
   let d;
   if (base === 'sig') d = sigDef(sp, u);
+  else if (base === 'ult2') d = ult2Def(B ? B.p.m.sp : 'agumon');   // 第三部：第二究極技
   else if (base === 'ult') { d = (B && B.p.tier > 0) ? ultDef(sp, B.p.tier) : sigDef(sp); if (B && B.p.dark) d = { ...d, name: '暴走・' + d.name }; }
   else {
     const c = CARDS[base];
@@ -398,6 +410,14 @@ const MOVES = {
   venomwing:{ name: '黑暗之翼', kind: 'support', w: 1 },
   venomarm: { name: '毒之臂',   kind: 'atk', power: 7, status: ['poison', 3], chance: 1, pol: 1, w: 2 },
   venompush:{ name: '魔王之壓', kind: 'atk', power: 6, push: -40, w: 1 },
+  harpoon:  { name: '魚叉',     kind: 'atk', power: 12, w: 3 },
+  inkgun:   { name: '墨汁噴射', kind: 'atk', power: 7, status: ['para', 1], chance: .5, w: 3 },
+  peckpeck: { name: '連續啄擊', kind: 'atk', power: 5, hits: 3, w: 3 },
+  thunderjavelin:{ name: '雷擊標槍', kind: 'atk', power: 15, status: ['para', 1], chance: .4, w: 2 },
+  ultimatestream:{ name: '終極激流', kind: 'atk', power: 18, w: 2 },
+  tidecrash:{ name: '巨浪衝擊', kind: 'atk', power: 8, hits: 2, w: 3 },
+  bulletsummer:{ name: '子彈夏天', kind: 'atk', power: 6, hits: 3, w: 3 },
+  pinocchihammer:{ name: '木偶之錘', kind: 'atk', power: 15, w: 2 },
   regen:    { name: '黑暗再生', kind: 'heal', heal: .12, w: 1 },
   deathmark:{ name: '死亡宣告', kind: 'doom', w: 0 },
 };
@@ -511,6 +531,10 @@ const CHAPTERS = {
   6: { title: '第六章　東京・吸血魔獸', theme: 'tokyo', floors: 7, lv: [22, 26],
        zone: ['bakemon', 'picodevimon', 'mummymon', 'gesomon', 'bakemon', 'picodevimon'],
        elites: ['phantomon', 'wizarmon'], boss: { id: 'vamdemon', lv: 28, domain: 'vamp' }, next: 'p2done' },
+  // ----- 第三部 -----
+  7: { title: '第七章　螺旋山・海與森林', theme: 'spiral', floors: 7, lv: [26, 30],
+       zone: ['seadramon', 'hangyomon', 'octmon', 'coelamon', 'vegiemon', 'kiwimon'],
+       elites: ['megaseadramon', 'marindevimon'], boss: { id: 'metalseadramon', partner: 'pinochimon', lv: 32, domain: 'duo' }, next: 'p3done' },
 };
 // 頭目／精英的領域效果（對玩家不利）
 const DOMAINS = {
@@ -658,11 +682,11 @@ function makeEnemy(id, lv, opt = {}) {
   if (opt.boss) { s.maxhp = Math.round(s.maxhp * 3.6); s.atk = Math.round(s.atk * 1.35); s.def = Math.round(s.def * 1.15); }
   // 難度旋鈕：敵人整體的血量與攻擊加成
   // 各章節的敵人強度：第一章手下留情，越後面越強 [血量, 攻擊]
-  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35], 5: [1.6, 1.42], 6: [1.7, 1.5] };
+  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35], 5: [1.6, 1.42], 6: [1.7, 1.5], 7: [1.8, 1.58] };
   const [chHp, chAtk] = (typeof RUN !== 'undefined' && RUN && CH_SCALE[RUN.chapter]) || [1, 1];
   s.maxhp = Math.round(s.maxhp * ENEMY_HP * chHp); s.atk = Math.round(s.atk * ENEMY_ATK * chAtk);
   // 第二部的頭目再加強（第二部隊伍有完全體可以用；用電腦模擬調到勝率約六成）
-  const BOSS_EXTRA = { 4: [2.34, 1.78], 5: [1.61, .94], 6: [1.23, .69] };   // 第六章：吸血魔獸半血後還有吸血魔王獸 3 個部位，本體數值壓低   // 第五章：機械猴子獸的能力很強，本體數值低一點（駭入 2 項約六成）
+  const BOSS_EXTRA = { 4: [2.34, 1.78], 5: [1.61, .94], 6: [1.23, .69], 7: [1.05, .53] };   // 第七章：雙頭目（兩隻都會再乘上 DUO 的血量、攻擊比例）   // 第六章：吸血魔獸半血後還有吸血魔王獸 3 個部位，本體數值壓低   // 第五章：機械猴子獸的能力很強，本體數值低一點（駭入 2 項約六成）
   if (opt.boss && typeof RUN !== 'undefined' && RUN && BOSS_EXTRA[RUN.chapter]) { s.maxhp = Math.round(s.maxhp * BOSS_EXTRA[RUN.chapter][0]); s.atk = Math.round(s.atk * BOSS_EXTRA[RUN.chapter][1]); }
   const name = (opt.elite ? '暗黑' : '') + sp.name;
   return { id, sp, name, img: sp.img, emoji: sp.emoji, attr: sp.attr, lvl: lv, ...s, hp: s.maxhp,

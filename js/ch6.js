@@ -75,7 +75,7 @@ async function awakenEvent() {
 }
 
 // ---------- 吸血魔王獸：多部位戰鬥 ----------
-const livingParts = () => B.parts ? ['wing', 'core', 'arm'].map(k => B.parts[k]).filter(p => p.hp > 0) : [B.e];
+const livingParts = () => B.parts ? Object.values(B.parts).filter(p => p.hp > 0) : [B.e];
 function enterVenom() {
   const v = B.e, M = v.maxhp, sp = SPECIES.venomvamdemon;
   const mk = (key, name, icon, hpm, atkm, spdm, moves, g) => ({ id: 'venomvamdemon', key, sp, name: '吸血魔王獸・' + name, partIcon: icon, img: sp.img, emoji: sp.emoji, attr: sp.attr, lvl: v.lvl + 2,
@@ -101,18 +101,19 @@ function partsCheck() {
   if (!B.parts) return;
   for (const p of Object.values(B.parts)) if (p.hp <= 0 && !p.broken) {
     p.broken = true; p.gauge = 0; p.block = 0; p.st = {};
-    if (p.key !== 'core') { floatText(p, `💥 ${p.partIcon} 擊破！`, 'super', 40); log(`💥 擊破了${p.name}！`); }
+    if (B.partsAll) { floatText(p, `💥 ${p.name} 倒下了！`, 'super', 40); log(`💥 打倒了${p.name}！`); duoBroken(p); }
+    else if (p.key !== 'core') { floatText(p, `💥 ${p.partIcon} 擊破！`, 'super', 40); log(`💥 擊破了${p.name}！`); }
   }
-  if (B.e.hp <= 0 && B.parts.core.hp > 0) B.e = livingParts().find(p => p.key === 'core') || B.parts.core;
+  if (B.e.hp <= 0 && livingParts().length) B.e = livingParts().find(p => p.key === 'core') || livingParts()[0];
 }
 function renderParts() {
   const el = $('#ePanel');
   let row = el.querySelector('.partRow');
   if (!B.parts) { if (row) row.remove(); return; }
   if (!row) { row = document.createElement('div'); row.className = 'partRow'; el.appendChild(row); }
-  row.innerHTML = ['wing', 'core', 'arm'].map(k => { const p = B.parts[k], dead = p.hp <= 0;
+  row.innerHTML = Object.keys(B.parts).map(k => { const p = B.parts[k], dead = p.hp <= 0;
     const m = MOVES[p.intent], ico = dead ? '✖' : m.kind === 'support' ? '🛡️' : m.kind === 'atk' ? '⚔️' : '💢';
-    return `<button class="partBtn${p === B.e ? ' on' : ''}${dead ? ' dead' : ''}" data-k="${k}"><span>${p.partIcon}</span><i style="width:${p.hp / p.maxhp * 100}%"></i><small>${dead ? '擊破' : `${ico}${Math.ceil(p.hp / p.maxhp * 100)}%`}</small></button>`; }).join('');
+    return `<button class="partBtn${p === B.e ? ' on' : ''}${dead ? ' dead' : ''}" data-k="${k}"><span>${p.partIcon}</span><i style="width:${p.hp / p.maxhp * 100}%"></i><small>${dead ? (B.partsAll ? '倒下' : '擊破') : `${ico}${Math.ceil(p.hp / p.maxhp * 100)}%`}</small></button>`; }).join('');
   row.querySelectorAll('.partBtn').forEach(b => b.onclick = ev => { ev.stopPropagation(); const p = B.parts[b.dataset.k]; if (!p || p.hp <= 0) return; B.e = p; sfx('click'); renderBattle(); });
 }
 // 敵人行動：部位的特殊招式

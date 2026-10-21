@@ -53,6 +53,7 @@ function showTitle() {
   $('#hud').classList.add('hidden');
   showScreen('#title');
   $('#btnPart2').classList.toggle('hidden', !part2Unlocked());
+  $('#btnPart3').classList.toggle('hidden', !part3Unlocked());
   $('#titleArt').innerHTML = ['Metal_Garurumon', 'War_Greymon', 'Seraphimon', 'Devimon'].map(k => dpic(k, '✨', 's110')).join('');
   const sv = store.get(RUN_KEY);
   const cont = $('#btnContinue');
@@ -467,6 +468,7 @@ $('#btnNew').onclick = async () => {
   showKidSelect();
 };
 $('#btnPart2').onclick = () => startPart2();
+$('#btnPart3').onclick = () => startPart3();
 $('#btnTutorial').onclick = () => runTutorial();   // 教學不會動到冒險存檔
 $('#btnHelp').onclick = openHelp;
 document.querySelectorAll('.soundBtn').forEach(b => { b.textContent = SFX.on || VOICE.music ? '🔊' : '🔇'; b.onclick = e => { e.stopPropagation(); openAudioSettings(); }; });

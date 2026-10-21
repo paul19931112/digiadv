@@ -315,6 +315,9 @@ const BOSS_LINES = {
     ['partner', '還有那個金屬噪音……被標記的卡要記得打出去！']])]),
   6: () => cutscene([bossScene('tokyo', 'drone', 'Vamdemon', [['vamdemon', '呵呵呵……被選召的孩子們，你們終於來了。'], ['vamdemon', '第 8 個孩子？無所謂——這座城市的光，今晚就由我來熄滅！'],
     ['partner', '吸血魔獸……我們絕對不會讓你得逞！'], ...(RUN.awaken ? [['partner', '徽章完全覺醒了——這次可以究極進化！']] : [])])]),
+  7: () => cutscene([{ bg: 'sea', music: 'boss', amb: 'waves', chars: [['Metal_Seadramon', 70, 76, 48, 'in-r'], ['Pinochimon', 36, 78, 36, 'in-l']],
+    lines: [['metalseadramon', '哼，被選召的孩子們。這片海就是你們的墳墓！'], ['pinochimon', '嘻嘻嘻～一起來玩吧！你們全部都是我的玩具！'],
+      ['partner', '兩個一起來嗎……！要想清楚先打哪一隻！'], [null, '🌊 打出防禦／回復卡可以讓潮水退去；🎭 被操控的卡要多花 1 能量剪斷操線。']] }]),
   3: async () => {
     const scenes = [bossScene('castle', 'drone', 'Devimon', [['devimon', '哼哼哼…被選召的孩子，竟然能走到這裡。不過，你們的冒險就到此為止了！'], ['partner', '惡魔獸！我們絕對不會輸給你！']])];
     if (F().leomon) scenes.push({ bg: 'burst', amb: null, sting: true, chars: [['Leomon', 50, 76, 48, 'in-l']], fx: '<div class="cutSpeed"></div>',
@@ -366,6 +369,9 @@ async function chapterComplete() {
         [null, '🔎 找到 3 條<b>第 8 個孩子的線索</b>會發生什麼事呢？頭目前一層，徽章會<b>完全覺醒</b>。']] },
     ]);
     startChapter(6);
+  } else if (CHAPTERS[RUN.chapter].next === 'p3done') {
+    await part3ChapterDone();
+    return;
   } else if (CHAPTERS[RUN.chapter].next === 'p2done') {
     await part2ChapterDone();
     return;

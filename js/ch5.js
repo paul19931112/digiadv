@@ -88,7 +88,7 @@ function extraObjs(nd, place, free, T, dist) {
     place({ kind: 'band', sp: 'gekomon', opt: true }, free(5));
 }
 // 物件種類：不會一直擋路的（不用檢查會不會堵住出口）
-const PASS_KINDS = ['tp', 'trap', 'crest', 'hack', 'band', 'clue'];
+const PASS_KINDS = ['tp', 'trap', 'crest', 'hack', 'band', 'clue', 'trial'];
 
 // ---------- 每格移動前：被關在陷阱房間裡就出不去 ----------
 const sealBlocks = (A, x, y) => A.seal && Math.max(Math.abs(x - A.seal.x), Math.abs(y - A.seal.y)) > A.seal.r;
@@ -112,6 +112,9 @@ function drawCh5Obj(o, cx, cy, t) {
     ctx.fillStyle = 'rgba(253,224,71,.3)'; ctx.beginPath(); ctx.arc(cx, cy + 2, 18, 0, 7); ctx.fill();
     drawSprite(sp.img, sp.emoji, cx, cy + Math.abs(Math.sin(t * 6)) * -3, 34, false);
     emojiAt('🎵', cx + 13, cy - 16 + Math.sin(t * 5) * 3, 13);
+  } else if (o.kind === 'trial') {   // 🌟 試煉
+    ctx.fillStyle = `rgba(253,224,71,${.3 + Math.sin(t * 4) * .15})`; ctx.beginPath(); ctx.arc(cx, cy + 2, 18, 0, 7); ctx.fill();
+    emojiAt('🌟', cx, cy + 2 + Math.sin(t * 3) * 1.5, 22);
   } else if (o.kind === 'clue') {   // 第 8 個孩子的線索
     ctx.fillStyle = `rgba(244,114,182,${.3 + Math.sin(t * 4) * .15})`; ctx.beginPath(); ctx.arc(cx, cy + 2, 16, 0, 7); ctx.fill();
     emojiAt('🔎', cx, cy + 2 + Math.sin(t * 3) * 1.5, 20);
@@ -185,6 +188,8 @@ async function ch5Interact(o) {
     const len = Math.min(6, 4 + hacked().length);
     const ok = await hackGame(len);
     if (ok) await hackReward(); else { teamDamage(.08); updateHUD(); await say(null, '💥 防火牆反擊！全隊受到 8% 的傷害，終端機也當機了……'); }
+  } else if (o.kind === 'trial') {
+    if (await trialEvent(o)) o.done = true;
   } else if (o.kind === 'clue') {
     o.done = true; await clueFound();
   } else if (o.kind === 'crest') {

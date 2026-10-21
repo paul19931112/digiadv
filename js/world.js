@@ -18,7 +18,8 @@ function genRoute(chKey) {
       else if (f === F - 1) type = 'boss';
       else if (f === F - 2) type = i === 0 ? 'rest' : pick(['shop', 'treasure', 'event']);
       else if (f === shopFloor && i === 0) type = 'shop';
-      else type = weighted({ battle: 38, event: 24, elite: f >= 2 ? 10 : 0, rest: 6, shop: 4, egg: 5, treasure: 5, puzzle: 8 });
+      else type = weighted(chKey >= 7 ? { battle: f === 1 ? 20 : 8, event: 20, elite: 25, trial: 15, rest: 6, shop: 4, egg: 5, treasure: 8, puzzle: 7 }   // 第三部：一般戰鬥少、精英和試煉多
+                                       : { battle: 38, event: 24, elite: f >= 2 ? 10 : 0, rest: 6, shop: 4, egg: 5, treasure: 5, puzzle: 8 });
       row.push({ f, i, type, next: [], jx: rand(-.06, .06) });
     }
     floors.push(row);
@@ -119,6 +120,7 @@ function genArea(nd) {
   const maze = theme === 'pyramid';
   if (maze) pyramidMaze(T);   // 金字塔：走道迷宮
   else if (theme === 'tokyo') tokyoCity(T);   // 東京：街道和大樓
+  else if (theme === 'spiral') spiralMap(T);   // 螺旋山：左邊森林、右邊海岸
   else {
     blob(',', randInt(5, 8), 1.5, 3.2);
     blob('T', theme === 'forest' ? randInt(9, 13) : theme === 'desert' ? randInt(3, 5) : randInt(5, 8), .8, 1.8);
@@ -177,7 +179,8 @@ function genArea(nd) {
 
   switch (nd.type) {
     case 'battle':
-      place(enemy('guard', pick(ch.zone), lv), nearExit());
+      if (P3() && Math.random() < .5) place(enemy('elite', pick(ch.elites), lv), nearExit());   // 第三部：守出口的常常是精英
+      else place(enemy('guard', pick(ch.zone), lv), nearExit());
       for (let k = 0; k < randInt(1, 2); k++) place(enemy('roam', pick(ch.zone), lv - 1), free(5));
       if (Math.random() < .5) place({ kind: 'chest' }, free(4));
       break;
@@ -206,6 +209,9 @@ function genArea(nd) {
       place({ ...enemy('guard', 'numemon', 1), tut: 1 }, nearExit());
       break;
     }
+    case 'trial':
+      if (Math.random() < .5) place(enemy('roam', pick(ch.zone), lv - 1), free(6));
+      break;
     case 'hack':
       if (Math.random() < .6) place(enemy('roam', pick(ch.zone), lv - 1), free(6));
       break;
@@ -229,6 +235,7 @@ function genArea(nd) {
   maybePlaceAssist(place, free, nd.type);   // 援護事件：任何地圖都可能出現
   extraObjs(nd, place, free, T, dist);   // 第二部：傳送點、陷阱、駭客終端、徽章、樂團
   placeClue(nd, place, free);   // 第六章：第 8 個孩子的線索
+  p3Objs(nd, place, free);   // 第三部：試煉
   return { T, objs, start, exit, theme, nd, x: start.x, y: start.y, mv: { moving: false, t: 0 }, facing: 1, seen: new Uint8Array(COLS * ROWS) };
 }
 
@@ -279,7 +286,7 @@ async function enterArea(nd) {
   const info = NODE_INFO[nd.type];
   banner(`${info.icon} ${info.name}`);
   const hint = { battle: '打倒守在出口的數碼寶貝才能離開', elite: '出口被暗黑化的強敵擋住了！', event: '好像有誰在等你…去跟牠說說話',
-                 rest: '找到回復泉了', shop: '玩偶獸開了一家商店', egg: '附近有一顆數碼蛋', treasure: '這裡散落著寶箱！', tutorial: '長老獸的訓練場', puzzle: '發現了一座古代遺跡，石碑上刻著謎題', hack: '迷宮深處有一台古代終端機，駭進去可以削弱機械猴子獸', boss: '強大的氣息…頭目就在出口前' }[nd.type];
+                 rest: '找到回復泉了', shop: '玩偶獸開了一家商店', egg: '附近有一顆數碼蛋', treasure: '這裡散落著寶箱！', tutorial: '長老獸的訓練場', puzzle: '發現了一座古代遺跡，石碑上刻著謎題', hack: '迷宮深處有一台古代終端機，駭進去可以削弱機械猴子獸', trial: '🌟 這裡有試煉之地……夥伴可以學會新的招式', boss: '強大的氣息…頭目就在出口前' }[nd.type];
   toast(hint, 3000);
   if (AREA.objs.some(o => o.kind === 'crest')) setTimeout(() => toast('📟 數碼裝置有微弱的反應……這張地圖好像埋著徽章！（左上角的雷達越熱越近）', 4000), 3100);
   saveRun();   // 一進節點就存檔：商店的貨、寶箱、敵人都固定下來，不能用重開來刷
@@ -496,9 +503,11 @@ async function restSpot() {
     { text: '特訓', note: '強化一張卡片', disabled: !RUN.deck.some(canUpgrade) },
     { text: '冥想', note: '勇氣值 +30' },
     { text: '先不要', note: '待會再來' },
+    ...(P3() ? [{ text: '🔰 徽章充能', note: `徽章刻度 +2（現在 ${RUN.crestTicks || 0} 格，不能回血）` }] : []),
     ...(hasDark() ? [{ text: '💧 淨化黑暗', note: '丟掉 1 個黑暗徽章（不能回血）' }] : []),
   ]);
-  if (c === 4) {   // 淨化黑暗：一個回復泉只能淨化 1 個
+  if (P3() && c === 4) { RUN.crestTicks = (RUN.crestTicks || 0) + 2; sfx('levelup'); toast(`🔰 徽章充能！刻度 ${RUN.crestTicks} 格`, 3000); updateHUD(); return true; }
+  if (c === (P3() ? 5 : 4)) {   // 淨化黑暗：一個回復泉只能淨化 1 個
     const darks = RUN.relics.filter(k => RELICS[k].dark);
     const k = darks.length > 1 ? await pickScreen({ title: '💧 要淨化哪一個？', sub: '回復泉只能洗掉 1 個黑暗徽章', items: darks, render: k => relicEl(k), skip: '取消' }) : darks[0];
     if (!k) return false;
@@ -557,6 +566,7 @@ async function openShop(o) {
           <button class="btn" id="svcUp" ${RUN.bits < upPrice || !RUN.deck.some(canUpgrade) ? 'disabled' : ''}>⬆️ 強化一張卡　💰${upPrice}<small>（第 ${upN} 次，每次 ×1.5）</small></button>
           ${showUlt ? `<button class="btn evo" id="svcUlt" ${RUN.bits < ultBoostPrice() ? 'disabled' : ''}>💠 究極強化：所有究極技 +25%　💰${ultBoostPrice()}</button>` : ''}
           <button class="btn" id="svcHeal" ${RUN.bits < 35 ? 'disabled' : ''}>💊 全隊回復 40%　💰35</button>
+          ${P3() ? `<button class="btn evo" id="svcCrest" ${RUN.bits < CREST_SHARD || (s.crestN || 0) >= 2 ? 'disabled' : ''}>🔰 徽章碎片：刻度 +1　💰${CREST_SHARD}<small>（這間店還能買 ${2 - (s.crestN || 0)} 個，現在 ${RUN.crestTicks || 0} 格）</small></button>` : ''}
         </div>
         <button class="btn primary" id="shopLeave">離開商店</button>`;
       const cr = ov.querySelector('.cards'), rr = ov.querySelector('.relics');
@@ -589,6 +599,7 @@ async function openShop(o) {
         }
         render();
       };
+      if (P3()) ov.querySelector('#svcCrest').onclick = () => { if (RUN.bits < CREST_SHARD || (s.crestN || 0) >= 2) return; RUN.bits -= CREST_SHARD; s.crestN = (s.crestN || 0) + 1; RUN.crestTicks = (RUN.crestTicks || 0) + 1; sfx('levelup'); toast(`🔰 徽章刻度 +1（${RUN.crestTicks} 格）`); render(); };
       if (showUlt) ov.querySelector('#svcUlt').onclick = () => {
         if (RUN.bits < ultBoostPrice()) return;
         RUN.bits -= ultBoostPrice(); RUN.relics.push('ultboost'); sfx('levelup');
@@ -627,6 +638,7 @@ const PALETTE = {
   desert:   { floor: '#ecc985', dot: '#d9ad62', grass: '#e0b366', tuft: '#c08f46', treeBg: '#e0b870', tree: '#4f8a3a', treeHi: '#7dbb5a', water: '#38bdf8', wave: '#bae6fd', cactus: true },
   pyramid:  { floor: '#c9a66b', dot: '#b08c52', grass: '#b8955c', tuft: '#9c7a44', treeBg: '#6b4c26', tree: '#8a6634', treeHi: '#b08850', water: '#1e3a5f', wave: '#22d3ee', brick: true },
   tokyo:    { floor: '#3a3f52', dot: '#4a5068', grass: '#3f6e3b', tuft: '#2d5530', treeBg: '#1c1f2e', tree: '#2a2f45', treeHi: '#fde68a', water: '#1e3a5f', wave: '#7dd3fc', building: true, fogc: true },
+  spiral:   { floor: '#c8b98e', dot: '#b3a476', grass: '#4f8f45', tuft: '#356b30', treeBg: '#4d6b3c', tree: '#1f4a2a', treeHi: '#2f6038', water: '#1d4e89', wave: '#7dd3fc' },
   mountain: { floor: '#9a8a92', dot: '#837480', grass: '#7c6a80', tuft: '#665570', treeBg: '#8a7a84', tree: '#4a3d55', treeHi: '#5f5070', water: '#e0532a', wave: '#ffc078', lava: true },
 };
 

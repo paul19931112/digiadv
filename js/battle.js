@@ -128,7 +128,7 @@ function hit(power, hits = 1, opts = {}) {
   if (B.parts && B.aoeNow) {   // 擴散：這張攻擊卡打所有部位
     const keep = B.e;
     for (const pt of livingParts()) { B.e = pt; for (let i = 0; i < hits; i++) { if (pt.hp <= 0) break; total += applyHit(B.p, pt, power, opts); } }
-    B.e = keep.hp > 0 ? keep : B.parts.core; partsCheck();
+    B.e = keep.hp > 0 ? keep : (livingParts()[0] || keep); partsCheck();
     return total;
   }
   for (let i = 0; i < hits; i++) { if (B.e.hp <= 0) break; total += applyHit(B.p, B.e, power, opts); }
@@ -171,9 +171,9 @@ function togglePin(i) {
   renderBattle();
 }
 // ---------- 手牌上的標記：🔥 燃燒、🌫️ 霧化、☠️ 汙染、🔍 看破（卡片離開手牌就消失） ----------
-function clearMarks(c) { delete c.burn; delete c.fog; delete c.pol; delete c.seen; delete c.encore; delete c.noise; delete c.moon; }
+function clearMarks(c) { delete c.burn; delete c.fog; delete c.pol; delete c.seen; delete c.encore; delete c.noise; delete c.moon; delete c.str; }
 const baseId = id => id.replace('+', '');
-const cardCost = (c, d = cardDef(c.id)) => Math.max(0, d.cost + (c.seen ? 1 : 0) - (B && B.firstDisc && (B.turnNo <= 1 || K().discEvery) ? 1 : 0));
+const cardCost = (c, d = cardDef(c.id)) => Math.max(0, d.cost + (c.seen ? 1 : 0) + (c.str ? 1 : 0) - (B && B.firstDisc && (B.turnNo <= 1 || K().discEvery) ? 1 : 0));
 const isHalf = (c, d = cardDef(c.id)) => !d.noHalf && !!(c.pol || (B.spread && B.spread[baseId(c.id)] >= B.turnNo));
 // 頭目行動時先預告，等玩家下一回合抽完牌才套用到手牌上（不然只會打到保留的牌）
 function bossHandAct(e) {
@@ -216,6 +216,7 @@ function applyBossHand() {
   if (P.encore) pickN(P.encore, c => !c.encore && !c.temp).forEach(c => { c.encore = true; got.push('🎵'); });
   if (P.noise) pickN(P.noise, c => !c.noise && !c.temp).forEach(c => { c.noise = true; got.push('⚙️'); });
   if (P.moon) pickN(P.moon, c => !c.moon && !c.temp).forEach(c => { c.moon = true; got.push('🌙'); });
+  if (P.str) pickN(P.str, c => !c.str && !c.temp).forEach(c => { c.str = true; got.push('🎭'); });
   if (got.length) floatText(B.p, got.join(' ') + ' 手牌被干擾了', 'dot', 60);
 }
 // ✨ 淨化（商店限定卡）
@@ -275,6 +276,7 @@ function runBattle(enemyId, lv, opt = {}) {
     const dom = opt.domain || (opt.boss ? CHAPTERS[RUN.chapter].boss.domain : opt.elite ? 'armor' : null);
     B = { fighters, p: fighters[ai], e, phase: 'run', energy: 0, carry: 0, anim: false, dom, participants: new Set([ai]), opt, resolve, firstTurn: true,
           draw: shuffle(RUN.deck.map(id => ({ uid: ++uidSeq, id }))), hand: [], discard: [], exhaust: [], log: [], spread: {} };
+    if (dom === 'duo') setupDuo(lv, opt);   // 第七章：雙頭目
     if (!RUN.seen.includes(enemyId)) RUN.seen.push(enemyId);
     chooseIntent(e);
     G.mode = 'battle';
@@ -370,7 +372,7 @@ function startPlayerTurn() {
   if (carry) log(`⚡ 上回合保留的 ${carry} 點能量帶過來了！`);
   if (B.charmed) { B.charmed = false; B.energy = Math.max(0, B.energy - 1); log('💘 還陶醉在歌聲裡…能量 -1'); floatText(p, '💘 能量 -1', 'dot'); }
   B.firstTurn = false;
-  const target = HAND_SIZE + (has('knowledge') ? 1 : 0) + K().draw + (B.turnNo === 1 ? K().firstTurnDraw || 0 : 0) - (B.dom === 'jam' ? 1 : 0);   // 干擾電波：少補 1 張
+  const target = HAND_SIZE + (has('knowledge') ? 1 : 0) + K().draw + (B.turnNo === 1 ? K().firstTurnDraw || 0 : 0) - (B.dom === 'jam' ? 1 : 0) - (B.water || 0);   // 干擾電波：少補 1 張
   drawCards(target - B.hand.filter(c => !c.temp).length);
   applyBossHand();
   banner('你的回合！');
@@ -384,7 +386,9 @@ async function playCard(i, forced) {
   const d = cardDef(c.id), cost = cardCost(c, d);
   if (B.p.dark && !['atk', 'sig', 'ult'].includes(d.type)) { floatText(B.p, '暴走中！只能攻擊', 'info'); return; }
   if (d.canPlay && !d.canPlay()) { floatText(B.p, '現在無法使用', 'info'); return; }
+  if (c.str && cost > B.energy && cost - 1 <= B.energy) { puppetPlay(i, c, d); return; }   // 🎭 能量不夠剪斷操線：被操控打到自己
   if (cost > B.energy) { floatText(B.p, '能量不足', 'info'); sfx('error'); return; }
+  if (c.str) { floatText(B.p, '✂️ 剪斷操線', 'info'); log('✂️ 多花 1 能量剪斷了操線'); }
   sfx('card');
   const node = $('#hand').children[i], from = node ? node.getBoundingClientRect() : null;
   B.energy -= cost;
@@ -409,6 +413,7 @@ async function playCard(i, forced) {
     if (atkCard && B.chargeNext) { CHARGE = 2; B.chargeNext = false; log('💥 蓄力一擊！這張卡傷害加倍'); }
     if (atkCard && B.aoeTurn === B.turnNo) { B.aoeTurn = 0; B.aoeNow = true; }   // 擴散用掉了（多部位的敵人在第六章）
     try { d.fx(); } finally { HALF = false; CHARGE = 1; B.aoeNow = false; }
+    if (B.water) tideCard(c);   // 🌊 防禦／回復卡：退潮
     if (B.dom === 'concert' && B.e.intent === 'loveSerenade' && !B.serenadeBroken && B.e.hp > 0 && B.serenadeHp - B.e.hp >= B.serenadeNeed) {   // 猴子獸：傷害夠了就打斷愛之小夜曲
       B.serenadeBroken = true; floatText(B.e, '🎤 打斷！', 'super', 40); log('💥 打斷了猴子獸的歌！');
     }
@@ -527,6 +532,7 @@ function enemyTurn(actor) {
       if (metalOn('net')) { healF(e, Math.round(e.maxhp * METAL_HEAL)); log(`📡 黑暗網路：${e.name} 回復了 HP`); }
       if (metalOn('over') && e.mn % 4 === 0) { e.gauge = OVER_GAUGE; floatText(e, '⚡ 數據超載！', 'super', 40); log(`⚡ 數據超載！${e.name} 的行動條直接跳到一半！`); }
     }
+    duoAfterAct(e);   // 第七章：漲潮、操線
     if (checkEnd()) return;
     renderBattle();
     setTimeout(() => { if (B === myB && B.phase === 'enemy') { B.phase = 'run'; renderBattle(); } }, 450);
@@ -651,6 +657,7 @@ function doEvolve(f, tier, dark) {
   removeTemp();
   B.hand.push({ uid: ++uidSeq, id: 'ult', temp: true }, { uid: ++uidSeq, id: 'ult', temp: true });
   if (has('ultproof')) B.hand.push({ uid: ++uidSeq, id: 'ult', temp: true });   // 🏅 究極之證
+  if (!dark && tier === 3 && P3() && learned2(f.m.sp)) B.hand.push({ uid: ++uidSeq, id: 'ult2', temp: true });   // 🌟 第二究極技
   B.energy += T.energy;
   closePopups();
   sfx(dark ? 'wrongevo' : 'evolve');
@@ -818,7 +825,7 @@ function flee() {
 }
 
 function checkEnd() {
-  if (B.parts) { partsCheck(); if (B.parts.core.hp <= 0) { B.e = B.parts.core; win(); return true; } }   // 吸血魔王獸：打倒本體才算贏
+  if (B.parts) { partsCheck(); if (B.partsAll ? !livingParts().length : B.parts.core.hp <= 0) { B.e = B.parts.core || Object.values(B.parts)[0]; win(); return true; } }   // 吸血魔王獸：打倒本體；雙頭目：全部打倒
   else if (B.e.hp <= 0) { win(); return true; }
   if (B.p.hp <= 0 && K().loveGuard && (B.loveUsed || 0) < (K().loveGuardN || 1)) {   // 素娜：愛的守護（每場戰鬥一次，覺醒後 2 次）
     B.loveUsed = (B.loveUsed || 0) + 1; B.p.hp = 1;
@@ -921,7 +928,7 @@ function win() {
   syncTeamHp();
   if (has('love')) teamHeal(.1);
   if (K().winHeal) teamHeal(K().winHeal);
-  const mult = (opt.boss ? 4 : opt.elite ? 2 : 1) * (persuaded ? .5 : 1);   // 勸降只拿一半經驗
+  const mult = (opt.boss ? 4 : opt.elite ? (P3() ? 4 : 2) : 1) * (persuaded ? .5 : 1);   // 勸降只拿一半經驗
   const exp = Math.round(e.lvl * 5 * mult);
   const msgs = [];
   B.fighters.forEach((f, i) => {
@@ -1080,7 +1087,7 @@ function arenaTheme() {
   if (typeof Scene === 'undefined') return;
   if (!Scene.cv) Scene.init($('#arenaBg'));
   const ch = RUN && RUN.chapter, dom = B && B.dom;
-  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : ch === 4 ? 'desert' : ch === 5 ? 'pyramid' : ch === 6 ? 'tokyo' : 'dusk';
+  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : ch === 4 ? 'desert' : ch === 5 ? 'pyramid' : ch === 6 ? 'tokyo' : ch === 7 ? 'spiral' : 'dusk';
   Scene.set(key, key === 'dusk' ? (dom === 'heat' ? 'ember' : 'none') : null);
 }
 // 後排：最多再站 2 隻（活著、沒被封印的優先）
@@ -1125,6 +1132,7 @@ function renderFighter(f) {
   blk.textContent = `🛡${f.block}`;
   el.querySelector('.statuses').innerHTML =
     (f.tier ? `<span class="st">✨ ${TIERS[f.tier].name} 剩 ${f.evoTurns} 回合</span>` : '') +
+    (f.isPlayer && B && B.water ? `<span class="st sealSt">🌊 水位 ${B.water}：手牌 -${B.water}</span>` : '') +
     (f.isPlayer && B && B.sealTurn && B.turnNo <= B.sealTurn ? '<span class="st sealSt">🔒 黑暗封印：不能進化</span>' : '') +
     (f.isPlayer && B && !(B.sealTurn && B.turnNo <= B.sealTurn) && f.sealUntil >= B.turnNo ? '<span class="st sealSt">😮‍💨 筋疲力盡：不能進化</span>' : '') +
     (f.gears ? `<span class="st">⚙️ 小齒輪 ×${f.gears}</span>` : '') + (f.plant ? `<span class="st">🌱 種子 ${f.plant}</span>` : '') +
@@ -1157,7 +1165,7 @@ function renderBattle() {
   if (my) {
     B.hand.forEach((c, i) => {
       const d = cardDef(c.id);
-      const marks = (c.burn ? '🔥' : '') + (isHalf(c, d) ? '☠️' : '') + (c.seen ? '🔍' : '') + (c.fog ? '🌫️' : '') + (c.encore ? '🎵' : '') + (c.noise ? '⚙️' : '') + (c.moon ? '🌙' : '');
+      const marks = (c.burn ? '🔥' : '') + (isHalf(c, d) ? '☠️' : '') + (c.seen ? '🔍' : '') + (c.fog ? '🌫️' : '') + (c.encore ? '🎵' : '') + (c.noise ? '⚙️' : '') + (c.moon ? '🌙' : '') + (c.str ? '🎭' : '');
       hand.appendChild(cardEl(c.id, { cost: cardCost(c, d), marks, fog: c.fog, playable: cardCost(c, d) <= B.energy && !(p.dark && !['atk', 'sig', 'ult'].includes(d.type)) && (!d.canPlay || d.canPlay()), key: i + 1, keep: c.temp, pin: c.temp ? undefined : !!c.pin, onPin: () => togglePin(i), onClick: () => playCard(i) }));
     });
     if (!B.hand.length) hand.innerHTML = '<div class="waiting">沒有手牌了，按「結束回合」</div>';
