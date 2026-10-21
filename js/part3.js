@@ -20,7 +20,7 @@ const ULT2 = {
   patamon:  { name: '七星之擊',   power: 7,  hits: 7, desc: '7 段傷害；救回 1 隻被變成鑰匙圈的夥伴', fx: () => {} },
   gomamon:  { name: '雷帝之槌',   power: 36, hits: 1, desc: '獲得護盾；🌊 水位 -2', fx: () => { gainBlock(B.p, blockVal(12, .15)); if (B.water) { B.water = Math.max(0, B.water - 2); log('🔨 雷帝之槌敲退了潮水！'); } } },
   palmon:   { name: '荊棘之鞭',   power: 36, hits: 1, desc: '解除敵人的強化和護盾；剪斷手牌所有的 🎭 操線', fx: () => { ['atkUp', 'haste', 'ward'].forEach(k => delete B.e.st[k]); B.e.block = 0; cutStrings(); } },
-  tentomon: { name: '大力神衝擊', power: 38, hits: 1, desc: '敵人行動條 -50%', fx: () => pushGauge(B.e, -50) },
+  tentomon: { name: '大力神衝擊', power: 38, hits: 1, desc: '敵人行動條 -50%；直接打斷無限大砲的集氣', fx: () => { pushGauge(B.e, -50); if (B.e.intent === 'infinitycannon' && !B.cannonBroken) { B.cannonBroken = true; floatText(B.e, '🛑 大砲打斷！', 'super', 40); log('🛑 大力神衝擊直接打斷了無限大砲！'); } } },
   plotmon:  { name: '神聖之光',   power: 36, hits: 1, desc: '淨化手牌上所有的負面標記', fx: () => { B.hand.forEach(clearMarks); floatText(B.p, '✨ 淨化', 'heal'); } },
 };
 const learned2 = sp => (RUN.learned2 || []).includes(sp);
@@ -168,19 +168,19 @@ function puppetPlay(i, c, d) {
   renderBattle();
 }
 
-// ---------- 第七章結束（第八章製作中） ----------
+// ---------- 第八章結束（第九章製作中） ----------
 async function part3ChapterDone() {
   G.mode = 'busy';
   await cutscene([
-    { bg: 'sea', music: 'route', amb: 'waves', chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '鋼鐵海龍獸和木偶獸都被打倒了！'], [null, '螺旋山的海浪平靜下來，森林裡的操線也一根根斷掉了。']] },
-    { bg: 'void', music: null, amb: 'drone', chars: [['Mugendramon', 50, 78, 56, 'dark']], fx: '<div class="cutTitle"><b>第八章</b><strong>機械邪龍獸</strong><small>製作中・敬請期待</small></div>',
-      lines: [['shadow', '偵測到入侵者……全部，消滅。']] },
+    { bg: 'city', music: 'route', amb: 'drone', chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '機械邪龍獸停止運轉了……！'], [null, '工廠的齒輪一個接一個停了下來。螺旋山只剩下最後一層。']] },
+    { bg: 'void', music: null, amb: 'drone', chars: [['Piemon', 50, 78, 56, 'dark']], fx: '<div class="cutTitle"><b>第九章</b><strong>小丑皇</strong><small>製作中・敬請期待</small></div>',
+      lines: [['shadow', '呵呵呵……表演終於要進入高潮了。'], ['shadow', '下一個節目——把你們全部變成鑰匙圈吧。']] },
   ]);
   META.p3ch = Math.max(META.p3ch || 0, RUN.chapter); META.clears++;
   recordDex(); saveMeta(); clearRun();
   const o = $('#overlay');
-  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">🌊🌲</div><h1>第七章 完成！</h1>
-    <p>第八章「機械邪龍獸」還在製作中，敬請期待</p>
+  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">🤖</div><h1>第八章 完成！</h1>
+    <p>第九章「小丑皇」還在製作中，敬請期待</p>
     <div class="endTeam">${RUN.team.map(m => spPic(m.sp, 's80')).join('')}</div>
     <p>擊敗 ${RUN.stats.wins} 隻敵人　｜　學會第二究極技 ${(RUN.learned2 || []).length} 招</p>
     <button class="btn primary big" id="p3Back">回到標題</button></div>`;
@@ -188,4 +188,66 @@ async function part3ChapterDone() {
   await new Promise(r => o.querySelector('#p3Back').onclick = r);
   o.classList.add('hidden');
   showTitle();
+}
+
+// =========================================================
+//   第八章：機械邪龍獸（無限大砲）＋ 工廠地圖（輸送帶）
+// =========================================================
+let CANNON_PCT = .08;     // 集氣時要打出最大 HP 的這個比例才能打斷
+let CANNON_POWER = 40;    // 沒打斷：無限大砲的威力
+const CANNON_EVERY = 4;   // 每 4 次行動集氣一次
+DOMAINS.mugen = { name: '無限大砲', icon: '💥', desc: '每 4 次行動集氣一次「無限大砲」（會先預告），在牠發射前打出最大 HP 8% 的傷害就能打斷；沒打斷會受到超大傷害' };
+BOSS_INFO.mugen = [['💥 無限大砲', '機械邪龍獸每 4 次行動會開始<b>集氣</b>，下一次行動發射「無限大砲」（無視護盾的超大傷害）。'],
+  ['🛑 打斷', `集氣出現後，在牠發射前打出牠<b>最大 HP ${Math.round(CANNON_PCT * 100)}%</b> 以上的傷害（燒傷、援護、反擊也算）就能打斷。敵人頭上會顯示還差多少。`],
+  ['💡 小技巧', '集氣時可以先用防禦卡擋一下，或換一隻血多的夥伴上場；甲蟲獸的第二究極技「大力神衝擊」可以直接打斷。']];
+// 集氣：在敵人行動結束時決定下一招
+function cannonPrep(e) {
+  if (B.dom !== 'mugen') return false;
+  e.cn = (e.cn || 0) + 1;
+  if (e.cn % CANNON_EVERY !== 0) return false;
+  e.intent = 'infinitycannon'; B.cannonBroken = false; B.cannonHp = e.hp; B.cannonNeed = Math.round(e.maxhp * CANNON_PCT);
+  floatText(e, '💥 集氣中！', 'super', 40); log(`💥 ${e.name} 開始為「無限大砲」集氣！在牠發射前打出 ${B.cannonNeed} 以上的傷害就能打斷！`);
+  return true;
+}
+// 打出卡片之後：傷害夠了就打斷
+function cannonCheck() {
+  const e = B.e;
+  if (B.dom !== 'mugen' || e.intent !== 'infinitycannon' || B.cannonBroken || e.hp <= 0) return;
+  if (B.cannonHp - e.hp >= B.cannonNeed) { B.cannonBroken = true; floatText(e, '🛑 大砲打斷！', 'super', 40); log('🛑 打斷了無限大砲的集氣！'); sfx('crit'); }
+}
+// 發射
+function cannonFire(e, p) {
+  if (!B.cannonBroken && B.cannonHp - e.hp >= B.cannonNeed) B.cannonBroken = true;
+  if (B.cannonBroken) { floatText(e, '💨 大砲故障…', 'info'); log('💨 無限大砲被打斷，冒出一陣黑煙！'); return; }
+  log('💥💥 無限大砲發射！'); applyHit(e, p, CANNON_POWER, { pierce: true });
+}
+const cannonText = () => B.cannonBroken ? '💥 （大砲已經打斷）' : `💥 無限大砲集氣中（再打 ${Math.max(0, B.cannonNeed - (B.cannonHp - B.e.hp))} 傷害打斷！）`;
+
+// ---------- 工廠地圖 ----------
+function factoryMap(T) {
+  for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++) T[y][x] = '.';
+  // 機器：長方形的區塊
+  for (let k = 0; k < randInt(7, 10); k++) {
+    const w = randInt(2, 3), h = randInt(1, 2), x0 = randInt(3, COLS - 5), y0 = randInt(1, ROWS - 3);
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (y < ROWS - 1 && x < COLS - 1) T[y][x] = 'T';
+  }
+  // 輸送帶：往右送（往出口的方向），中間留缺口
+  for (let k = 0; k < randInt(2, 3); k++) {
+    const y = randInt(2, ROWS - 3), x0 = randInt(3, 8), len = randInt(6, 11);
+    for (let x = x0; x < Math.min(COLS - 3, x0 + len); x++) T[y][x] = '>';
+  }
+}
+// 走到輸送帶上：被往右送一格（一路送到輸送帶盡頭或被擋住）
+function conveyor(A) {
+  if (A.T[A.y][A.x] !== '>') return;
+  const nx = A.x + 1, ny = A.y;
+  if (SOLID.has(A.T[ny][nx]) || objAt(nx, ny) || (nx === A.exit.x && ny === A.exit.y)) return;
+  A.path = null;
+  Object.assign(A.mv, { fromX: A.x, fromY: A.y, toX: nx, toY: ny, t: 0, moving: true, len: .8 });
+}
+function drawBelt(g, px, py, t) {
+  g.fillStyle = '#2b3140'; g.fillRect(px, py + 4, TS, TS - 8);
+  g.fillStyle = '#4b5563'; g.fillRect(px, py + 4, TS, 2); g.fillRect(px, py + TS - 6, TS, 2);
+  g.strokeStyle = '#facc15'; g.lineWidth = 2; const off = (t * 24) % 12;
+  for (let k = -1; k < 3; k++) { const x = px + k * 12 + off; g.beginPath(); g.moveTo(x, py + 10); g.lineTo(x + 5, py + 16); g.lineTo(x, py + 22); g.stroke(); }
 }

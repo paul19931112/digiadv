@@ -846,3 +846,6 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .partBtn.on { border-color: #facc15; box-shadow: 0 0 8px #facc15aa; }
 .partBtn.dead { opacity: .35; cursor: default; }
 #btnPart3 { background: linear-gradient(135deg, #7f1d1d, #1e3a8a); color: #fff; border-color: #fca5a5; }
+/* v16.1 我的紀錄 */
+.recRow { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid #ffffff14; font-size: 14px; }
+.recRow span { color: var(--muted); text-align: right; }

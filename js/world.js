@@ -121,6 +121,7 @@ function genArea(nd) {
   if (maze) pyramidMaze(T);   // 金字塔：走道迷宮
   else if (theme === 'tokyo') tokyoCity(T);   // 東京：街道和大樓
   else if (theme === 'spiral') spiralMap(T);   // 螺旋山：左邊森林、右邊海岸
+  else if (theme === 'factory') factoryMap(T);   // 工廠：機器和輸送帶
   else {
     blob(',', randInt(5, 8), 1.5, 3.2);
     blob('T', theme === 'forest' ? randInt(9, 13) : theme === 'desert' ? randInt(3, 5) : randInt(5, 8), .8, 1.8);
@@ -319,7 +320,7 @@ function updateArea(dt) {
   ch5Tick(A);
   if (m.moving) {
     m.t += dt / (STEP_TIME * (m.len || 1));   // 斜走一步比較遠（×1.4）
-    if (m.t >= 1) { m.moving = false; A.x = m.toX; A.y = m.toY; reveal(); }
+    if (m.t >= 1) { m.moving = false; A.x = m.toX; A.y = m.toY; reveal(); conveyor(A); }   // 輸送帶：站上去會被往前送
   }
   if (!m.moving && G.mode === 'area') {
     let vec = heldVec();
@@ -639,6 +640,7 @@ const PALETTE = {
   pyramid:  { floor: '#c9a66b', dot: '#b08c52', grass: '#b8955c', tuft: '#9c7a44', treeBg: '#6b4c26', tree: '#8a6634', treeHi: '#b08850', water: '#1e3a5f', wave: '#22d3ee', brick: true },
   tokyo:    { floor: '#3a3f52', dot: '#4a5068', grass: '#3f6e3b', tuft: '#2d5530', treeBg: '#1c1f2e', tree: '#2a2f45', treeHi: '#fde68a', water: '#1e3a5f', wave: '#7dd3fc', building: true, fogc: true },
   spiral:   { floor: '#c8b98e', dot: '#b3a476', grass: '#4f8f45', tuft: '#356b30', treeBg: '#4d6b3c', tree: '#1f4a2a', treeHi: '#2f6038', water: '#1d4e89', wave: '#7dd3fc' },
+  factory:  { floor: '#5b6170', dot: '#4b5160', grass: '#6b7280', tuft: '#4b5563', treeBg: '#3f4451', tree: '#2a2e38', treeHi: '#9ca3af', water: '#1f2937', wave: '#f97316', crate: true },
   mountain: { floor: '#9a8a92', dot: '#837480', grass: '#7c6a80', tuft: '#665570', treeBg: '#8a7a84', tree: '#4a3d55', treeHi: '#5f5070', water: '#e0532a', wave: '#ffc078', lava: true },
 };
 
@@ -706,6 +708,8 @@ function drawTile(x, y, c, t, P, g = ctx) {
       g.fillStyle = P.tree; g.beginPath(); g.arc(px + 16, py + 14, 12, 0, 7); g.fill();
       g.fillStyle = P.treeHi; g.beginPath(); g.arc(px + 12, py + 10, 5, 0, 7); g.fill();
     }
+  } else if (c === '>') {   // 工廠：輸送帶
+    drawBelt(g, px, py, t);
   } else if (c === '~') {
     g.fillStyle = P.water; g.fillRect(px, py, TS, TS);
     g.strokeStyle = P.wave; g.lineWidth = 2;
@@ -771,7 +775,7 @@ function drawArea(t) {
     A._anim = [];
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
       const c = A.T[y][x]; drawTile(x, y, c, 0, P, g);
-      if (c === ',' || c === '~' || (P.brick && c === 'T' && hash(x, y) % 23 === 0)) A._anim.push([x, y]);
+      if (c === ',' || c === '~' || c === '>' || (P.brick && c === 'T' && hash(x, y) % 23 === 0)) A._anim.push([x, y]);
     }
     A._bg = bg; A._bgKey = A.theme;
   }
@@ -846,8 +850,9 @@ function drawArea(t) {
     FOG.key = fk; FOG.A = A; A._fogDirty = false;
     fg.clearRect(0, 0, COLS, ROWS);
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-      const d = Math.hypot(x - rx, y - ry), base = vis ? 1 : A.seen[y * COLS + x] ? .58 : .97;
-      const a = vis && !vis.has(y * COLS + x) ? 1 : d <= R - 1.2 ? 0 : d <= R ? base * (d - (R - 1.2)) / 1.2 : base;
+      const d = Math.hypot(x - rx, y - ry), base = vis ? (A.scanned ? .6 : 1) : A.seen[y * COLS + x] ? .58 : .97;
+      const a = vis && !vis.has(y * COLS + x) ? (A.scanned ? .6 : 1) :   // 金字塔：用過數據掃描器，看得到整張迷宮的路線（暗暗的）
+                d <= R - 1.2 ? 0 : d <= R ? base * (d - (R - 1.2)) / 1.2 : base;
       if (a > 0) { fg.fillStyle = `rgba(6,8,22,${a})`; fg.fillRect(x, y, 1, 1); }
     }
   }

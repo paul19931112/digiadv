@@ -318,6 +318,8 @@ const BOSS_LINES = {
   7: () => cutscene([{ bg: 'sea', music: 'boss', amb: 'waves', chars: [['Metal_Seadramon', 70, 76, 48, 'in-r'], ['Pinochimon', 36, 78, 36, 'in-l']],
     lines: [['metalseadramon', '哼，被選召的孩子們。這片海就是你們的墳墓！'], ['pinochimon', '嘻嘻嘻～一起來玩吧！你們全部都是我的玩具！'],
       ['partner', '兩個一起來嗎……！要想清楚先打哪一隻！'], [null, '🌊 打出防禦／回復卡可以讓潮水退去；🎭 被操控的卡要多花 1 能量剪斷操線。']] }]),
+  8: () => cutscene([bossScene('city', 'drone', 'Mugendramon', [['mugendramon', '偵測到被選召的孩子。威脅等級：最高。'], ['mugendramon', '啟動……無限大砲。'],
+    ['partner', '那門大砲集氣的時候，一定要打斷它！']])]),
   3: async () => {
     const scenes = [bossScene('castle', 'drone', 'Devimon', [['devimon', '哼哼哼…被選召的孩子，竟然能走到這裡。不過，你們的冒險就到此為止了！'], ['partner', '惡魔獸！我們絕對不會輸給你！']])];
     if (F().leomon) scenes.push({ bg: 'burst', amb: null, sting: true, chars: [['Leomon', 50, 76, 48, 'in-l']], fx: '<div class="cutSpeed"></div>',
@@ -333,6 +335,7 @@ async function bossDefeated() {
   else if (RUN.chapter === 'city') { addFlag('saved'); await say('andromon', '系統…恢復正常。被選召的孩子，感謝你。這份資料給你。'); await giveRelic(pick(relicPool())); }
   else if (RUN.chapter === 'forest') { addFlag('saved'); await say('jyureimon', '迷霧…散去了…原來森林的陽光這麼溫暖…'); teamHeal(.5); }
   else if (RUN.chapter === 5) await say('metaletemon', '不、不可能……本大爺的鋼鐵身體……！');
+  else if (RUN.chapter === 8) await say(null, '機械邪龍獸的眼睛閃了幾下，轟的一聲倒下——工廠安靜了下來。');
   else if (RUN.chapter === 6) await say(null, '吸血魔王獸發出最後的咆哮，化成無數的蝙蝠，消散在晨光裡——');
 }
 
@@ -369,6 +372,13 @@ async function chapterComplete() {
         [null, '🔎 找到 3 條<b>第 8 個孩子的線索</b>會發生什麼事呢？頭目前一層，徽章會<b>完全覺醒</b>。']] },
     ]);
     startChapter(6);
+  } else if (RUN.chapter === 7) {
+    await cutscene([
+      { bg: 'sea', music: 'route', amb: 'waves', chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '鋼鐵海龍獸和木偶獸都被打倒了！'], [null, '海浪平靜下來，森林裡的操線一根根斷掉了。']] },
+      { bg: 'city', music: 'route', amb: 'drone', chars: [['Mugendramon', 60, 78, 54, 'dark']], lines: [[null, '螺旋山的上一層——到處都是轟隆作響的機器和輸送帶。'], ['shadow', '偵測到入侵者……全部，消滅。'],
+        [null, '🛤️ 工廠裡的<b>輸送帶</b>會把你往前送；💥 機械邪龍獸的<b>無限大砲</b>集氣時，要打出足夠的傷害才能打斷。']] },
+    ]);
+    startChapter(8);
   } else if (CHAPTERS[RUN.chapter].next === 'p3done') {
     await part3ChapterDone();
     return;
@@ -380,7 +390,7 @@ async function chapterComplete() {
     return;
   }
   saveRun();
-  await chapterCard(CHAPTERS[RUN.chapter].title, RUN.chapter === 5 ? '全隊回復了 50% HP｜在金字塔迷宮裡駭入終端，削弱機械猴子獸！' : RUN.chapter === 6 ? '全隊回復了 50% HP｜在東京找到第 8 個孩子的線索，打倒吸血魔獸！' : '全隊回復了 50% HP');
+  await chapterCard(CHAPTERS[RUN.chapter].title, RUN.chapter === 5 ? '全隊回復了 50% HP｜在金字塔迷宮裡駭入終端，削弱機械猴子獸！' : RUN.chapter === 6 ? '全隊回復了 50% HP｜在東京找到第 8 個孩子的線索，打倒吸血魔獸！' : RUN.chapter === 8 ? '全隊回復了 50% HP｜打斷無限大砲，打倒機械邪龍獸！' : '全隊回復了 50% HP');
   showRoute();
 }
 

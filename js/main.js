@@ -261,11 +261,11 @@ async function applyFieldItem(k) {
   if (k === 'expdata') { teamExp(.3); toast('📀 全隊獲得了經驗值！'); sfx('levelup'); return true; }
   if (k === 'scanner') {   // 數據掃描器：標出這張地圖所有還沒撿的數據碎片
     if (!AREA || G.screen !== 'area') { toast('🔍 要在探索地圖時才能用'); return false; }
-    const n = AREA.objs.filter(o => o.kind === 'pickup' && !o.done).length;
-    if (!n) { toast('🔍 這張地圖已經沒有數據碎片了，先留著吧'); return false; }
+    const n = AREA.objs.filter(o => o.kind === 'pickup' && !o.done).length, maze = AREA.theme === 'pyramid';
+    if (!n && !maze) { toast('🔍 這張地圖已經沒有數據碎片了，先留著吧'); return false; }
     if (AREA.scanned) { toast('🔍 這張地圖已經掃描過了'); return false; }
-    AREA.scanned = true; sfx('pickup');
-    toast(`🔍 掃描完成！這張地圖還有 ${n} 個數據碎片，已經標在地圖上`, 3500);
+    AREA.scanned = true; AREA._fogDirty = true; sfx('pickup');
+    toast(maze ? `🔍 掃描完成！迷宮的路線都照出來了${n ? `，還有 ${n} 個數據碎片` : ''}（陷阱也標出來了）` : `🔍 掃描完成！這張地圖還有 ${n} 個數據碎片，已經標在地圖上`, 3500);
     return true;
   }
   return false;
@@ -335,6 +335,28 @@ function saveSummary(run, meta) {
   const kid = run && KIDS[run.kid], ch = run && CHAPTERS[run.chapter];
   return `${run ? `進行中的冒險：${kid ? kid.name : ''}・${ch ? ch.title.replace('　', ' ') : ''}` : '沒有進行中的冒險'}<br>` +
     `永久紀錄：結局 ${(meta && meta.endings || []).length} / 3、孩子 ${(meta && meta.kids || []).length} 位、夥伴 ${(meta && meta.unlocked || []).length} 隻`;
+}
+// 📜 我的紀錄：這台裝置上存了哪些進度（只看不改）
+function openRecords() {
+  const M = META, run = store.get(RUN_KEY);
+  const kid = run && KIDS[run.kid], ch = run && CHAPTERS[run.chapter];
+  const starters = Object.keys(SPECIES).filter(k => SPECIES[k].starter);
+  const part = (name, ok, info) => `<div class="recRow"><b>${name}</b><span>${ok ? info : '🔒 還沒解鎖'}</span></div>`;
+  const recList = (list, empty) => list && list.length ? `<div class="relicList">${list.map(r => recordEl(r).outerHTML).join('')}</div>` : `<p class="sub">${empty}</p>`;
+  openModal(`<h2>📜 我的紀錄</h2><p class="sub">存在這台裝置、這個瀏覽器裡的進度。更新遊戲不會影響這些紀錄。</p>
+    <div class="saveBox"><h3>🎮 進行中的冒險</h3><div class="mini2">${run ? `${kid ? kid.name : ''}・${ch ? ch.title.replace('　', ' ') : ''}（隊伍 ${run.team.length} 隻、牌組 ${run.deck.length} 張）` : '沒有進行中的冒險'}</div></div>
+    <div class="saveBox"><h3>🏆 結局（${(M.endings || []).length} / ${Object.keys(ENDINGS).length}）</h3>
+      ${Object.keys(ENDINGS).map(k => `<div class="recRow"><b>${ENDINGS[k].icon} ${ENDINGS[k].name}</b><span>${(M.endings || []).includes(k) ? '✅ 已達成' : '❔ 還沒看過'}</span></div>`).join('')}
+      <div class="mini2">通關次數 ${M.clears || 0}　｜　冒險次數 ${M.runs || 0}</div></div>
+    <div class="saveBox"><h3>📖 進度</h3>
+      ${part('🌍 第二部・伺服大陸篇', part2Unlocked(), M.p2clear ? '✅ 已通關' : M.p2ch ? `打到第 ${M.p2ch} 章` : '已解鎖，還沒開始')}
+      ${part('🌋 第三部・黑暗四天王篇', part3Unlocked(), M.p3ch ? `打到第 ${M.p3ch} 章` : '已解鎖，還沒開始')}
+      <div class="recRow"><b>🧒 孩子</b><span>${(M.kids || []).filter(k => KIDS[k]).length} / ${Object.keys(KIDS).length}　${(M.kids || []).filter(k => KIDS[k]).map(k => KIDS[k].icon).join('')}</span></div>
+      <div class="recRow"><b>🐾 夥伴</b><span>${starters.filter(k => (M.unlocked || []).includes(k)).length} / ${starters.length}</span></div>
+      <div class="recRow"><b>📕 圖鑑</b><span>${(M.dex || []).length} 種</span></div></div>
+    <div class="saveBox"><h3>💾 第一部通關紀錄（第二部用，最多 ${RECORD_MAX} 筆）</h3>${recList(M.records, '還沒有紀錄。v14.0 以後通關第一部會自動存一筆。')}</div>
+    <div class="saveBox"><h3>💾 第二部通關紀錄（第三部用，最多 3 筆）</h3>${recList(M.records2, '還沒有紀錄。通關第二部會自動存一筆。')}</div>
+    <button class="btn primary" id="mClose">關閉 (Esc)</button>`).querySelector('#mClose').onclick = closeModal;
 }
 async function openSaveTransfer() {
   const run = store.get(RUN_KEY), meta = store.get(META_KEY) || META;
@@ -475,6 +497,7 @@ document.querySelectorAll('.soundBtn').forEach(b => { b.textContent = SFX.on || 
 ['#pPanel', '#ePanel'].forEach(s => $(s + ' .fattr').addEventListener('click', e => { e.stopPropagation(); sfx('click'); showAttrChart(); }));
 $('#btnAbout').onclick = () => { G.mode = 'title'; openAbout(); };
 $('#btnSave').onclick = () => { G.mode = 'title'; openSaveTransfer(); };
+$('#btnRecords').onclick = () => { G.mode = 'title'; openRecords(); };
 $('#btnContinue').onclick = continueRun;
 $('#btnBackTitle').onclick = showKidSelect;
 $('#btnQuit').onclick = () => { if (confirm('回到標題畫面？（進度會保留在最後經過的節點）')) showTitle(); };

@@ -323,6 +323,7 @@ function intentText0(e) {
   if (B.dom === 'fog') return '❓ ？？？';
   const m = MOVES[e.intent];
   if (m.kind === 'doom') return '☠️ 死亡宣告（出戰夥伴會被打到 1 血並強制換下）';
+  if (m.kind === 'cannon') return cannonText();
   if (m.kind === 'serenade') return B.serenadeBroken ? '🎤 （已經打斷）' : `🎤 愛之小夜曲（再打 ${Math.max(0, B.serenadeNeed - (B.serenadeHp - e.hp))} 傷害打斷！）`;
   if (m.kind === 'atk') {
     const est = Math.max(1, Math.round(calcRaw(e, B.p, m.power)));
@@ -414,6 +415,7 @@ async function playCard(i, forced) {
     if (atkCard && B.aoeTurn === B.turnNo) { B.aoeTurn = 0; B.aoeNow = true; }   // 擴散用掉了（多部位的敵人在第六章）
     try { d.fx(); } finally { HALF = false; CHARGE = 1; B.aoeNow = false; }
     if (B.water) tideCard(c);   // 🌊 防禦／回復卡：退潮
+    cannonCheck();   // 💥 傷害夠了就打斷無限大砲
     if (B.dom === 'concert' && B.e.intent === 'loveSerenade' && !B.serenadeBroken && B.e.hp > 0 && B.serenadeHp - B.e.hp >= B.serenadeNeed) {   // 猴子獸：傷害夠了就打斷愛之小夜曲
       B.serenadeBroken = true; floatText(B.e, '🎤 打斷！', 'super', 40); log('💥 打斷了猴子獸的歌！');
     }
@@ -493,6 +495,8 @@ function enemyTurn(actor) {
       if (m.status && p.hp > 0 && Math.random() < (m.chance ?? 1)) addStatus(p, m.status[0], m.status[1]);
       if (m.pol) { (B.pend = B.pend || {}).pol = m.pol; log(`☠️ ${e.name} 汙染了你的下一手牌！`); }
       if (m.push && p.hp > 0) pushGauge(p, m.push);
+    } else if (m.kind === 'cannon') {   // 機械邪龍獸：無限大砲
+      cannonFire(e, p);
     } else if (m.kind === 'serenade') {   // 猴子獸：愛之小夜曲・全力
       if (!B.serenadeBroken && B.serenadeHp - e.hp >= B.serenadeNeed) B.serenadeBroken = true;   // 燒傷、援護、反擊也算
       if (B.serenadeBroken) { floatText(e, '🎤 唱不下去…', 'info'); log('🎤 歌被打斷了，猴子獸愣在原地！'); }
@@ -525,6 +529,7 @@ function enemyTurn(actor) {
     // 第二階段：每 3 次行動發動一次死亡宣告（前一次行動時就會預告）
     if (B.dom === 'concert') e.cn = (e.cn || 0) + 1;
     if (e.phase2 && e.p2n % 3 === 2) { e.intent = 'deathmark'; log(`⚠️ ${e.name} 正在準備「死亡宣告」！`); }
+    else if (cannonPrep(e)) { /* 機械邪龍獸：無限大砲集氣 */ }
     else if (B.dom === 'concert' && e.cn % 3 === 2) { e.intent = 'loveSerenade'; B.serenadeBroken = false; B.serenadeHp = e.hp; B.serenadeNeed = Math.round(e.maxhp * SERENADE_PCT); log(`🎤 ${e.name} 準備唱「愛之小夜曲・全力」！在他唱之前打出 ${B.serenadeNeed} 以上的傷害就能打斷！`); }
     else chooseIntent(e);
     if (B.dom === 'metal' && e.hp > 0) {   // 機械猴子獸：黑暗網路、數據超載
@@ -1087,7 +1092,7 @@ function arenaTheme() {
   if (typeof Scene === 'undefined') return;
   if (!Scene.cv) Scene.init($('#arenaBg'));
   const ch = RUN && RUN.chapter, dom = B && B.dom;
-  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : ch === 4 ? 'desert' : ch === 5 ? 'pyramid' : ch === 6 ? 'tokyo' : ch === 7 ? 'spiral' : 'dusk';
+  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : ch === 4 ? 'desert' : ch === 5 ? 'pyramid' : ch === 6 ? 'tokyo' : ch === 7 ? 'spiral' : ch === 8 ? 'factory' : 'dusk';
   Scene.set(key, key === 'dusk' ? (dom === 'heat' ? 'ember' : 'none') : null);
 }
 // 後排：最多再站 2 隻（活著、沒被封印的優先）
