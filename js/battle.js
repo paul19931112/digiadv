@@ -1098,6 +1098,8 @@ function renderFighter(f) {
   blk.textContent = `🛡${f.block}`;
   el.querySelector('.statuses').innerHTML =
     (f.tier ? `<span class="st">✨ ${TIERS[f.tier].name} 剩 ${f.evoTurns} 回合</span>` : '') +
+    (f.isPlayer && B && B.sealTurn && B.turnNo <= B.sealTurn ? '<span class="st sealSt">🔒 黑暗封印：不能進化</span>' : '') +
+    (f.isPlayer && B && !(B.sealTurn && B.turnNo <= B.sealTurn) && f.sealUntil >= B.turnNo ? '<span class="st sealSt">😮‍💨 筋疲力盡：不能進化</span>' : '') +
     (f.gears ? `<span class="st">⚙️ 小齒輪 ×${f.gears}</span>` : '') + (f.plant ? `<span class="st">🌱 種子 ${f.plant}</span>` : '') +
     Object.entries(f.st).map(([k, n]) => `<span class="st">${STATUS[k].icon} ${STATUS[k].name} ${n}</span>`).join('');
 }
@@ -1147,7 +1149,8 @@ function renderBattle() {
   pb.disabled = !my || !!why;
   pb.innerHTML = hard ? `🤝 ${hard}` : `🤝 勸降 ${Math.round(persuadeChance() * 100)}%<small>${why ? why : '可選擇代價'}</small>`;
   const be = $('#btnEvo');
-  be.disabled = !my || ![1, 2, 3].some(t => !evoBlock(p, t));
+  be.disabled = !my;
+  be.classList.toggle('blocked', ![1, 2, 3].some(t => !evoBlock(p, t)));   // 不能進化也可以按：會說明原因
   be.textContent = p.tier === 3 ? '✨ 究極體！' : p.tier ? '✨ 再進化 (E)' : '✨ 進化 (E)';
   updateGauges();
 }
@@ -1166,10 +1169,16 @@ function closePopups() { POPUPS.forEach(k => $(k).classList.add('hidden')); }
 function openEvo() {
   if (!B || B.phase !== 'player' || B.anim) return;
   if (!$('#evoPanel').classList.contains('hidden')) { closePopups(); return; }
-  closePopups(); sfx('open');
   const f = B.p, panel = $('#evoPanel');
+  const tiers = P1() ? [1] : P2() ? (RUN.awaken ? [1, 2, 3] : [1, 2]) : [1, 2, 3];
+  if (!tiers.some(t => !evoBlock(f, t))) {   // 現在不能進化：直接告訴玩家原因
+    const t = tiers.find(t => t > f.tier) || tiers[tiers.length - 1];
+    sfx('error'); toast(`✨ 現在不能進化：${evoBlock(f, t)}`, 3200);
+    if (f.tier >= tiers[tiers.length - 1]) return;
+  }
+  closePopups(); sfx('open');
   panel.innerHTML = `<h3><span>選擇進化的強度　🔥 勇氣值 ${Math.floor(RUN.courage)}</span><button class="btn" id="evoClose">關閉</button></h3>`;
-  (P1() ? [1] : P2() ? (RUN.awaken ? [1, 2, 3] : [1, 2]) : [1, 2, 3]).forEach(t => {
+  tiers.forEach(t => {
     const T = TIERS[t], ev = f.sp.evo[t - 1], why = evoBlock(f, t), cost = Math.max(0, evoCost(f, t));
     const o = why ? null : evoOdds(f, t), force = !!(o && o.force), risky = !!(o && !force && o.wrong > 0);
     const el = document.createElement('div');
