@@ -118,6 +118,7 @@ function genArea(nd) {
   };
   const maze = theme === 'pyramid';
   if (maze) pyramidMaze(T);   // 金字塔：走道迷宮
+  else if (theme === 'tokyo') tokyoCity(T);   // 東京：街道和大樓
   else {
     blob(',', randInt(5, 8), 1.5, 3.2);
     blob('T', theme === 'forest' ? randInt(9, 13) : theme === 'desert' ? randInt(3, 5) : randInt(5, 8), .8, 1.8);
@@ -227,6 +228,7 @@ function genArea(nd) {
   }
   maybePlaceAssist(place, free, nd.type);   // 援護事件：任何地圖都可能出現
   extraObjs(nd, place, free, T, dist);   // 第二部：傳送點、陷阱、駭客終端、徽章、樂團
+  placeClue(nd, place, free);   // 第六章：第 8 個孩子的線索
   return { T, objs, start, exit, theme, nd, x: start.x, y: start.y, mv: { moving: false, t: 0 }, facing: 1, seen: new Uint8Array(COLS * ROWS) };
 }
 
@@ -282,6 +284,8 @@ async function enterArea(nd) {
   saveRun();   // 一進節點就存檔：商店的貨、寶箱、敵人都固定下來，不能用重開來刷
   if (nd.type === 'boss') { await bossIntro(); AREA.introDone = true; saveRun(); }
   if (P2() && RUN.chapter === 4 && !RUN.crest && nd.f >= 2) await crestEvent();   // 第四章中段：拿到自己的徽章
+  if (P2() && RUN.chapter === 6 && !RUN.awaken && nd.f >= CHAPTERS[6].floors - 2) await awakenEvent();   // 第六章：頭目前一層徽章覺醒
+  if (AREA && AREA.objs.some(o => o.kind === 'clue' && !o.done)) setTimeout(() => toast('🔎 這附近好像有第 8 個孩子的線索……', 3500), 3300);
 }
 
 function leaveArea() {
@@ -608,6 +612,7 @@ const PALETTE = {
   forest:   { floor: '#6f8d55', dot: '#5c7746', grass: '#3f6e3b', tuft: '#2d5530', treeBg: '#4f7040', tree: '#1f4a2a', treeHi: '#2f6038', water: '#355f6e', wave: '#8ac2c9', fog: true },
   desert:   { floor: '#ecc985', dot: '#d9ad62', grass: '#e0b366', tuft: '#c08f46', treeBg: '#e0b870', tree: '#4f8a3a', treeHi: '#7dbb5a', water: '#38bdf8', wave: '#bae6fd', cactus: true },
   pyramid:  { floor: '#c9a66b', dot: '#b08c52', grass: '#b8955c', tuft: '#9c7a44', treeBg: '#6b4c26', tree: '#8a6634', treeHi: '#b08850', water: '#1e3a5f', wave: '#22d3ee', brick: true },
+  tokyo:    { floor: '#3a3f52', dot: '#4a5068', grass: '#3f6e3b', tuft: '#2d5530', treeBg: '#1c1f2e', tree: '#2a2f45', treeHi: '#fde68a', water: '#1e3a5f', wave: '#7dd3fc', building: true, fogc: true },
   mountain: { floor: '#9a8a92', dot: '#837480', grass: '#7c6a80', tuft: '#665570', treeBg: '#8a7a84', tree: '#4a3d55', treeHi: '#5f5070', water: '#e0532a', wave: '#ffc078', lava: true },
 };
 
@@ -637,7 +642,14 @@ function drawTile(x, y, c, t, P) {
     }
   } else if (c === 'T' || c === 'R') {
     ctx.fillStyle = P.treeBg; ctx.fillRect(px, py, TS, TS);
-    if (P.brick) {   // 金字塔：砂岩磚牆
+    if (P.building && c === 'T') {   // 東京：大樓（亮著燈的窗戶）
+      ctx.fillStyle = P.tree; ctx.fillRect(px + 1, py + 1, TS - 2, TS - 2);
+      for (let wy = 0; wy < 3; wy++) for (let wx = 0; wx < 3; wx++) { const on = (h >> (wx + wy * 3)) & 1;
+        ctx.fillStyle = on ? `rgba(253,230,138,${.55 + Math.sin(t * .5 + wx + wy + x) * .1})` : '#11131d'; ctx.fillRect(px + 5 + wx * 8, py + 5 + wy * 8, 5, 5); }
+    } else if (P.building) {   // 路邊的車
+      ctx.fillStyle = ['#b91c1c', '#1d4ed8', '#e5e7eb', '#15803d'][h % 4]; ctx.fillRect(px + 4, py + 10, 24, 12); ctx.fillRect(px + 8, py + 6, 15, 6);
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(px + 9, py + 23, 3, 0, 7); ctx.arc(px + 23, py + 23, 3, 0, 7); ctx.fill();
+    } else if (P.brick) {   // 金字塔：砂岩磚牆
       ctx.fillStyle = P.tree; const o = (y % 2) * 8;
       for (let r = 0; r < 2; r++) for (let k = -1; k < 2; k++) ctx.fillRect(px + k * 16 + (r ? o + 8 : o) % 16 + 1, py + r * 16 + 1, 14, 14);
       ctx.fillStyle = P.treeHi; ctx.fillRect(px, py, TS, 2);
@@ -753,6 +765,7 @@ function drawArea(t) {
   ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(cx, cy + 15, 11, 4, 0, 0, 7); ctx.fill();
   const lead = SPECIES[RUN.team[0].sp];
   drawSprite(lead.img, lead.emoji, cx, cy + bob, 36, A.facing > 0);
+  if (P.fogc) { ctx.fillStyle = `rgba(120,60,160,${.16 + Math.sin(t * .6) * .05})`; ctx.fillRect(0, 0, COLS * TS, ROWS * TS); }   // 吸血魔獸的紫色迷霧
   if (P.fog) { ctx.fillStyle = `rgba(230,240,235,${.13 + Math.sin(t * .7) * .04})`; ctx.fillRect(0, 0, COLS * TS, ROWS * TS); }
   // 迷霧：沒去過＝全黑，去過＝昏暗，視野內＝清楚（邊緣漸層）
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {

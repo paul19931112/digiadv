@@ -118,19 +118,23 @@ async function crestEvent() {
   saveRun(); updateHUD();
 }
 
-// ---------- 第五章結束（第六章製作中） ----------
+// ---------- 第二部結局（第三部製作中） ----------
 async function part2ChapterDone() {
   G.mode = 'busy';
   await cutscene([
-    { bg: 'pyramid', music: 'route', amb: 'drone', chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '機械猴子獸被打倒了！金字塔的藍光也熄滅了……'], [null, '黑色齒輪碎成粉末，被沙漠的風吹散了。']] },
-    { bg: 'castle', music: null, amb: 'drone', chars: [['Vamdemon', 50, 78, 56, 'dark']], fx: '<div class="cutTitle"><b>第六章</b><strong>吸血魔王獸</strong><small>製作中・敬請期待</small></div>',
-      lines: [['shadow', '呵呵呵……被選召的孩子，終於到了這一步。'], ['shadow', '來吧——到現實世界來找我。']] },
+    { bg: 'light', music: 'route', amb: null, chars: [['partner', 30, 76, 32, 'in-l']], lines: [[null, '紫色的霧散去，東京迎來了早晨。'], ['partner', '我們贏了……！吸血魔獸被打倒了！'], ['me', '大家，謝謝你們。']] },
+    { bg: 'tokyo', music: null, amb: 'drone', chars: [], lines: [[null, '可是——天空裂開了一道縫，裡面映出數碼世界扭曲的樣子。'], [null, '一座倒過來的山，從雲裡垂了下來……']] },
+    { bg: 'void', music: null, amb: 'drone', chars: [['Piemon', 50, 78, 56, 'dark']], fx: '<div class="cutTitle"><b>第三部</b><strong>黑暗四天王</strong><small>製作中・敬請期待</small></div>',
+      lines: [['shadow', '吸血魔獸只不過是開場的小丑而已。'], ['shadow', '來吧，被選召的孩子們——數碼世界的真正黑暗，在等著你們。']] },
   ]);
-  META.p2ch = Math.max(META.p2ch || 0, RUN.chapter); META.clears++;
+  META.p2ch = Math.max(META.p2ch || 0, RUN.chapter); META.p2clear = (META.p2clear || 0) + 1; META.clears++;
+  // 第二部通關紀錄（第三部接續用，最多 3 筆，太多就丟掉最舊的）
+  META.records2 = [...(META.records2 || []), { id: Date.now(), kid: RUN.kid, date: new Date().toLocaleDateString('zh-TW'),
+    team: RUN.team.map(m => ({ sp: m.sp, level: m.level, exp: m.exp || 0 })), deck: [...RUN.deck], relics: RUN.relics.filter(k => RELICS[k] && !RELICS[k].dark) }].slice(-3);
   recordDex(); saveMeta(); clearRun();
   const o = $('#overlay');
-  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">🔺</div><h1>第五章 完成！</h1>
-    <p>第六章「吸血魔王獸」還在製作中，敬請期待</p>
+  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">🌅</div><h1>第二部 完成！</h1>
+    <p>第三部「黑暗四天王」還在製作中，敬請期待（這次的隊伍已經存成第二部通關紀錄）</p>
     <div class="endTeam">${RUN.team.map(m => spPic(m.sp, 's80')).join('')}</div>
     <p>擊敗 ${RUN.stats.wins} 隻敵人　｜　隊伍 ${RUN.team.length} 隻　｜　牌組 ${RUN.deck.length} 張</p>
     <button class="btn primary big" id="p2Back">回到標題</button></div>`;

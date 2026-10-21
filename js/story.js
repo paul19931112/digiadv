@@ -313,6 +313,8 @@ const BOSS_LINES = {
   5: () => cutscene([bossScene('pyramid', 'drone', 'Metal_Etemon', [['metaletemon', 'Yeah～～！本大爺用黑色齒輪改造了身體——現在是無敵的「機械猴子獸」啦！'],
     ...(hacked().length ? [['partner', `終端機駭進去了 ${hacked().length} 台！他的${hacked().map(k => METAL_ABIL[k].name).join('、')}已經不能用了！`]] : [['partner', '他的能力全都還在……要小心！']]),
     ['partner', '還有那個金屬噪音……被標記的卡要記得打出去！']])]),
+  6: () => cutscene([bossScene('tokyo', 'drone', 'Vamdemon', [['vamdemon', '呵呵呵……被選召的孩子們，你們終於來了。'], ['vamdemon', '第 8 個孩子？無所謂——這座城市的光，今晚就由我來熄滅！'],
+    ['partner', '吸血魔獸……我們絕對不會讓你得逞！'], ...(RUN.awaken ? [['partner', '徽章完全覺醒了——這次可以究極進化！']] : [])])]),
   3: async () => {
     const scenes = [bossScene('castle', 'drone', 'Devimon', [['devimon', '哼哼哼…被選召的孩子，竟然能走到這裡。不過，你們的冒險就到此為止了！'], ['partner', '惡魔獸！我們絕對不會輸給你！']])];
     if (F().leomon) scenes.push({ bg: 'burst', amb: null, sting: true, chars: [['Leomon', 50, 76, 48, 'in-l']], fx: '<div class="cutSpeed"></div>',
@@ -328,6 +330,7 @@ async function bossDefeated() {
   else if (RUN.chapter === 'city') { addFlag('saved'); await say('andromon', '系統…恢復正常。被選召的孩子，感謝你。這份資料給你。'); await giveRelic(pick(relicPool())); }
   else if (RUN.chapter === 'forest') { addFlag('saved'); await say('jyureimon', '迷霧…散去了…原來森林的陽光這麼溫暖…'); teamHeal(.5); }
   else if (RUN.chapter === 5) await say('metaletemon', '不、不可能……本大爺的鋼鐵身體……！');
+  else if (RUN.chapter === 6) await say(null, '吸血魔王獸發出最後的咆哮，化成無數的蝙蝠，消散在晨光裡——');
 }
 
 async function chapterComplete() {
@@ -355,6 +358,14 @@ async function chapterComplete() {
       { bg: 'pyramid', music: 'route', amb: 'drone', chars: [['partner', 30, 78, 30, 'in-l']], lines: [['partner', '裡面是迷宮……地板上好像有奇怪的傳送陣。'], [null, '💻 迷宮裡的<b>駭客終端</b>可以關掉頭目的能力；🌀 傳送點是捷徑，但也有<b>看不見的傳送陷阱</b>。']] },
     ]);
     startChapter(5);
+  } else if (RUN.chapter === 5) {
+    await cutscene([
+      { bg: 'pyramid', music: 'route', amb: 'drone', chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '機械猴子獸被打倒了！金字塔的藍光也熄滅了……'], [null, '就在這時，數碼裝置收到一段訊息——']] },
+      { bg: 'void', music: null, amb: 'drone', chars: [['Vamdemon', 50, 78, 56, 'dark']], lines: [['shadow', '呵呵呵……第 8 個孩子，就在「那個世界」裡。'], ['shadow', '我會比你們先找到她。']] },
+      { bg: 'tokyo', music: 'route', amb: 'wind', chars: [['partner', 30, 78, 30, 'in-l']], lines: [[null, '穿過光之門——眼前是熟悉的東京街頭。'], ['me', '這裡是……我們的世界！'], ['partner', '城市被紫色的霧籠罩著……吸血魔獸已經來了！'],
+        [null, '🔎 找到 3 條<b>第 8 個孩子的線索</b>會發生什麼事呢？頭目前一層，徽章會<b>完全覺醒</b>。']] },
+    ]);
+    startChapter(6);
   } else if (CHAPTERS[RUN.chapter].next === 'p2done') {
     await part2ChapterDone();
     return;
@@ -363,7 +374,7 @@ async function chapterComplete() {
     return;
   }
   saveRun();
-  await chapterCard(CHAPTERS[RUN.chapter].title, RUN.chapter === 5 ? '全隊回復了 50% HP｜在金字塔迷宮裡駭入終端，削弱機械猴子獸！' : '全隊回復了 50% HP');
+  await chapterCard(CHAPTERS[RUN.chapter].title, RUN.chapter === 5 ? '全隊回復了 50% HP｜在金字塔迷宮裡駭入終端，削弱機械猴子獸！' : RUN.chapter === 6 ? '全隊回復了 50% HP｜在東京找到第 8 個孩子的線索，打倒吸血魔獸！' : '全隊回復了 50% HP');
   showRoute();
 }
 

@@ -213,6 +213,15 @@ const SPECIES = {
   deltamon:   { name: '三頭獸',   img: 'Deltamon',    emoji: '🐲', attr: 'virus', hp: 58, atk: 15, def: 11, spd: 9,  moves: ['tripleforce', 'bite', 'guard'] },
   datamon:    { name: '數據獸',   img: 'Datamon',     emoji: '🤖', attr: 'virus', hp: 58, atk: 15, def: 12, spd: 10, moves: ['electric', 'missile', 'guard', 'regen'] },
   okuwamon:   { name: '大鍬形獸', img: 'Okuwamon',    emoji: '🪲', attr: 'virus', hp: 66, atk: 17, def: 12, spd: 10, moves: ['doublescissor', 'scissor', 'roar'] },
+  // 第六章：東京
+  bakemon:    { name: '幽靈獸',   img: 'Bakemon',     emoji: '👻', attr: 'virus', hp: 48, atk: 14, def: 9,  spd: 11, moves: ['hellhand', 'bite', 'guard'] },
+  picodevimon:{ name: '小惡魔獸', img: 'Pico_Devimon', emoji: '🦇', attr: 'virus', hp: 42, atk: 14, def: 8,  spd: 14, moves: ['darkwing', 'bite', 'roar'] },
+  mummymon:   { name: '木乃伊獸', img: 'Mummymon',    emoji: '🧟', attr: 'virus', hp: 60, atk: 16, def: 12, spd: 9,  moves: ['snakebandage', 'heavy', 'guard'] },
+  gesomon:    { name: '蓋索獸',   img: 'Gesomon',     emoji: '🦑', attr: 'virus', hp: 56, atk: 15, def: 11, spd: 9,  moves: ['water', 'bite', 'guard'] },
+  wizarmon:   { name: '巫師獸',   img: 'Wizarmon',    emoji: '🧙', attr: 'data',  hp: 52, atk: 15, def: 10, spd: 12, moves: ['thunderball', 'guard', 'regen'] },
+  phantomon:  { name: '死神獸',   img: 'Phantomon',   emoji: '💀', attr: 'virus', hp: 62, atk: 17, def: 11, spd: 12, moves: ['shadowscythe', 'darkwing', 'roar'] },
+  vamdemon:   { name: '吸血魔獸', img: 'Vamdemon',    emoji: '🧛', attr: 'virus', hp: 66, atk: 17, def: 12, spd: 13, moves: ['nightraid', 'bloodylash', 'roar', 'guard'] },
+  venomvamdemon:{ name: '吸血魔王獸', img: 'Venom_Vamdemon', emoji: '👹', attr: 'virus', hp: 70, atk: 18, def: 12, spd: 13, moves: ['venominfuse'] },
   metaletemon:{ name: '機械猴子獸', img: 'Metal_Etemon', emoji: '🦍', attr: 'virus', hp: 68, atk: 16, def: 11, spd: 11, moves: ['darkspiritdx', 'metalpunch', 'guard', 'roar'] },
   andromon:   { name: '機械人獸', img: 'Andromon',  emoji: '🦾', attr: 'vaccine', hp: 60, atk: 15, def: 13, spd: 10, moves: ['spiral', 'missile', 'guard'] },
   jyureimon:  { name: '樹人獸',   img: 'Jyureimon', emoji: '🌲', attr: 'virus',   hp: 64, atk: 14, def: 11, spd: 9,  moves: ['cherry', 'branch', 'spore', 'regen'] },
@@ -378,6 +387,17 @@ const MOVES = {
   tripleforce:{ name: '三重力量', kind: 'atk', power: 5, hits: 3, w: 2 },
   darkspiritdx:{ name: '黑暗精神DX', kind: 'atk', power: 16, w: 2 },
   metalpunch:{ name: '鋼鐵重拳', kind: 'atk', power: 8, hits: 2, w: 3 },
+  hellhand: { name: '地獄之手', kind: 'atk', power: 8, status: ['para', 1], chance: .4, w: 3 },
+  snakebandage:{ name: '蛇之繃帶', kind: 'atk', power: 8, hits: 2, w: 3 },
+  thunderball:{ name: '雷電球', kind: 'atk', power: 11, status: ['para', 2], chance: .4, w: 3 },
+  shadowscythe:{ name: '暗影鐮刀', kind: 'atk', power: 16, w: 2 },
+  nightraid:{ name: '夜襲',     kind: 'atk', power: 14, w: 2 },
+  bloodylash:{ name: '血腥鞭',  kind: 'atk', power: 8, hits: 2, w: 3 },
+  venominfuse:{ name: '毒液注入', kind: 'atk', power: 17, w: 2 },
+  venomclaw:{ name: '魔王之爪', kind: 'atk', power: 9, hits: 2, w: 3 },
+  venomwing:{ name: '黑暗之翼', kind: 'support', w: 1 },
+  venomarm: { name: '毒之臂',   kind: 'atk', power: 7, status: ['poison', 3], chance: 1, pol: 1, w: 2 },
+  venompush:{ name: '魔王之壓', kind: 'atk', power: 6, push: -40, w: 1 },
   regen:    { name: '黑暗再生', kind: 'heal', heal: .12, w: 1 },
   deathmark:{ name: '死亡宣告', kind: 'doom', w: 0 },
 };
@@ -476,7 +496,10 @@ const CHAPTERS = {
        elites: ['tyranomon', 'nanimon'], boss: { id: 'etemon', lv: 20, domain: 'concert' }, next: 5 },
   5: { title: '第五章　伺服大陸・金字塔', theme: 'pyramid', floors: 7, lv: [18, 22],
        zone: ['guardromon', 'tankmon', 'kuwagamon', 'deltamon', 'gazimon', 'numemon'],
-       elites: ['datamon', 'okuwamon'], boss: { id: 'metaletemon', lv: 24, domain: 'metal' }, next: 'p2done' },
+       elites: ['datamon', 'okuwamon'], boss: { id: 'metaletemon', lv: 24, domain: 'metal' }, next: 6 },
+  6: { title: '第六章　東京・吸血魔獸', theme: 'tokyo', floors: 7, lv: [22, 26],
+       zone: ['bakemon', 'picodevimon', 'mummymon', 'gesomon', 'bakemon', 'picodevimon'],
+       elites: ['phantomon', 'wizarmon'], boss: { id: 'vamdemon', lv: 28, domain: 'vamp' }, next: 'p2done' },
 };
 // 頭目／精英的領域效果（對玩家不利）
 const DOMAINS = {
@@ -624,11 +647,11 @@ function makeEnemy(id, lv, opt = {}) {
   if (opt.boss) { s.maxhp = Math.round(s.maxhp * 3.6); s.atk = Math.round(s.atk * 1.35); s.def = Math.round(s.def * 1.15); }
   // 難度旋鈕：敵人整體的血量與攻擊加成
   // 各章節的敵人強度：第一章手下留情，越後面越強 [血量, 攻擊]
-  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35], 5: [1.6, 1.42] };
+  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35], 5: [1.6, 1.42], 6: [1.7, 1.5] };
   const [chHp, chAtk] = (typeof RUN !== 'undefined' && RUN && CH_SCALE[RUN.chapter]) || [1, 1];
   s.maxhp = Math.round(s.maxhp * ENEMY_HP * chHp); s.atk = Math.round(s.atk * ENEMY_ATK * chAtk);
   // 第二部的頭目再加強（第二部隊伍有完全體可以用；用電腦模擬調到勝率約六成）
-  const BOSS_EXTRA = { 4: [2.34, 1.78], 5: [1.61, .94] };   // 第五章：機械猴子獸的能力很強，本體數值低一點（駭入 2 項約六成）
+  const BOSS_EXTRA = { 4: [2.34, 1.78], 5: [1.61, .94], 6: [1.23, .69] };   // 第六章：吸血魔獸半血後還有吸血魔王獸 3 個部位，本體數值壓低   // 第五章：機械猴子獸的能力很強，本體數值低一點（駭入 2 項約六成）
   if (opt.boss && typeof RUN !== 'undefined' && RUN && BOSS_EXTRA[RUN.chapter]) { s.maxhp = Math.round(s.maxhp * BOSS_EXTRA[RUN.chapter][0]); s.atk = Math.round(s.atk * BOSS_EXTRA[RUN.chapter][1]); }
   const name = (opt.elite ? '暗黑' : '') + sp.name;
   return { id, sp, name, img: sp.img, emoji: sp.emoji, attr: sp.attr, lvl: lv, ...s, hp: s.maxhp,

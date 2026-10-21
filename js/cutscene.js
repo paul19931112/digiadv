@@ -95,6 +95,16 @@ const PAINT = {
     ['#fcd34d', '#fbbf24', '#f59e0b', '#d97706', '#b45309'].forEach((c, l) => { const y0 = H * (.45 + l * .11); g.fillStyle = c; g.beginPath(); g.moveTo(0, H);
       for (let x = 0; x <= W; x += 8) g.lineTo(x, y0 + Math.sin(x / (W * (.18 - l * .02)) + l * 2) * H * .04 + (l === 0 ? Math.sin(x / 40 + t * 3) * 1.5 : 0)); g.lineTo(W, H); g.fill(); });
   },
+  tokyo(g, W, H, t) {   // 夜晚的東京：紫色的霧、大樓剪影、東京鐵塔、紅色的月亮
+    g.fillStyle = cutGrad(g, 0, H, ['#0b0618', '#2e1065', '#581c87']); g.fillRect(0, 0, W, H);
+    cutGlow(g, W * .78, H * .18, H * .1, [[0, '#fecaca'], [.4, '#ef4444aa'], [1, '#0000']]);
+    const R = rng(11);
+    for (let i = 0; i < 18; i++) { const bw = W * (.04 + R() * .05), bh = H * (.2 + R() * .35), bx = i / 18 * W; g.fillStyle = '#120a20'; g.fillRect(bx, H * .82 - bh, bw, bh);
+      g.fillStyle = '#fde68a55'; for (let k = 0; k < 6; k++) if (R() < .5) g.fillRect(bx + bw * .2 + (k % 2) * bw * .4, H * .82 - bh + 8 + Math.floor(k / 2) * 14, 4, 6); }
+    g.strokeStyle = '#f97316'; g.lineWidth = 3; g.beginPath(); g.moveTo(W * .42, H * .82); g.lineTo(W * .5, H * .2); g.lineTo(W * .58, H * .82); g.moveTo(W * .45, H * .6); g.lineTo(W * .55, H * .6); g.moveTo(W * .47, H * .42); g.lineTo(W * .53, H * .42); g.stroke();
+    g.fillStyle = '#0a0612'; g.fillRect(0, H * .82, W, H * .18);
+    for (let i = 0; i < 4; i++) cutGlow(g, W * (.5 + .45 * Math.sin(t * .15 + i * 1.7)), H * (.65 + .1 * Math.cos(t * .2 + i)), W * .4, [[0, '#a855f733'], [1, '#0000']]);
+  },
   pyramid(g, W, H, t) {   // 夜晚的金字塔：星空、巨大的金字塔、發光的電路
     g.fillStyle = cutGrad(g, 0, H, ['#020617', '#1e1b4b', '#7c2d12']); g.fillRect(0, 0, W, H);
     for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(255,255,255,${.3 + .3 * Math.sin(t * 2 + i)})`; g.fillRect((i * 97 % 100) / 100 * W, (i * 53 % 45) / 100 * H, 2, 2); }

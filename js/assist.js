@@ -27,7 +27,7 @@ const assistList = () => (RUN.assists || []).filter(x => x.n > 0);
 // 還能遇到的援護：沒拿過、不是自己的搭檔、隊伍裡沒有
 function assistPool() {
   const got = RUN.flags.assistGot || [];
-  return Object.keys(ASSISTS).filter(k => !got.includes(k) && ASSISTS[k].sp !== KIDS[RUN.kid].partner && !RUN.team.some(m => m.sp === ASSISTS[k].sp));
+  return Object.keys(ASSISTS).filter(k => !ASSISTS[k].special && !got.includes(k) && ASSISTS[k].sp !== KIDS[RUN.kid].partner && !RUN.team.some(m => m.sp === ASSISTS[k].sp));
 }
 
 // 援護的傷害：用隊伍最高等級、成熟期的能力來算（跟出戰夥伴無關）
