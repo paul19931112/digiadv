@@ -17,7 +17,7 @@ const ULT2 = {
   agumon:   { name: '恐龍剋星',   power: 44, hits: 1, desc: '對龍類（鋼鐵海龍獸、機械邪龍獸…）傷害 ×2', fx: () => {} },
   gabumon:  { name: '加魯魯戰斧', power: 36, hits: 1, desc: '敵人麻痺 2 回合；剪斷手牌所有的 🎭 操線', fx: () => { addStatus(B.e, 'para', 2); cutStrings(); } },
   piyomon:  { name: '深紅火焰',   power: 36, hits: 1, desc: '全隊回復最大 HP 15%', fx: () => B.fighters.forEach(f => { if (f.hp > 0) f.hp = Math.min(f.maxhp, f.hp + healAmt(f.maxhp * .15)); }) },
-  patamon:  { name: '七星之擊',   power: 7,  hits: 7, desc: '7 段傷害；救回 1 隻被變成鑰匙圈的夥伴', fx: () => {} },
+  patamon:  { name: '七星之擊',   power: 7,  hits: 7, desc: '7 段傷害；救回 1 隻被變成鑰匙圈的夥伴', fx: () => { if (B.fighters.some(f => f.keychain)) keyFree('七星之擊打破了魔術'); } },
   gomamon:  { name: '雷帝之槌',   power: 36, hits: 1, desc: '獲得護盾；🌊 水位 -2', fx: () => { gainBlock(B.p, blockVal(12, .15)); if (B.water) { B.water = Math.max(0, B.water - 2); log('🔨 雷帝之槌敲退了潮水！'); } } },
   palmon:   { name: '荊棘之鞭',   power: 36, hits: 1, desc: '解除敵人的強化和護盾；剪斷手牌所有的 🎭 操線', fx: () => { ['atkUp', 'haste', 'ward'].forEach(k => delete B.e.st[k]); B.e.block = 0; cutStrings(); } },
   tentomon: { name: '大力神衝擊', power: 38, hits: 1, desc: '敵人行動條 -50%；直接打斷無限大砲的集氣', fx: () => { pushGauge(B.e, -50); if (B.e.intent === 'infinitycannon' && !B.cannonBroken) { B.cannonBroken = true; floatText(B.e, '🛑 大砲打斷！', 'super', 40); log('🛑 大力神衝擊直接打斷了無限大砲！'); } } },
@@ -168,19 +168,19 @@ function puppetPlay(i, c, d) {
   renderBattle();
 }
 
-// ---------- 第八章結束（第九章製作中） ----------
+// ---------- 第九章結束（最終章製作中） ----------
 async function part3ChapterDone() {
   G.mode = 'busy';
   await cutscene([
-    { bg: 'city', music: 'route', amb: 'drone', chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '機械邪龍獸停止運轉了……！'], [null, '工廠的齒輪一個接一個停了下來。螺旋山只剩下最後一層。']] },
-    { bg: 'void', music: null, amb: 'drone', chars: [['Piemon', 50, 78, 56, 'dark']], fx: '<div class="cutTitle"><b>第九章</b><strong>小丑皇</strong><small>製作中・敬請期待</small></div>',
-      lines: [['shadow', '呵呵呵……表演終於要進入高潮了。'], ['shadow', '下一個節目——把你們全部變成鑰匙圈吧。']] },
+    { bg: 'stage', music: 'route', amb: null, chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '小丑皇被打倒了……！鑰匙圈全部變回來了！'], [null, '螺旋山開始崩塌。四天王都倒下了——但黑暗還沒有消失。']] },
+    { bg: 'void', music: null, amb: 'drone', chars: [], fx: '<div class="cutTitle"><b>最終章</b><strong>？？？</strong><small>製作中・敬請期待</small></div>',
+      lines: [['shadow', '……為什麼……只有我們……被刪除……'], ['shadow', '我要把這個世界……也一起……']] },
   ]);
   META.p3ch = Math.max(META.p3ch || 0, RUN.chapter); META.clears++;
   recordDex(); saveMeta(); clearRun();
   const o = $('#overlay');
-  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">🤖</div><h1>第八章 完成！</h1>
-    <p>第九章「小丑皇」還在製作中，敬請期待</p>
+  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">🃏</div><h1>第九章 完成！</h1>
+    <p>最終章還在製作中，敬請期待</p>
     <div class="endTeam">${RUN.team.map(m => spPic(m.sp, 's80')).join('')}</div>
     <p>擊敗 ${RUN.stats.wins} 隻敵人　｜　學會第二究極技 ${(RUN.learned2 || []).length} 招</p>
     <button class="btn primary big" id="p3Back">回到標題</button></div>`;
@@ -250,4 +250,65 @@ function drawBelt(g, px, py, t) {
   g.fillStyle = '#4b5563'; g.fillRect(px, py + 4, TS, 2); g.fillRect(px, py + TS - 6, TS, 2);
   g.strokeStyle = '#facc15'; g.lineWidth = 2; const off = (t * 24) % 12;
   for (let k = -1; k < 3; k++) { const x = px + k * 12 + off; g.beginPath(); g.moveTo(x, py + 10); g.lineTo(x + 5, py + 16); g.lineTo(x, py + 22); g.stroke(); }
+}
+
+// =========================================================
+//   第九章：小丑皇（鑰匙圈）＋ 遊樂園地圖（撲克牌迷宮）
+// =========================================================
+let KEY_PCT = .1;      // 對小丑皇打出最大 HP 的這個比例，救回 1 隻鑰匙圈
+const KEY_EVERY = 3;   // 每 3 次行動施放一次鑰匙圈
+DOMAINS.clown = { name: '小丑皇的魔術', icon: '🃏', desc: '每 3 次行動把 1 隻後排夥伴變成鑰匙圈（這場戰鬥不能上場）；對小丑皇打出最大 HP 10% 的傷害就救回 1 隻' };
+BOSS_INFO.clown = [['🃏 鑰匙圈', '小丑皇每 3 次行動會施放一次魔術（前一次行動就會預告），把 1 隻<b>後排</b>的夥伴變成鑰匙圈，這場戰鬥不能上場。'],
+  ['🔑 救回來', `每對小丑皇打出牠<b>最大 HP ${Math.round(KEY_PCT * 100)}%</b> 的傷害，就救回 1 隻變成鑰匙圈的夥伴（先變的先救）。熾天使獸的「七星之擊」可以直接救回 1 隻。`],
+  ['💡 小技巧', '後排沒有夥伴可以變的時候，小丑皇會改成直接攻擊。出戰夥伴倒下、又只剩鑰匙圈的話，鑰匙圈的夥伴會掙脫出來上場。']];
+const keychains = () => B.fighters.filter(f => f.keychain);
+// 敵人行動結束：每 3 次預告一次鑰匙圈
+function keyPrep(e) {
+  if (B.dom !== 'clown') return false;
+  e.kn = (e.kn || 0) + 1;
+  if (e.kn % KEY_EVERY !== KEY_EVERY - 1) return false;
+  e.intent = 'keychain'; log(`🃏 ${e.name} 拿出了一把鑰匙……下一次行動會把後排的夥伴變成鑰匙圈！`);
+  return true;
+}
+function keyCast(e, p) {
+  const cands = B.fighters.filter(f => f !== p && f.hp > 0 && !f.keychain);
+  if (!cands.length) { log(`🃏 後排沒有夥伴可以變，${e.name} 改用撲克劍直接攻擊！`); applyHit(e, p, 18); return; }
+  const f = pick(cands); f.keychain = true; B.keyDmg = 0;
+  floatText(p, `🃏 ${f.name} 變成鑰匙圈了！`, 'super', 50); sfx('wrongevo');
+  log(`🃏 小丑皇的魔術！${f.name} 被變成了鑰匙圈（打出 ${Math.round(e.maxhp * KEY_PCT)} 傷害救回來）`);
+}
+// 打中小丑皇：累積傷害，夠了就救回 1 隻
+function keyDamage(tgt, d) {
+  if (B.dom !== 'clown' || tgt !== B.e || d <= 0 || !keychains().length) return;
+  B.keyDmg = (B.keyDmg || 0) + d;
+  const need = Math.round(B.e.maxhp * KEY_PCT);
+  if (B.keyDmg >= need) { B.keyDmg -= need; keyFree(); }
+}
+function keyFree(how) {
+  const f = keychains()[0]; if (!f) return;
+  delete f.keychain; sfx('heal'); floatText(B.p, `🔑 救回了 ${f.name}！`, 'heal', 50);
+  log(`🔑 ${how || '魔術被打破了'}！${f.name} 從鑰匙圈變回來了！`);
+}
+const keyText = () => '🃏 鑰匙圈魔術（後排夥伴會被變成鑰匙圈）';
+
+// ---------- 遊樂園地圖：撲克牌牆、旋轉木馬 ----------
+function parkMap(T) {
+  for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++) T[y][x] = '.';
+  for (let k = 0; k < randInt(9, 12); k++) {   // 撲克牌牆：一段一段的直線
+    const h = Math.random() < .5, len = randInt(3, 5), x0 = randInt(3, COLS - 5), y0 = randInt(1, ROWS - 3);
+    for (let i = 0; i < len; i++) { const x = h ? x0 + i : x0, y = h ? y0 : y0 + i; if (x < COLS - 2 && y < ROWS - 1) T[y][x] = 'T'; }
+  }
+  const cx = randInt(8, 15), cy = randInt(4, ROWS - 5);   // 旋轉木馬
+  for (let y = cy - 1; y <= cy + 1; y++) for (let x = cx - 1; x <= cx + 1; x++) T[y][x] = 'R';
+}
+function drawPark(g, x, y, c, px, py, h, t) {
+  if (c === 'T') {   // 撲克牌
+    g.fillStyle = '#f8fafc'; g.fillRect(px + 3, py + 2, TS - 6, TS - 4);
+    g.strokeStyle = '#334155'; g.lineWidth = 1; g.strokeRect(px + 3.5, py + 2.5, TS - 7, TS - 5);
+    g.font = `16px ${EMOJI_FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = h % 2 ? '#dc2626' : '#111827';
+    g.fillText(['♠', '♥', '♣', '♦'][h % 4], px + 16, py + 17);
+  } else {   // 旋轉木馬
+    g.fillStyle = ['#f472b6', '#facc15', '#60a5fa'][h % 3]; g.fillRect(px, py, TS, TS);
+    g.fillStyle = '#fff'; for (let i = 0; i < 4; i++) g.fillRect(px + i * 8, py, 4, TS);
+  }
 }

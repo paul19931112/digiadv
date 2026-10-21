@@ -241,6 +241,14 @@ const SPECIES = {
   megadramon: { name: '百萬龍獸', img: 'Megadramon',  emoji: '🐉', attr: 'virus', hp: 72, atk: 19, def: 13, spd: 11, dragon: true, moves: ['genocideattack', 'ultimateslicer', 'roar'] },
   gigadramon: { name: '千兆龍獸', img: 'Gigadramon',  emoji: '🐉', attr: 'virus', hp: 74, atk: 19, def: 13, spd: 10, dragon: true, moves: ['genocideattack', 'ultimateslicer', 'guard'] },
   mugendramon:{ name: '機械邪龍獸', img: 'Mugendramon', emoji: '🦾', attr: 'virus', hp: 78, atk: 20, def: 16, spd: 10, dragon: true, moves: ['mugenclaw', 'mugenrocket', 'guard'] },
+  // 第三部・第九章：小丑皇的遊樂園
+  devidramon: { name: '惡魔龍獸', img: 'Devidramon',  emoji: '😈', attr: 'virus', hp: 62, atk: 18, def: 11, spd: 12, dragon: true, moves: ['redeye', 'darkwing', 'bite'] },
+  vademon:    { name: '外星獸',   img: 'Vademon',     emoji: '👽', attr: 'virus', hp: 52, atk: 17, def: 10, spd: 12, moves: ['uforay', 'bite', 'guard'] },
+  dokugumon:  { name: '毒蜘蛛獸', img: 'Dokugumon',   emoji: '🕷️', attr: 'virus', hp: 58, atk: 16, def: 11, spd: 11, moves: ['spore', 'bite', 'guard'] },
+  deathmeramon:{ name: '死亡火焰獸', img: 'Death_Meramon', emoji: '🔥', attr: 'virus', hp: 66, atk: 19, def: 11, spd: 11, moves: ['heavymetalfire', 'flame', 'roar'] },
+  ladydevimon:{ name: '女惡魔獸', img: 'Lady_Devimon', emoji: '🦇', attr: 'virus', hp: 70, atk: 20, def: 12, spd: 13, moves: ['darknesswave', 'deathclaw', 'roar'] },
+  skullsatamon:{ name: '骷髏撒旦獸', img: 'Skull_Satamon', emoji: '💀', attr: 'virus', hp: 72, atk: 20, def: 13, spd: 11, moves: ['nailbone', 'darkwing', 'guard'] },
+  piemon:     { name: '小丑皇',   img: 'Piemon',      emoji: '🃏', attr: 'virus', hp: 80, atk: 21, def: 15, spd: 13, moves: ['trumpsword', 'clownslash', 'roar'] },
   metaletemon:{ name: '機械猴子獸', img: 'Metal_Etemon', emoji: '🦍', attr: 'virus', hp: 68, atk: 16, def: 11, spd: 11, moves: ['darkspiritdx', 'metalpunch', 'guard', 'roar'] },
   andromon:   { name: '機械人獸', img: 'Andromon',  emoji: '🦾', attr: 'vaccine', hp: 60, atk: 15, def: 13, spd: 10, moves: ['spiral', 'missile', 'guard'] },
   jyureimon:  { name: '樹人獸',   img: 'Jyureimon', emoji: '🌲', attr: 'virus',   hp: 64, atk: 14, def: 11, spd: 9,  moves: ['cherry', 'branch', 'spore', 'regen'] },
@@ -433,6 +441,14 @@ const MOVES = {
   mugenclaw:{ name: '無限之爪', kind: 'atk', power: 9, hits: 2, w: 3 },
   mugenrocket:{ name: '無限火箭', kind: 'atk', power: 14, w: 2 },
   infinitycannon:{ name: '無限大砲', kind: 'cannon', w: 0 },
+  redeye:   { name: '紅色魔眼', kind: 'atk', power: 9, status: ['para', 1], chance: .4, w: 3 },
+  uforay:   { name: '飛碟光線', kind: 'atk', power: 11, w: 3 },
+  heavymetalfire:{ name: '重金屬火焰', kind: 'atk', power: 13, status: ['burn', 2], chance: .5, w: 3 },
+  darknesswave:{ name: '黑暗波動', kind: 'atk', power: 6, hits: 3, w: 2 },
+  nailbone: { name: '骨釘杖',   kind: 'atk', power: 16, w: 2 },
+  trumpsword:{ name: '撲克劍',  kind: 'atk', power: 6, hits: 4, w: 3 },
+  clownslash:{ name: '小丑斬擊', kind: 'atk', power: 16, w: 2 },
+  keychain: { name: '鑰匙圈魔術', kind: 'keychain', w: 0 },
   regen:    { name: '黑暗再生', kind: 'heal', heal: .12, w: 1 },
   deathmark:{ name: '死亡宣告', kind: 'doom', w: 0 },
 };
@@ -552,7 +568,10 @@ const CHAPTERS = {
        elites: ['megaseadramon', 'marindevimon'], boss: { id: 'metalseadramon', partner: 'pinochimon', lv: 32, domain: 'duo' }, next: 8 },
   8: { title: '第八章　螺旋山・機械邪龍獸的工廠', theme: 'factory', floors: 7, lv: [30, 34],
        zone: ['mechanorimon', 'mamemon', 'thunderballmon', 'raremon', 'mechanorimon', 'mamemon'],
-       elites: ['megadramon', 'gigadramon'], boss: { id: 'mugendramon', lv: 36, domain: 'mugen' }, next: 'p3done' },
+       elites: ['megadramon', 'gigadramon'], boss: { id: 'mugendramon', lv: 36, domain: 'mugen' }, next: 9 },
+  9: { title: '第九章　螺旋山・小丑皇的遊樂園', theme: 'park', floors: 7, lv: [34, 38],
+       zone: ['devidramon', 'vademon', 'dokugumon', 'deathmeramon', 'devidramon', 'vademon'],
+       elites: ['ladydevimon', 'skullsatamon'], boss: { id: 'piemon', lv: 40, domain: 'clown' }, next: 'p3done' },
 };
 // 頭目／精英的領域效果（對玩家不利）
 const DOMAINS = {
@@ -700,11 +719,11 @@ function makeEnemy(id, lv, opt = {}) {
   if (opt.boss) { s.maxhp = Math.round(s.maxhp * 3.6); s.atk = Math.round(s.atk * 1.35); s.def = Math.round(s.def * 1.15); }
   // 難度旋鈕：敵人整體的血量與攻擊加成
   // 各章節的敵人強度：第一章手下留情，越後面越強 [血量, 攻擊]
-  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35], 5: [1.6, 1.42], 6: [1.7, 1.5], 7: [1.8, 1.58], 8: [1.9, 1.66] };
+  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35], 5: [1.6, 1.42], 6: [1.7, 1.5], 7: [1.8, 1.58], 8: [1.9, 1.66], 9: [2.0, 1.74] };
   const [chHp, chAtk] = (typeof RUN !== 'undefined' && RUN && CH_SCALE[RUN.chapter]) || [1, 1];
   s.maxhp = Math.round(s.maxhp * ENEMY_HP * chHp); s.atk = Math.round(s.atk * ENEMY_ATK * chAtk);
   // 第二部的頭目再加強（第二部隊伍有完全體可以用；用電腦模擬調到勝率約六成）
-  const BOSS_EXTRA = { 4: [2.34, 1.78], 5: [1.61, .94], 6: [1.23, .69], 7: [1.05, .53], 8: [1.65, .93] };   // 第八章：無限大砲打斷門檻 8%   // 第七章：雙頭目（兩隻都會再乘上 DUO 的血量、攻擊比例）   // 第六章：吸血魔獸半血後還有吸血魔王獸 3 個部位，本體數值壓低   // 第五章：機械猴子獸的能力很強，本體數值低一點（駭入 2 項約六成）
+  const BOSS_EXTRA = { 4: [2.34, 1.78], 5: [1.61, .94], 6: [1.23, .69], 7: [1.05, .53], 8: [1.65, .93], 9: [1.2, .5] };   // 第九章：鑰匙圈會讓隊伍少一隻，本體數值壓低   // 第八章：無限大砲打斷門檻 8%   // 第七章：雙頭目（兩隻都會再乘上 DUO 的血量、攻擊比例）   // 第六章：吸血魔獸半血後還有吸血魔王獸 3 個部位，本體數值壓低   // 第五章：機械猴子獸的能力很強，本體數值低一點（駭入 2 項約六成）
   if (opt.boss && typeof RUN !== 'undefined' && RUN && BOSS_EXTRA[RUN.chapter]) { s.maxhp = Math.round(s.maxhp * BOSS_EXTRA[RUN.chapter][0]); s.atk = Math.round(s.atk * BOSS_EXTRA[RUN.chapter][1]); }
   const name = (opt.elite ? '暗黑' : '') + sp.name;
   return { id, sp, name, img: sp.img, emoji: sp.emoji, attr: sp.attr, lvl: lv, ...s, hp: s.maxhp,

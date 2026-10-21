@@ -122,6 +122,7 @@ function genArea(nd) {
   else if (theme === 'tokyo') tokyoCity(T);   // 東京：街道和大樓
   else if (theme === 'spiral') spiralMap(T);   // 螺旋山：左邊森林、右邊海岸
   else if (theme === 'factory') factoryMap(T);   // 工廠：機器和輸送帶
+  else if (theme === 'park') parkMap(T);   // 遊樂園：撲克牌牆、旋轉木馬
   else {
     blob(',', randInt(5, 8), 1.5, 3.2);
     blob('T', theme === 'forest' ? randInt(9, 13) : theme === 'desert' ? randInt(3, 5) : randInt(5, 8), .8, 1.8);
@@ -641,6 +642,7 @@ const PALETTE = {
   tokyo:    { floor: '#3a3f52', dot: '#4a5068', grass: '#3f6e3b', tuft: '#2d5530', treeBg: '#1c1f2e', tree: '#2a2f45', treeHi: '#fde68a', water: '#1e3a5f', wave: '#7dd3fc', building: true, fogc: true },
   spiral:   { floor: '#c8b98e', dot: '#b3a476', grass: '#4f8f45', tuft: '#356b30', treeBg: '#4d6b3c', tree: '#1f4a2a', treeHi: '#2f6038', water: '#1d4e89', wave: '#7dd3fc' },
   factory:  { floor: '#5b6170', dot: '#4b5160', grass: '#6b7280', tuft: '#4b5563', treeBg: '#3f4451', tree: '#2a2e38', treeHi: '#9ca3af', water: '#1f2937', wave: '#f97316', crate: true },
+  park:     { floor: '#4c1d95', dot: '#6d28d9', grass: '#7c3aed', tuft: '#a78bfa', treeBg: '#4c1d95', tree: '#f8fafc', treeHi: '#facc15', water: '#1e3a8a', wave: '#f472b6', park: true },
   mountain: { floor: '#9a8a92', dot: '#837480', grass: '#7c6a80', tuft: '#665570', treeBg: '#8a7a84', tree: '#4a3d55', treeHi: '#5f5070', water: '#e0532a', wave: '#ffc078', lava: true },
 };
 
@@ -681,7 +683,8 @@ function drawTile(x, y, c, t, P, g = ctx) {
     }
   } else if (c === 'T' || c === 'R') {
     g.fillStyle = P.treeBg; g.fillRect(px, py, TS, TS);
-    if (P.building && c === 'T') {   // 東京：大樓（亮著燈的窗戶）
+    if (P.park) drawPark(g, x, y, c, px, py, h, t);   // 遊樂園：撲克牌、旋轉木馬
+    else if (P.building && c === 'T') {   // 東京：大樓（亮著燈的窗戶）
       g.fillStyle = P.tree; g.fillRect(px + 1, py + 1, TS - 2, TS - 2);
       for (let wy = 0; wy < 3; wy++) for (let wx = 0; wx < 3; wx++) { const on = (h >> (wx + wy * 3)) & 1;
         g.fillStyle = on ? `rgba(253,230,138,${.55 + Math.sin(t * .5 + wx + wy + x) * .1})` : '#11131d'; g.fillRect(px + 5 + wx * 8, py + 5 + wy * 8, 5, 5); }

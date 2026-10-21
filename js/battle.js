@@ -107,6 +107,7 @@ function applyHit(att, tgt, power, opts = {}) {
   if (!opts.pierce && tgt.block > 0) { blocked = Math.min(tgt.block, d); tgt.block -= blocked; d -= blocked; }
   tgt.hp = Math.max(0, tgt.hp - d);
   if (att === B.e && !att.isPlayer && B.dom === 'vamp' && !B.parts && d > 0) healF(att, Math.round(d * VAMP_DRAIN));   // 吸血魔獸：吸血
+  keyDamage(tgt, d);   // 小丑皇：打夠傷害救回鑰匙圈
   if (tgt === B.e && (B.opt.tutorial === 3 || (B.opt.tutorial === 2 && !B.p.tier))) tgt.hp = Math.max(1, tgt.hp);   // 教學：要照步驟學會進化、勸降
   if (tgt === B.e) checkPhase2();
   lunge(att);
@@ -324,6 +325,7 @@ function intentText0(e) {
   const m = MOVES[e.intent];
   if (m.kind === 'doom') return '☠️ 死亡宣告（出戰夥伴會被打到 1 血並強制換下）';
   if (m.kind === 'cannon') return cannonText();
+  if (m.kind === 'keychain') return keyText();
   if (m.kind === 'serenade') return B.serenadeBroken ? '🎤 （已經打斷）' : `🎤 愛之小夜曲（再打 ${Math.max(0, B.serenadeNeed - (B.serenadeHp - e.hp))} 傷害打斷！）`;
   if (m.kind === 'atk') {
     const est = Math.max(1, Math.round(calcRaw(e, B.p, m.power)));
@@ -495,6 +497,8 @@ function enemyTurn(actor) {
       if (m.status && p.hp > 0 && Math.random() < (m.chance ?? 1)) addStatus(p, m.status[0], m.status[1]);
       if (m.pol) { (B.pend = B.pend || {}).pol = m.pol; log(`☠️ ${e.name} 汙染了你的下一手牌！`); }
       if (m.push && p.hp > 0) pushGauge(p, m.push);
+    } else if (m.kind === 'keychain') {   // 小丑皇：鑰匙圈
+      keyCast(e, p);
     } else if (m.kind === 'cannon') {   // 機械邪龍獸：無限大砲
       cannonFire(e, p);
     } else if (m.kind === 'serenade') {   // 猴子獸：愛之小夜曲・全力
@@ -530,6 +534,7 @@ function enemyTurn(actor) {
     if (B.dom === 'concert') e.cn = (e.cn || 0) + 1;
     if (e.phase2 && e.p2n % 3 === 2) { e.intent = 'deathmark'; log(`⚠️ ${e.name} 正在準備「死亡宣告」！`); }
     else if (cannonPrep(e)) { /* 機械邪龍獸：無限大砲集氣 */ }
+    else if (keyPrep(e)) { /* 小丑皇：鑰匙圈魔術 */ }
     else if (B.dom === 'concert' && e.cn % 3 === 2) { e.intent = 'loveSerenade'; B.serenadeBroken = false; B.serenadeHp = e.hp; B.serenadeNeed = Math.round(e.maxhp * SERENADE_PCT); log(`🎤 ${e.name} 準備唱「愛之小夜曲・全力」！在他唱之前打出 ${B.serenadeNeed} 以上的傷害就能打斷！`); }
     else chooseIntent(e);
     if (B.dom === 'metal' && e.hp > 0) {   // 機械猴子獸：黑暗網路、數據超載
@@ -589,7 +594,7 @@ function exhaust(p) {
   return false;
 }
 // 被死亡宣告換下的夥伴，幾回合內不能上場
-const isLocked = f => f.lockUntil && f.lockUntil >= B.turnNo;
+const isLocked = f => (f.lockUntil && f.lockUntil >= B.turnNo) || !!f.keychain;   // 鑰匙圈：這場戰鬥不能上場（救回來之前）
 function checkPhase2() { const e = B.e; if (B.dom === 'dark' && !e.phase2 && e.hp > 0 && e.hp <= e.maxhp / 2) enterPhase2();
   if (B.dom === 'vamp' && !B.parts && e.hp > 0 && e.hp <= e.maxhp / 2) enterVenom(); }   // 吸血魔獸 → 吸血魔王獸
 
@@ -790,6 +795,7 @@ function switchCost() {
 function switchTo(i, forced) {
   const nf = B.fighters[i];
   if (!nf || nf === B.p || nf.hp <= 0 || (isLocked(nf) && !B.ignoreLock)) return;
+  if (B.ignoreLock && nf.keychain) { delete nf.keychain; log(`🔑 ${nf.name} 自己掙脫了鑰匙圈！`); }   // 只剩鑰匙圈：自己掙脫出來
   B.ignoreLock = false;
   if (!forced) {
     if (B.phase !== 'player' || B.energy < switchCost()) return;
@@ -1092,7 +1098,7 @@ function arenaTheme() {
   if (typeof Scene === 'undefined') return;
   if (!Scene.cv) Scene.init($('#arenaBg'));
   const ch = RUN && RUN.chapter, dom = B && B.dom;
-  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : ch === 4 ? 'desert' : ch === 5 ? 'pyramid' : ch === 6 ? 'tokyo' : ch === 7 ? 'spiral' : ch === 8 ? 'factory' : 'dusk';
+  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : ch === 4 ? 'desert' : ch === 5 ? 'pyramid' : ch === 6 ? 'tokyo' : ch === 7 ? 'spiral' : ch === 8 ? 'factory' : ch === 9 ? 'park' : 'dusk';
   Scene.set(key, key === 'dusk' ? (dom === 'heat' ? 'ember' : 'none') : null);
 }
 // 後排：最多再站 2 隻（活著、沒被封印的優先）
@@ -1137,6 +1143,7 @@ function renderFighter(f) {
   blk.textContent = `🛡${f.block}`;
   el.querySelector('.statuses').innerHTML =
     (f.tier ? `<span class="st">✨ ${TIERS[f.tier].name} 剩 ${f.evoTurns} 回合</span>` : '') +
+    (f.isPlayer && B && B.dom === 'clown' && keychains().length ? `<span class="st sealSt">🃏 鑰匙圈 ${keychains().length} 隻（再打 ${Math.max(0, Math.round(B.e.maxhp * KEY_PCT) - (B.keyDmg || 0))} 救回）</span>` : '') +
     (f.isPlayer && B && B.water ? `<span class="st sealSt">🌊 水位 ${B.water}：手牌 -${B.water}</span>` : '') +
     (f.isPlayer && B && B.sealTurn && B.turnNo <= B.sealTurn ? '<span class="st sealSt">🔒 黑暗封印：不能進化</span>' : '') +
     (f.isPlayer && B && !(B.sealTurn && B.turnNo <= B.sealTurn) && f.sealUntil >= B.turnNo ? '<span class="st sealSt">😮‍💨 筋疲力盡：不能進化</span>' : '') +
@@ -1155,7 +1162,7 @@ function renderBattle() {
   intent.textContent = intentText(e);
   renderParts();
   p.el.querySelector('.bench').innerHTML = B.fighters.length > 1 ? B.fighters.map(f =>
-    `<div class="tm ${f === p ? 'lead' : ''} ${f.hp <= 0 || isLocked(f) ? 'dead' : ''}" title="${f.leader ? '👑 隊長　' : ''}${f.sp.name}${isLocked(f) ? '（封印中）' : ''}">${f.leader ? '<span class="crown">👑</span>' : ''}${dpic(f.sp.img, f.emoji, 's32')}
+    `<div class="tm ${f === p ? 'lead' : ''} ${f.hp <= 0 || isLocked(f) ? 'dead' : ''}" title="${f.leader ? '👑 隊長　' : ''}${f.sp.name}${f.keychain ? '（🃏 鑰匙圈）' : isLocked(f) ? '（封印中）' : ''}">${f.leader ? '<span class="crown">👑</span>' : ''}${dpic(f.sp.img, f.emoji, 's32')}
      <div class="hpb"><i style="width:${f.hp / f.maxhp * 100}%"></i></div></div>`).join('') : '';
   renderBench(); layoutArena();
   $('#battleRelics').innerHTML = RUN.relics.map(k => relicIcon(k)).join('');

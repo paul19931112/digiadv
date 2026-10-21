@@ -320,6 +320,8 @@ const BOSS_LINES = {
       ['partner', '兩個一起來嗎……！要想清楚先打哪一隻！'], [null, '🌊 打出防禦／回復卡可以讓潮水退去；🎭 被操控的卡要多花 1 能量剪斷操線。']] }]),
   8: () => cutscene([bossScene('city', 'drone', 'Mugendramon', [['mugendramon', '偵測到被選召的孩子。威脅等級：最高。'], ['mugendramon', '啟動……無限大砲。'],
     ['partner', '那門大砲集氣的時候，一定要打斷它！']])]),
+  9: () => cutscene([bossScene('stage', 'crowd', 'Piemon', [['piemon', '歡迎光臨，被選召的孩子們。今晚的表演由我——小丑皇來主持。'], ['piemon', '最後一個節目：把你們全部變成可愛的鑰匙圈。'],
+    ['partner', '後排的夥伴會被變成鑰匙圈……打出足夠的傷害就能救回來！']])]),
   3: async () => {
     const scenes = [bossScene('castle', 'drone', 'Devimon', [['devimon', '哼哼哼…被選召的孩子，竟然能走到這裡。不過，你們的冒險就到此為止了！'], ['partner', '惡魔獸！我們絕對不會輸給你！']])];
     if (F().leomon) scenes.push({ bg: 'burst', amb: null, sting: true, chars: [['Leomon', 50, 76, 48, 'in-l']], fx: '<div class="cutSpeed"></div>',
@@ -335,6 +337,7 @@ async function bossDefeated() {
   else if (RUN.chapter === 'city') { addFlag('saved'); await say('andromon', '系統…恢復正常。被選召的孩子，感謝你。這份資料給你。'); await giveRelic(pick(relicPool())); }
   else if (RUN.chapter === 'forest') { addFlag('saved'); await say('jyureimon', '迷霧…散去了…原來森林的陽光這麼溫暖…'); teamHeal(.5); }
   else if (RUN.chapter === 5) await say('metaletemon', '不、不可能……本大爺的鋼鐵身體……！');
+  else if (RUN.chapter === 9) await say(null, '小丑皇的面具裂開了——所有的鑰匙圈都變回了數碼寶貝！');
   else if (RUN.chapter === 8) await say(null, '機械邪龍獸的眼睛閃了幾下，轟的一聲倒下——工廠安靜了下來。');
   else if (RUN.chapter === 6) await say(null, '吸血魔王獸發出最後的咆哮，化成無數的蝙蝠，消散在晨光裡——');
 }
@@ -379,6 +382,13 @@ async function chapterComplete() {
         [null, '🛤️ 工廠裡的<b>輸送帶</b>會把你往前送；💥 機械邪龍獸的<b>無限大砲</b>集氣時，要打出足夠的傷害才能打斷。']] },
     ]);
     startChapter(8);
+  } else if (RUN.chapter === 8) {
+    await cutscene([
+      { bg: 'city', music: 'route', amb: 'drone', chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '機械邪龍獸停止運轉了……！'], [null, '工廠的齒輪一個接一個停了下來。螺旋山只剩下最後一層。']] },
+      { bg: 'stage', music: null, amb: 'crowd', chars: [['Piemon', 60, 78, 54, 'dark']], lines: [[null, '山頂傳來詭異的音樂——是一座遊樂園。'], ['shadow', '呵呵呵……表演終於要進入高潮了。'],
+        [null, '🃏 小丑皇會把<b>後排的夥伴</b>變成鑰匙圈；對牠打出足夠的傷害就能救回來。']] },
+    ]);
+    startChapter(9);
   } else if (CHAPTERS[RUN.chapter].next === 'p3done') {
     await part3ChapterDone();
     return;
@@ -390,7 +400,7 @@ async function chapterComplete() {
     return;
   }
   saveRun();
-  await chapterCard(CHAPTERS[RUN.chapter].title, RUN.chapter === 5 ? '全隊回復了 50% HP｜在金字塔迷宮裡駭入終端，削弱機械猴子獸！' : RUN.chapter === 6 ? '全隊回復了 50% HP｜在東京找到第 8 個孩子的線索，打倒吸血魔獸！' : RUN.chapter === 8 ? '全隊回復了 50% HP｜打斷無限大砲，打倒機械邪龍獸！' : '全隊回復了 50% HP');
+  await chapterCard(CHAPTERS[RUN.chapter].title, RUN.chapter === 5 ? '全隊回復了 50% HP｜在金字塔迷宮裡駭入終端，削弱機械猴子獸！' : RUN.chapter === 6 ? '全隊回復了 50% HP｜在東京找到第 8 個孩子的線索，打倒吸血魔獸！' : RUN.chapter === 8 ? '全隊回復了 50% HP｜打斷無限大砲，打倒機械邪龍獸！' : RUN.chapter === 9 ? '全隊回復了 50% HP｜打破小丑皇的魔術！' : '全隊回復了 50% HP');
   showRoute();
 }
 
