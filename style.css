@@ -15,7 +15,7 @@ button{font-family:inherit;cursor:pointer}
 .btn.primary{background:var(--accent);color:#2a1d00}
 .btn.big{font-size:20px;padding:14px 28px}
 .btn.evo{background:linear-gradient(90deg,#f472b6,#ffcc33);color:#2a0018}
-.btn.evo:not(:disabled){animation:pulse 1s infinite}
+.btn.evo:not(:disabled){animation:pulse 1s steps(8) infinite}
 @keyframes pulse{50%{box-shadow:0 0 22px #f472b6}}
 
 /* ===== 地圖 ===== */
@@ -36,7 +36,7 @@ button{font-family:inherit;cursor:pointer}
 .bar.atb.enemy>i{background:linear-gradient(90deg,#dc2626,#fca5a5)}
 .bar.atb.full>i{background:linear-gradient(90deg,#facc15,#fff3a3)}
 .bar.dp>i{background:linear-gradient(90deg,#db2777,#f9a8d4)}
-.bar.dp.full>i{animation:glow .6s infinite alternate}
+.bar.dp.full>i{animation:glow .6s steps(5) infinite alternate}
 @keyframes glow{to{filter:brightness(1.6)}}
 
 /* ===== 通用全螢幕畫面 ===== */
@@ -248,7 +248,7 @@ button{font-family:inherit;cursor:pointer}
 .rnode{position:absolute;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%;border:3px solid var(--line);background:var(--panel);font-size:24px;display:flex;align-items:center;justify-content:center;cursor:default;padding:0;transition:transform .15s}
 .rnode.boss{width:86px;height:86px;border-color:#dc2626;background:#2a1020}
 .rnode.elite{border-color:#a855f7}
-.rnode.can{cursor:pointer;border-color:var(--accent);box-shadow:0 0 18px #ffcc3388;animation:nodePulse 1.2s infinite}
+.rnode.can{cursor:pointer;border-color:var(--accent);box-shadow:0 0 18px #ffcc3388;animation:nodePulse 1.2s steps(10) infinite}
 .rnode.can:hover{transform:translate(-50%,-50%) scale(1.15)}
 .rnode.done{opacity:.4}
 .rnode.here{opacity:1;border-color:#4ade80;box-shadow:0 0 18px #4ade8088}
@@ -357,7 +357,7 @@ button{font-family:inherit;cursor:pointer}
 .tierTag.dark{background:#6d28d9;color:#fff}
 .sprite.darkevo .dpic img{filter:drop-shadow(0 0 16px #7c3aed) drop-shadow(0 0 4px #000)}
 .sprite.darkevo.darktint .dpic img{filter:hue-rotate(250deg) saturate(1.8) brightness(.65) drop-shadow(0 0 16px #7c3aed)}
-.sprite.darkevo .emo{animation:darkPulse 1.2s infinite}
+.sprite.darkevo .emo{animation:darkPulse 1.2s steps(10) infinite}
 @keyframes darkPulse{50%{filter:brightness(1.25)}}
 #evoFlash.dark{background:radial-gradient(circle,#c4b5fd 0%,#6d28d9 30%,#1e1b4bdd 60%,#0000 100%)}
 #evoFlash.dark .txt{color:#f5f3ff;text-shadow:0 2px 0 #000}
@@ -629,7 +629,7 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .nFoot{font-size:12px;color:#9aa3d6;margin:6px 0 12px}
 .nBox .btn{width:100%}
 .riddle{font-size:17px;line-height:1.9;color:#fef3c7;margin:8px 0 14px;font-weight:700}
-.hr.riddle{cursor:pointer;animation:riddleGlow 1.6s ease-in-out infinite}
+.hr.riddle{cursor:pointer;animation:riddleGlow 1.6s steps(12) infinite}
 @keyframes riddleGlow{50%{filter:drop-shadow(0 0 6px #fde047)}}
 #battleRelics span{cursor:default}#battleRelics .riddle{cursor:pointer}
 #svcUp small{display:block;font-size:11px;opacity:.8;font-weight:600}
@@ -775,7 +775,7 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .cutCh.glow img { filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 30px #fde68a) drop-shadow(0 0 60px #f59e0b); }
 .cutCh.in-l { animation: cutInL 1s cubic-bezier(.2,.9,.3,1) both, cutFloat 4s 1s ease-in-out infinite; }
 .cutCh.in-r { animation: cutInR 1s cubic-bezier(.2,.9,.3,1) both, cutFloat 4s 1s ease-in-out infinite; }
-@keyframes cutFloat { 0%, 100% { margin-top: 0; } 50% { margin-top: -1.2%; } }
+@keyframes cutFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -1.2vh; } }   /* 用 translate：不用重新排版 */
 @keyframes cutInL { from { opacity: 0; margin-left: -18%; } to { opacity: 1; margin-left: 0; } }
 @keyframes cutInR { from { opacity: 0; margin-left: 18%; } to { opacity: 1; margin-left: 0; } }
 .cutShadow { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(#0008, transparent 70%); }
@@ -803,7 +803,7 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 
 /* v14.0：第二部 */
 .cutCrest { position: absolute; left: 50%; top: 36%; width: 26vmin; aspect-ratio: 3 / 4; transform: translate(-50%, -50%); border-radius: 14px; background: linear-gradient(160deg, #fff7c2, #f59e0b 60%, #b45309);
-  border: 4px solid #fff; display: grid; place-items: center; font-size: 13vmin; box-shadow: 0 0 40px #fbbf24, 0 0 120px #f59e0b; animation: cutCrestPulse 1.6s ease-in-out infinite; }
+  border: 4px solid #fff; display: grid; place-items: center; font-size: 13vmin; box-shadow: 0 0 40px #fbbf24, 0 0 120px #f59e0b; animation: cutCrestPulse 1.6s steps(12) infinite; }
 @keyframes cutCrestPulse { 50% { box-shadow: 0 0 60px #fde68a, 0 0 160px #f59e0b; } }
 .crestRow .crestVal { color: #fbbf24; letter-spacing: 1px; font-size: 12px; }
 #btnPart2 { background: linear-gradient(135deg, #b45309, #f59e0b); color: #fff; border-color: #fde68a; }

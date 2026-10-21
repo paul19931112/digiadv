@@ -242,6 +242,7 @@ function reveal() {
   const A = AREA, R = sightR();
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
     if (Math.hypot(x - A.x, y - A.y) <= R + .5) A.seen[y * COLS + x] = 1;
+  A._fogDirty = true;   // 看到新地方：迷霧要重畫
 }
 
 // ---------- 存檔：把目前的節點地圖存起來（關掉網頁再回來會回到同一個地方） ----------
@@ -642,58 +643,69 @@ function drawSprite(key, emoji, cx, cy, size, flip) {
   }
   ctx.restore();
 }
-function emojiAt(e, x, y, size) { ctx.font = `${size}px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(e, x, y); }
+// emoji 每次都重新排版文字很慢：第一次畫成小圖存起來，之後直接貼圖
+const EMOJI_CACHE = new Map();
+function emojiAt(e, x, y, size) {
+  size = Math.round(size); const k = e + '|' + size;
+  let c = EMOJI_CACHE.get(k);
+  if (!c) {
+    const s = Math.ceil(size * 1.5); c = document.createElement('canvas'); c.width = c.height = s;
+    const g = c.getContext('2d'); g.font = `${size}px ${EMOJI_FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(e, s / 2, s / 2);
+    EMOJI_CACHE.set(k, c);
+  }
+  ctx.drawImage(c, x - c.width / 2, y - c.height / 2);
+}
 
-function drawTile(x, y, c, t, P) {
+function drawTile(x, y, c, t, P, g = ctx) {
   const px = x * TS, py = y * TS, h = hash(x, y);
   if (c === ',') {
-    ctx.fillStyle = P.grass; ctx.fillRect(px, py, TS, TS);
-    ctx.strokeStyle = P.tuft; ctx.lineWidth = 2;
+    g.fillStyle = P.grass; g.fillRect(px, py, TS, TS);
+    g.strokeStyle = P.tuft; g.lineWidth = 2;
     for (let i = 0; i < 3; i++) {
       const gx = px + 5 + ((h >> (i * 4)) % 22), gy = py + 8 + ((h >> (i * 5 + 2)) % 18), sw = Math.sin(t * 2 + x + i) * 1.2;
-      ctx.beginPath(); ctx.moveTo(gx - 3, gy - 6); ctx.lineTo(gx + sw, gy); ctx.lineTo(gx + 3 + sw, gy - 6); ctx.stroke();
+      g.beginPath(); g.moveTo(gx - 3, gy - 6); g.lineTo(gx + sw, gy); g.lineTo(gx + 3 + sw, gy - 6); g.stroke();
     }
   } else if (c === 'T' || c === 'R') {
-    ctx.fillStyle = P.treeBg; ctx.fillRect(px, py, TS, TS);
+    g.fillStyle = P.treeBg; g.fillRect(px, py, TS, TS);
     if (P.building && c === 'T') {   // 東京：大樓（亮著燈的窗戶）
-      ctx.fillStyle = P.tree; ctx.fillRect(px + 1, py + 1, TS - 2, TS - 2);
+      g.fillStyle = P.tree; g.fillRect(px + 1, py + 1, TS - 2, TS - 2);
       for (let wy = 0; wy < 3; wy++) for (let wx = 0; wx < 3; wx++) { const on = (h >> (wx + wy * 3)) & 1;
-        ctx.fillStyle = on ? `rgba(253,230,138,${.55 + Math.sin(t * .5 + wx + wy + x) * .1})` : '#11131d'; ctx.fillRect(px + 5 + wx * 8, py + 5 + wy * 8, 5, 5); }
+        g.fillStyle = on ? `rgba(253,230,138,${.55 + Math.sin(t * .5 + wx + wy + x) * .1})` : '#11131d'; g.fillRect(px + 5 + wx * 8, py + 5 + wy * 8, 5, 5); }
     } else if (P.building) {   // 路邊的車
-      ctx.fillStyle = ['#b91c1c', '#1d4ed8', '#e5e7eb', '#15803d'][h % 4]; ctx.fillRect(px + 4, py + 10, 24, 12); ctx.fillRect(px + 8, py + 6, 15, 6);
-      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(px + 9, py + 23, 3, 0, 7); ctx.arc(px + 23, py + 23, 3, 0, 7); ctx.fill();
+      g.fillStyle = ['#b91c1c', '#1d4ed8', '#e5e7eb', '#15803d'][h % 4]; g.fillRect(px + 4, py + 10, 24, 12); g.fillRect(px + 8, py + 6, 15, 6);
+      g.fillStyle = '#111'; g.beginPath(); g.arc(px + 9, py + 23, 3, 0, 7); g.arc(px + 23, py + 23, 3, 0, 7); g.fill();
     } else if (P.brick) {   // 金字塔：砂岩磚牆
-      ctx.fillStyle = P.tree; const o = (y % 2) * 8;
-      for (let r = 0; r < 2; r++) for (let k = -1; k < 2; k++) ctx.fillRect(px + k * 16 + (r ? o + 8 : o) % 16 + 1, py + r * 16 + 1, 14, 14);
-      ctx.fillStyle = P.treeHi; ctx.fillRect(px, py, TS, 2);
-      if (h % 23 === 0) { ctx.fillStyle = `rgba(34,211,238,${.35 + Math.sin(t * 2 + x) * .25})`; ctx.fillRect(px + 6, py + 14, 20, 2); ctx.fillRect(px + 15, py + 8, 2, 14); }
+      g.fillStyle = P.tree; const o = (y % 2) * 8;
+      for (let r = 0; r < 2; r++) for (let k = -1; k < 2; k++) g.fillRect(px + k * 16 + (r ? o + 8 : o) % 16 + 1, py + r * 16 + 1, 14, 14);
+      g.fillStyle = P.treeHi; g.fillRect(px, py, TS, 2);
+      if (h % 23 === 0) { g.fillStyle = `rgba(34,211,238,${.35 + Math.sin(t * 2 + x) * .25})`; g.fillRect(px + 6, py + 14, 20, 2); g.fillRect(px + 15, py + 8, 2, 14); }
     } else if (P.crate) {
-      ctx.fillStyle = P.tree; ctx.fillRect(px + 3, py + 3, 26, 26);
-      ctx.strokeStyle = P.treeHi; ctx.lineWidth = 2; ctx.strokeRect(px + 6, py + 6, 20, 20);
-      ctx.beginPath(); ctx.moveTo(px + 6, py + 6); ctx.lineTo(px + 26, py + 26); ctx.stroke();
+      g.fillStyle = P.tree; g.fillRect(px + 3, py + 3, 26, 26);
+      g.strokeStyle = P.treeHi; g.lineWidth = 2; g.strokeRect(px + 6, py + 6, 20, 20);
+      g.beginPath(); g.moveTo(px + 6, py + 6); g.lineTo(px + 26, py + 26); g.stroke();
     } else if (P.cactus && c === 'T') {   // 沙漠：仙人掌
-      ctx.fillStyle = P.tree; ctx.fillRect(px + 13, py + 5, 7, 24); ctx.fillRect(px + 6, py + 12, 4, 9); ctx.fillRect(px + 6, py + 18, 9, 4); ctx.fillRect(px + 23, py + 9, 4, 9); ctx.fillRect(px + 18, py + 15, 9, 4);
-      ctx.fillStyle = P.treeHi; ctx.fillRect(px + 14, py + 6, 2, 22);
+      g.fillStyle = P.tree; g.fillRect(px + 13, py + 5, 7, 24); g.fillRect(px + 6, py + 12, 4, 9); g.fillRect(px + 6, py + 18, 9, 4); g.fillRect(px + 23, py + 9, 4, 9); g.fillRect(px + 18, py + 15, 9, 4);
+      g.fillStyle = P.treeHi; g.fillRect(px + 14, py + 6, 2, 22);
     } else if (c === 'R' || P.lava) {
-      ctx.fillStyle = P.tree; ctx.beginPath(); ctx.moveTo(px + 4, py + 28); ctx.lineTo(px + 12, py + 6); ctx.lineTo(px + 22, py + 10); ctx.lineTo(px + 29, py + 28); ctx.fill();
-      ctx.fillStyle = P.treeHi; ctx.beginPath(); ctx.moveTo(px + 12, py + 6); ctx.lineTo(px + 16, py + 16); ctx.lineTo(px + 9, py + 20); ctx.fill();
+      g.fillStyle = P.tree; g.beginPath(); g.moveTo(px + 4, py + 28); g.lineTo(px + 12, py + 6); g.lineTo(px + 22, py + 10); g.lineTo(px + 29, py + 28); g.fill();
+      g.fillStyle = P.treeHi; g.beginPath(); g.moveTo(px + 12, py + 6); g.lineTo(px + 16, py + 16); g.lineTo(px + 9, py + 20); g.fill();
     } else {
-      ctx.fillStyle = '#6b4423'; ctx.fillRect(px + 13, py + 20, 6, 10);
-      ctx.fillStyle = P.tree; ctx.beginPath(); ctx.arc(px + 16, py + 14, 12, 0, 7); ctx.fill();
-      ctx.fillStyle = P.treeHi; ctx.beginPath(); ctx.arc(px + 12, py + 10, 5, 0, 7); ctx.fill();
+      g.fillStyle = '#6b4423'; g.fillRect(px + 13, py + 20, 6, 10);
+      g.fillStyle = P.tree; g.beginPath(); g.arc(px + 16, py + 14, 12, 0, 7); g.fill();
+      g.fillStyle = P.treeHi; g.beginPath(); g.arc(px + 12, py + 10, 5, 0, 7); g.fill();
     }
   } else if (c === '~') {
-    ctx.fillStyle = P.water; ctx.fillRect(px, py, TS, TS);
-    ctx.strokeStyle = P.wave; ctx.lineWidth = 2;
+    g.fillStyle = P.water; g.fillRect(px, py, TS, TS);
+    g.strokeStyle = P.wave; g.lineWidth = 2;
     for (let i = 0; i < 2; i++) {
       const wy = py + 10 + i * 12, off = Math.sin(t * 2 + x * .8 + y + i) * 4;
-      ctx.beginPath(); ctx.moveTo(px + 6 + off, wy); ctx.quadraticCurveTo(px + 12 + off, wy - 4, px + 18 + off, wy); ctx.stroke();
+      g.beginPath(); g.moveTo(px + 6 + off, wy); g.quadraticCurveTo(px + 12 + off, wy - 4, px + 18 + off, wy); g.stroke();
     }
   } else {
-    ctx.fillStyle = P.floor; ctx.fillRect(px, py, TS, TS);
-    ctx.fillStyle = P.dot;
-    if (P.crate) { ctx.fillRect(px, py, TS, 1); ctx.fillRect(px, py, 1, TS); }
-    else ctx.fillRect(px + (h % 26) + 2, py + ((h >> 5) % 26) + 2, 3, 3);
+    g.fillStyle = P.floor; g.fillRect(px, py, TS, TS);
+    g.fillStyle = P.dot;
+    if (P.crate) { g.fillRect(px, py, TS, 1); g.fillRect(px, py, 1, TS); }
+    else g.fillRect(px + (h % 26) + 2, py + ((h >> 5) % 26) + 2, 3, 3);
   }
 }
 
@@ -715,13 +727,44 @@ function layoutArea() {
 addEventListener('resize', layoutArea);
 addEventListener('orientationchange', () => setTimeout(layoutArea, 200));
 
+const FOG = {};
+// 視線：從 (cx, cy) 看出去，被牆擋住的格子看不到（牆本身看得到）；斜角兩邊都是牆也看不過去
+function losVis(A, cx, cy, R) {
+  const v = new Set();
+  for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(ROWS - 1, Math.ceil(cy + R)); y++)
+    for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(COLS - 1, Math.ceil(cx + R)); x++) {
+      if (Math.hypot(x - cx, y - cy) > R + .5) continue;
+      let px = cx, py = cy, ok = true;
+      const n = Math.max(Math.abs(x - cx), Math.abs(y - cy));
+      for (let i = 1; i < n && ok; i++) {
+        const nx = Math.round(cx + (x - cx) * i / n), ny = Math.round(cy + (y - cy) * i / n);
+        if (SOLID.has(A.T[ny][nx])) ok = false;
+        else if (nx !== px && ny !== py && SOLID.has(A.T[py][nx]) && SOLID.has(A.T[ny][px])) ok = false;
+        px = nx; py = ny;
+      }
+      if (ok && n > 0 && px !== x && py !== y && SOLID.has(A.T[py][x]) && SOLID.has(A.T[y][px])) ok = false;
+      if (ok) v.add(y * COLS + x);
+    }
+  return v;
+}
 function drawArea(t) {
   const A = AREA, P = PALETTE[A.theme];
   // 鏡頭跟著主角（地圖比畫面寬時才需要）
   const pmx = A.mv.moving ? A.mv.fromX + (A.mv.toX - A.mv.fromX) * A.mv.t : A.x;
   CAM.x = clamp(pmx * TS + 16 - cvs.width / 2, 0, COLS * TS - cvs.width);
   ctx.setTransform(1, 0, 0, 1, -Math.round(CAM.x), 0);
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) drawTile(x, y, A.T[y][x], t, P);
+  // 地形：不會動的格子先畫成一張圖，之後每次只貼這張圖，再補畫會動的草叢、水面
+  if (!A._bg || A._bgKey !== A.theme) {
+    const bg = document.createElement('canvas'); bg.width = COLS * TS; bg.height = ROWS * TS; const g = bg.getContext('2d');
+    A._anim = [];
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const c = A.T[y][x]; drawTile(x, y, c, 0, P, g);
+      if (c === ',' || c === '~' || (P.brick && c === 'T' && hash(x, y) % 23 === 0)) A._anim.push([x, y]);
+    }
+    A._bg = bg; A._bgKey = A.theme;
+  }
+  ctx.drawImage(A._bg, 0, 0);
+  for (const [x, y] of A._anim) drawTile(x, y, A.T[y][x], t, P);
   // 出口
   const ex = A.exit.x * TS + 16, ey = A.exit.y * TS + 16, locked = exitLocked();
   ctx.save(); ctx.translate(ex, ey); ctx.rotate(t * (locked ? .5 : 2));
@@ -732,10 +775,13 @@ function drawArea(t) {
   let rx = A.x, ry = A.y;
   if (m.moving) { rx = m.fromX + (m.toX - m.fromX) * m.t; ry = m.fromY + (m.toY - m.fromY) * m.t; }
   const R = sightR(), inSight = (x, y) => Math.hypot(x - rx, y - ry) <= R;
+  // 金字塔：只看得到視線範圍（被牆擋住的地方全黑，走過的地方也不會記住）
+  const vis = A.theme === 'pyramid' ? losVis(A, Math.round(rx), Math.round(ry), R) : null;
   // 物件：敵人要在視野內才看得到；寶箱、NPC 這些看過一次就會記住
   for (const o of A.objs) {
     if (o.done) continue;
     if (o.kind === 'enemy' || (o.kind === 'pickup' && !o.show) ? !inSight(o.x, o.y) : !A.seen[o.y * COLS + o.x]) continue;   // 敵人、數據碎片：要在視野內才看得到
+    if (vis && !vis.has(o.y * COLS + o.x)) continue;   // 金字塔：視線外的東西都看不到
     const cx = o.x * TS + 16, cy = o.y * TS + 14, bob = Math.sin(t * 3 + o.x) * 1.5;
     if (o.kind === 'enemy') {
       if (o.role === 'elite' || o.role === 'boss') {
@@ -781,11 +827,19 @@ function drawArea(t) {
   if (P.fogc) { ctx.fillStyle = `rgba(120,60,160,${.16 + Math.sin(t * .6) * .05})`; ctx.fillRect(0, 0, COLS * TS, ROWS * TS); }   // 吸血魔獸的紫色迷霧
   if (P.fog) { ctx.fillStyle = `rgba(230,240,235,${.13 + Math.sin(t * .7) * .04})`; ctx.fillRect(0, 0, COLS * TS, ROWS * TS); }
   // 迷霧：沒去過＝全黑，去過＝昏暗，視野內＝清楚（邊緣漸層）
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    const d = Math.hypot(x - rx, y - ry), base = A.seen[y * COLS + x] ? .58 : .97;
-    const a = d <= R - 1.2 ? 0 : d <= R ? base * (d - (R - 1.2)) / 1.2 : base;
-    if (a > 0) { ctx.fillStyle = `rgba(6,8,22,${a})`; ctx.fillRect(x * TS, y * TS, TS, TS); }
+  // 迷霧：畫在一張 24×16 的小圖上再整張放大貼上；角色沒移動、沒看到新地方時直接用上次的圖
+  const fc = FOG.cv || (FOG.cv = Object.assign(document.createElement('canvas'), { width: COLS, height: ROWS })), fg = fc.getContext('2d');
+  const fk = `${rx.toFixed(2)},${ry.toFixed(2)},${R}`;
+  if (FOG.key !== fk || FOG.A !== A || A._fogDirty) {
+    FOG.key = fk; FOG.A = A; A._fogDirty = false;
+    fg.clearRect(0, 0, COLS, ROWS);
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const d = Math.hypot(x - rx, y - ry), base = vis ? 1 : A.seen[y * COLS + x] ? .58 : .97;
+      const a = vis && !vis.has(y * COLS + x) ? 1 : d <= R - 1.2 ? 0 : d <= R ? base * (d - (R - 1.2)) / 1.2 : base;
+      if (a > 0) { fg.fillStyle = `rgba(6,8,22,${a})`; fg.fillRect(x, y, 1, 1); }
+    }
   }
+  ctx.imageSmoothingEnabled = false; ctx.drawImage(fc, 0, 0, COLS * TS, ROWS * TS); ctx.imageSmoothingEnabled = true;
   drawCh5Overlay(A, rx, ry, t);
   // 用過數據掃描器：還沒撿的碎片在迷霧裡也會標出位置
   if (A.scanned) for (const o of A.objs) {

@@ -180,7 +180,7 @@ async function cutscene(scenes) {
   document.body.appendChild(root);
   const sceneEl = root.querySelector('.cutScene'), nameEl = root.querySelector('.cutName'), txt = root.querySelector('.cutTxt');
   const prevMode = G.mode; G.mode = 'busy'; G.cut = { music: null };
-  const DPR = Math.min(2, devicePixelRatio || 1);
+  const DPR = 1;   // 背景都是柔和的漸層和光暈：用 1 倍解析度畫再放大，看起來一樣，像素只要 1/4
   let si = -1, li = 0, typing = null, cur = null, done = false, raf = 0, finish;
   const ended = new Promise(r => finish = r);
   function build(S) {

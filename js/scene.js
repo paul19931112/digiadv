@@ -54,6 +54,23 @@ const Scene = {
     this.clouds = S.clouds ? Array.from({ length: 6 }, () => ({ x: R() * W, y: H * (.06 + R() * .25), s: 40 + R() * 70, v: 4 + R() * 8 })) : [];
     this.parts = [];
   },
+  // 小圖快取：發光粒子、霧帶
+  _spr: {},
+  sprite(kind) {
+    if (this._spr[kind]) return this._spr[kind];
+    const col = { ember: '255,150,60', firefly: '220,255,120', wisp: '170,80,255' }[kind] || '255,255,255';
+    const cv = document.createElement('canvas'); cv.width = cv.height = 48; const g = cv.getContext('2d');
+    const gr = g.createRadialGradient(24, 24, 0, 24, 24, 24); gr.addColorStop(0, `rgba(${col},1)`); gr.addColorStop(1, `rgba(${col},0)`);
+    g.fillStyle = gr; g.fillRect(0, 0, 48, 48);
+    return (this._spr[kind] = cv);
+  },
+  fogStrip() {
+    if (this._fog) return this._fog;
+    const cv = document.createElement('canvas'); cv.width = 4; cv.height = 80; const g = cv.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 0, 80); gr.addColorStop(0, 'rgba(220,232,220,0)'); gr.addColorStop(.5, 'rgba(220,232,220,.28)'); gr.addColorStop(1, 'rgba(220,232,220,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 4, 80);
+    return (this._fog = cv);
+  },
   loop(now) {
     if (!POWER.gate('scene', now, POWER.fps())) { requestAnimationFrame(t => this.loop(t)); return; }   // 省電：限制每秒重畫次數
     const dt = Math.min(.05, (now - (this.last || now)) / 1000); this.last = now; this.t += dt;
@@ -72,8 +89,7 @@ const Scene = {
     // 霧（迷霧森林）
     if (S.fog) for (let i = 0; i < 4; i++) {
       const y = hz + (H - hz) * (i * .22 - .05), off = Math.sin(this.t * .3 + i) * 60;
-      const gr = c.createLinearGradient(0, y - 40, 0, y + 40); gr.addColorStop(0, 'rgba(220,232,220,0)'); gr.addColorStop(.5, 'rgba(220,232,220,.28)'); gr.addColorStop(1, 'rgba(220,232,220,0)');
-      c.fillStyle = gr; c.fillRect(-100 + off, y - 40, W + 200, 80);
+      c.drawImage(this.fogStrip(), -100 + off, y - 40, W + 200, 80);
     }
     // 粒子
     const PK = POWER.save ? 'none' : this.partsKind || S.parts;   // 省電模式：沒有粒子
@@ -86,9 +102,7 @@ const Scene = {
       if (PK === 'snow') { c.fillStyle = '#fff'; c.beginPath(); c.arc(p.x, p.y, p.r, 0, 7); c.fill(); }
       else if (PK === 'spark') { c.strokeStyle = '#7ff5ff'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx * .04, p.y - p.vy * .04); c.stroke(); }
       else {
-        const col = { ember: '255,150,60', firefly: '220,255,120', wisp: '170,80,255' }[PK];
-        const gr = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3); gr.addColorStop(0, `rgba(${col},1)`); gr.addColorStop(1, `rgba(${col},0)`);
-        c.fillStyle = gr; c.beginPath(); c.arc(p.x, p.y, p.r * 3, 0, 7); c.fill();
+        c.drawImage(this.sprite(PK), p.x - p.r * 3, p.y - p.r * 3, p.r * 6, p.r * 6);   // 發光的粒子：同一種只畫一次，之後貼圖
       }
     }
     c.globalAlpha = 1;
