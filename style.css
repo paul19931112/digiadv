@@ -834,3 +834,7 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .bandJudge.pop{animation:hackPop .2s ease-out}
 .bandScore{font-size:16px;color:#fde68a}
 .bandTap{width:100%;font-size:22px;touch-action:none}
+/* v14.3 敵人的招式預告太長時換行，不要被右上角的護盾蓋住；不能進化的按鈕變暗但還能按（會說明原因） */
+#battle #ePanel .intent { white-space: normal; max-width: calc(100% - 30px); line-height: 1.35; }
+#btnEvo.blocked { opacity: .5; filter: grayscale(.6); }
+.statuses .st.sealSt { background: #4c1d95; color: #f5d0fe; }
