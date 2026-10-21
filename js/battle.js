@@ -456,7 +456,8 @@ function endTurn() {
   B.hand.filter(c => !kept(c)).forEach(clearMarks);
   B.discard.push(...B.hand.filter(c => !kept(c)));
   B.hand = B.hand.filter(kept);
-  B.p.gauge = B.p.nextGauge || 0;
+  B.p.gauge = Math.min(95, (B.p.nextGauge || 0) + (B.speedBonus || 0));   // 加速晶片的 +40% 另外疊上去
+  B.speedBonus = 0;
   B.p.nextGauge = 0;
   B.phase = 'run';
   renderBattle();
@@ -724,7 +725,7 @@ async function rampage() {
 
 // ---------- 背包道具 ----------
 function itemBlock(k) {
-  if (k === 'smoke' && (B.opt.boss || B.opt.elite || B.opt.noFlee)) return '這場戰鬥逃不掉';
+  if (k === 'expdata') return '戰鬥外才能用';
   if (k === 'charm' && B.charm) return '已經在生效中';
   if (k === 'scanner') return '探索地圖時才能用';
   return null;
@@ -737,10 +738,10 @@ function openBag() {
   panel.innerHTML = `<h3><span>🎒 背包（${RUN.items.length}/${bagMax()}）　使用不花能量</span><button class="btn" id="bagClose">關閉</button></h3>` +
     (RUN.items.length ? '' : '<div class="why" style="padding:8px">背包是空的。探索地圖、開寶箱、逛商店都能拿到道具。</div>');
   const ah = assistBagHtml();
-  RUN.items.forEach((k, i) => {
+  itemGroups().forEach(({ k, n, i }) => {
     const it = ITEMS[k], why = itemBlock(k), el = document.createElement('div');
     el.className = 'swOpt' + (why ? ' off' : '');
-    el.innerHTML = `<span style="font-size:30px">${it.icon}</span><div class="grow"><b>${it.name}</b><div class="mini2">${it.desc}</div></div>${why ? `<span class="why">${why}</span>` : '<span>使用</span>'}`;
+    el.innerHTML = `<span style="font-size:30px">${it.icon}</span><div class="grow"><b>${it.name}${n > 1 ? ` ×${n}` : ''}</b><div class="mini2">${it.desc}</div></div>${why ? `<span class="why">${why}</span>` : '<span>使用</span>'}`;
     if (!why) el.onclick = () => useItem(i);
     panel.appendChild(el);
   });
@@ -758,10 +759,10 @@ function useItem(i) {
   else if (k === 'juice') gainCourage(25, true);
   else if (k === 'charm') { B.charm = true; floatText(B.p, '🧿 護符生效', 'info'); }
   else if (k === 'chip') { B.energy += 2; floatText(B.p, '⚡+2', 'info'); }
-  else if (k === 'smoke') {
-    B.phase = 'end'; syncTeamHp(); coolDownCourage(); log('💨 趁著煙霧逃走了！'); renderBattle();
-    const res = B.resolve; setTimeout(() => { B = null; res('flee'); }, 700); return;
-  }
+  else if (k === 'smoke') { B.missN = (B.missN || 0) + 1; floatText(B.p, '💨 煙霧瀰漫', 'info'); log('💨 煙霧彈！敵人的下一次攻擊有 50% 會落空'); }
+  else if (k === 'antidote') { ['poison', 'burn', 'para'].forEach(s => delete B.p.st[s]); floatText(B.p, '🧪 解毒', 'heal'); sfx('heal'); }
+  else if (k === 'capsule') gainBlock(B.p, blockVal(10, .15));
+  else if (k === 'speed') { B.speedBonus = (B.speedBonus || 0) + 40; floatText(B.p, '⏩ 行動條 +40%', 'info'); log('⏩ 加速晶片：下一次的行動條 +40%（可以和其他效果疊加）'); }
   renderBattle();
 }
 

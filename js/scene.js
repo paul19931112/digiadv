@@ -39,7 +39,7 @@ const Scene = {
   set(key, parts = null) { this.key = key; this.partsKind = parts; this.build(); },
   resize() {
     const r = this.cv.parentElement.getBoundingClientRect();
-    this.dpr = Math.min(2, devicePixelRatio || 1); this.W = r.width; this.H = r.height;
+    this.dpr = Math.min(POWER.save ? 1 : 2, devicePixelRatio || 1); this.W = r.width; this.H = r.height;
     this.cv.width = this.W * this.dpr; this.cv.height = this.H * this.dpr;
     this.build();
   },
@@ -55,6 +55,7 @@ const Scene = {
     this.parts = [];
   },
   loop(now) {
+    if (!POWER.gate('scene', now, POWER.fps())) { requestAnimationFrame(t => this.loop(t)); return; }   // 省電：限制每秒重畫次數
     const dt = Math.min(.05, (now - (this.last || now)) / 1000); this.last = now; this.t += dt;
     if (!this.cv.offsetParent) { requestAnimationFrame(t => this.loop(t)); return; }   // 不在戰鬥畫面就不畫
     const r = this.cv.parentElement; if (Math.abs(r.clientWidth - this.W) > 2 || Math.abs(r.clientHeight - this.H) > 2) this.resize();
@@ -75,7 +76,7 @@ const Scene = {
       c.fillStyle = gr; c.fillRect(-100 + off, y - 40, W + 200, 80);
     }
     // 粒子
-    const PK = this.partsKind || S.parts;
+    const PK = POWER.save ? 'none' : this.partsKind || S.parts;   // 省電模式：沒有粒子
     if (PK !== 'none') this.spawn({ ...S, parts: PK }, dt);
     for (const p of this.parts) {
       p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;

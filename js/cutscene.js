@@ -195,7 +195,7 @@ async function cutscene(scenes) {
     requestAnimationFrame(() => cg.classList.add('on'));
     return cg;
   }
-  const loop = now => { if (done) return; if (cur) cur._paint(now / 1000); raf = requestAnimationFrame(loop); };
+  const loop = now => { if (done) return; if (cur && POWER.gate('cut', now, POWER.fps())) cur._paint(now / 1000); raf = requestAnimationFrame(loop); };
   raf = requestAnimationFrame(loop);
   function showLine() {
     const S = scenes[si], [w, text] = S.lines[li], who = cutWho(w);

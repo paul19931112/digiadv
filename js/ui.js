@@ -1,4 +1,14 @@
 'use strict';
+// =========================================================
+//   省電（v15.1）：畫面最多每秒重畫 30 次；地圖上沒在動的時候 10 次；省電模式 20 次、沒有粒子、解析度 1 倍
+// =========================================================
+const POWER = { save: false, act: 0, last: {} };
+try { POWER.save = localStorage.getItem('digimon-power') === 'on'; } catch (e) { }
+POWER.fps = () => POWER.save ? 20 : 30;
+// 這一幀要不要畫（每個迴圈各自計時）
+POWER.gate = (key, now, fps) => { if (now - (POWER.last[key] || 0) < 1000 / fps - 2) return false; POWER.last[key] = now; return true; };
+POWER.toggle = () => { POWER.save = !POWER.save; try { localStorage.setItem('digimon-power', POWER.save ? 'on' : 'off'); } catch (e) { } if (typeof Scene !== 'undefined' && Scene.cv) Scene.resize(); };
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => POWER.act = performance.now(), { capture: true }));
 /* =========================================================
    圖片載入 + 共用介面工具
    ========================================================= */

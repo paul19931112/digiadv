@@ -431,13 +431,24 @@ const has = k => RUN.relics.includes(k);
 // =========================================================
 //   背包道具（戰鬥中使用，不花能量；最多帶 4 個，舊存檔 3 個）
 // =========================================================
-const bagMax = () => (NEW() ? 4 : 3) + (has('bigbag') ? 1 : 0);
+const bagMax = () => (NEW() ? 9 : 3) + (has('bigbag') ? 1 : 0);   // v15.1：同一種道具可以疊放，總數最多 9 個（大背包 10 個）
+// 背包裡的道具依種類疊起來顯示：[{ k, n, i（第一個的位置） }]
+const itemGroups = () => { const g = []; RUN.items.forEach((k, i) => { const x = g.find(y => y.k === k); if (x) x.n++; else g.push({ k, n: 1, i }); }); return g; };
+// 經驗資料：全隊每隻拿到升級所需經驗的 frac
+function teamExp(frac) {
+  RUN.team.forEach(m => { m.exp = (m.exp || 0) + Math.round(expNeed(m.level) * frac);
+    while (m.exp >= expNeed(m.level)) { const b = memberStats(m); m.exp -= expNeed(m.level); m.level++; const a = memberStats(m); m.hp = Math.min(a.maxhp, m.hp + (a.maxhp - b.maxhp)); toast(`⬆️ ${SPECIES[m.sp].name} 升到 Lv.${m.level}！`); } });
+}
 const ITEMS = {
   potion: { name: '回復藥',   icon: '💊', desc: '一隻夥伴回復 30% HP（戰鬥中給出戰夥伴，戰鬥外可以自己選）' },
   juice:  { name: '勇氣飲料', icon: '🧃', desc: '勇氣值 +25' },
-  smoke:  { name: '煙霧彈',   icon: '💨', desc: '一般戰鬥 100% 逃跑成功' },
+  smoke:  { name: '煙霧彈',   icon: '💨', desc: '放出煙霧：敵人的下一次攻擊有 50% 會落空（頭目戰也能用）' },
   charm:  { name: '數碼護符', icon: '🧿', desc: '守護下一次進化：不會失控；強行進化成功率 +20%、失敗不受反噬' },
   chip:   { name: '能量晶片', icon: '⚡', desc: '這回合能量 +2' },
+  antidote:{ name: '解毒劑',  icon: '🧪', desc: '出戰夥伴解除中毒、燒傷、麻痺' },
+  capsule:{ name: '護盾膠囊', icon: '🛡️', desc: '出戰夥伴獲得護盾（10＋最大 HP×15%）' },
+  speed:  { name: '加速晶片', icon: '⏩', desc: '下一次的行動條 +40%（更快輪到你，可以和其他加速效果疊加）' },
+  expdata:{ name: '經驗資料', icon: '📀', desc: '全隊獲得經驗值（每隻約升級所需的 30%）；戰鬥外使用' },
   scanner:{ name: '數據掃描器', icon: '🔍', desc: '探索地圖時使用：標出這張地圖所有的數據碎片（只在商店販售）', shopOnly: true },
 };
 const RANDOM_ITEMS = Object.keys(ITEMS).filter(k => !ITEMS[k].shopOnly);   // 寶箱、地上撿到的道具（不含商店限定）
@@ -446,7 +457,7 @@ async function addItem(k) {
   if (RUN.items.length < bagMax()) { sfx('pickup'); RUN.items.push(k); toast(`獲得 ${ITEMS[k].icon} ${ITEMS[k].name}`); updateHUD(); return true; }
   // 背包滿了：選一個道具「使用」（回復藥、勇氣飲料可以當場用掉）或「丟掉」，空出位置給新道具
   for (;;) {
-    const items = [...RUN.items.map((id, i) => ({ id, i })), { id: k, i: -1 }];
+    const items = [...itemGroups().map(g => ({ id: g.k, i: g.i, n: g.n })), { id: k, i: -1 }];   // 同種道具疊在一起，丟掉／使用只動其中 1 個
     const act = await new Promise(res => {
       const o = $('#overlay');
       o.innerHTML = `<h2>🎒 背包滿了！</h2><p class="sub">撿到了 ${ITEMS[k].icon} ${ITEMS[k].name}。回復藥、勇氣飲料可以<b>當場使用</b>，或選一個<b>丟掉</b></p><div class="relicList bagList"></div>`;
@@ -454,7 +465,7 @@ async function addItem(k) {
       items.forEach(x => {
         const it = ITEMS[x.id], field = FIELD_ITEMS.includes(x.id), el = document.createElement('div');
         el.className = 'relic' + (x.i < 0 ? ' newItem' : '');
-        el.innerHTML = `<div class="ri">${it.icon}</div><div style="flex:1"><b>${it.name}${x.i < 0 ? '（新撿到的）' : ''}</b><div class="rd">${it.desc}</div></div>
+        el.innerHTML = `<div class="ri">${it.icon}</div><div style="flex:1"><b>${it.name}${x.n > 1 ? ` ×${x.n}` : ''}${x.i < 0 ? '（新撿到的）' : ''}</b><div class="rd">${it.desc}</div></div>
           <div class="col2">${field ? '<button class="btn primary">使用</button>' : ''}<button class="btn">丟掉</button></div>`;
         const bs = el.querySelectorAll('button');
         if (field) bs[0].onclick = () => { o.classList.add('hidden'); res({ x, use: true }); };

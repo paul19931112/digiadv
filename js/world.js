@@ -222,7 +222,7 @@ function genArea(nd) {
     const cand = free(4);
     const openN = p => [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => !SOLID.has(T[p.y + dy][p.x + dx])).length;
     const dead = cand.filter(p => openN(p) === 1), far = cand.filter(p => dist[p.y][p.x] >= 14);
-    for (let k = 0; k < randInt(2, 4) + (nd.type === 'treasure' ? 1 : 0); k++)
+    for (let k = 0; k < randInt(1, 3) + (nd.type === 'treasure' ? 1 : 0); k++)   // v15.1：數量減少
       place({ kind: 'pickup' }, dead.length && Math.random() < .6 ? dead : far.length && Math.random() < .6 ? far : cand);
     if (['battle', 'treasure', 'event'].includes(nd.type) && Math.random() < .2) place({ kind: 'stone' }, free(5));
   }
@@ -461,18 +461,31 @@ async function openChest(rich) {
     await say(null, '寶箱裡有回復藥！全隊回復了 HP。');
   }
 }
+// 章節進度（0～5）：越後面數碼幣越多、稀有結果的機率越高
+const chIdx = () => ({ 1: 0, city: 1, forest: 1, 3: 2, 4: 3, 5: 4, 6: 5 })[RUN.chapter] || 0;
 async function openPickup() {
   sfx('pickup');
-  const r = Math.random();
-  if (r < .45) { const b = gainBits(randInt(10, 25)); toast(`💾 解析數據碎片：💰 ${b} 數碼幣`); }
-  else if (r < .85) await addItem(pick(RANDOM_ITEMS));
-  else if (r < .95) {
+  const c = chIdx(), rare = 1 + c * .1;
+  const ups = RUN.deck.map((id, i) => ({ id, i })).filter(x => canUpgrade(x.id));
+  const dex = Object.keys(SPECIES).filter(k => SPECIES[k].moves && !META.dex.includes(k) && !RUN.seen.includes(k));
+  const W = { bits: 34, item: 40, card: 4 * rare, relic: relicPool().length ? 3 * rare : 0, upgrade: ups.length ? 6 * rare : 0, dex: dex.length ? 10 : 0 };
+  if (RUN.lastPick) W[RUN.lastPick] = 0;   // 不會連續兩次一樣
+  const kind = weighted(W); RUN.lastPick = kind;
+  if (kind === 'bits') { const b = gainBits(Math.round(randInt(15, 28) * (1 + c * .12))); toast(`💾 解析數據碎片：💰 ${b} 數碼幣`); }
+  else if (kind === 'item') await addItem(pick(RANDOM_ITEMS));
+  else if (kind === 'card') {
     const id = await pickScreen({ title: '💾 數據碎片裡藏著卡片的資料', sub: '選一張加入牌組', items: shuffle([...rewardPool()]).slice(0, 3), render: id => cardEl(id) });
     if (id) await acquireCard(id);
-  } else if (relicPool().length) {
+  } else if (kind === 'relic') {
     const k = pick(relicPool()); RUN.relics.push(k);
     await say(null, `數據碎片解析出一個道具！獲得 <b>${RELICS[k].icon} ${RELICS[k].name}</b>：${RELICS[k].desc}`);
-  } else { const b = gainBits(40); toast(`💾 解析數據碎片：💰 ${b} 數碼幣`); }
+  } else if (kind === 'upgrade') {
+    const x = pick(ups); RUN.deck[x.i] = x.id + '+';
+    await say(null, `🔧 <b>強化碎片</b>！數據流進了牌組——「${cardDef(x.id).name}」強化成「${cardDef(x.id + '+').name}」了！`);
+  } else if (kind === 'dex') {
+    const k = pick(dex), s = SPECIES[k]; RUN.seen.push(k); const b = gainBits(10 + c * 3);
+    await say(null, `📖 <b>數碼圖鑑資料</b>：${spPic(k, 's64')}<br><b>${s.name}</b>${s.desc ? `——${s.desc}` : ''}<br><small>（已記錄到圖鑑，順便解析出 💰 ${b} 數碼幣）</small>`);
+  }
   updateHUD();
 }
 async function restSpot() {

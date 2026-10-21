@@ -174,7 +174,7 @@ function updateHUD() {
     const t = SPECIES[m.sp], ms = memberStats(m);
     return `<div class="tm ${i === 0 ? 'lead' : ''}" title="${t.name} Lv.${m.level}">${dpic(t.img, t.emoji, 's32')}<div class="hpb"><i style="width:${m.hp / ms.maxhp * 100}%"></i></div></div>`;
   }).join('');
-  $('#hudItems').innerHTML = `<span class="mini2">🎒</span>` + (RUN.items.length ? RUN.items.map(k => `<span class="hr" title="${ITEMS[k].name}：${ITEMS[k].desc}">${ITEMS[k].icon}</span>`).join('') : '<span class="mini2">背包是空的</span>') + `<span class="mini2">（${RUN.items.length}/${bagMax()}）</span>`;
+  $('#hudItems').innerHTML = `<span class="mini2">🎒</span>` + (RUN.items.length ? itemGroups().map(({ k, n }) => `<span class="hr" title="${ITEMS[k].name}：${ITEMS[k].desc}">${ITEMS[k].icon}${n > 1 ? `<small>×${n}</small>` : ''}</span>`).join('') : '<span class="mini2">背包是空的</span>') + `<span class="mini2">（${RUN.items.length}/${bagMax()}）</span>`;
   $('#hudRelics').innerHTML = RUN.relics.length ? RUN.relics.map(k => relicIcon(k)).join('') : '<span class="mini2">還沒有徽章道具</span>';
   // 第一次拿到神聖計畫：跳出究極之證的謎語
   if (has('digivice') && !RUN.flags.riddle && !G.tutorial) { RUN.flags.riddle = true; setTimeout(showRiddle, 500); }
@@ -226,16 +226,16 @@ function openTeam() {
   m.querySelector('#mClose').onclick = closeModal;
 }
 // 戰鬥外的背包：可以使用回復藥、勇氣飲料，也可以丟棄道具
-const FIELD_ITEMS = ['potion', 'juice', 'scanner'];
+const FIELD_ITEMS = ['potion', 'juice', 'scanner', 'expdata'];
 function openBagField() {
   if (!RUN || !['area', 'route'].includes(G.mode)) return;
-  const m = openModal(`<h2>🎒 背包（${RUN.items.length}/${bagMax()}）</h2><p class="sub">回復藥、勇氣飲料、數據掃描器在戰鬥外也能用；其他道具只能在戰鬥中使用</p><div class="relicList bagList"></div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
+  const m = openModal(`<h2>🎒 背包（${RUN.items.length}/${bagMax()}）</h2><p class="sub">回復藥、勇氣飲料、數據掃描器、經驗資料在戰鬥外也能用；其他道具只能在戰鬥中使用（同一種道具會疊在一起）</p><div class="relicList bagList"></div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
   const list = m.querySelector('.bagList');
   if (!RUN.items.length) list.innerHTML = '<p class="sub">背包是空的。探索地圖撿數據碎片、開寶箱、逛商店都能拿到道具。</p>';
-  RUN.items.forEach((k, i) => {
+  itemGroups().forEach(({ k, n, i }) => {
     const it = ITEMS[k], field = FIELD_ITEMS.includes(k), el = document.createElement('div');
     el.className = 'relic';
-    el.innerHTML = `<div class="ri">${it.icon}</div><div style="flex:1"><b>${it.name}</b><div class="rd">${it.desc}</div></div>
+    el.innerHTML = `<div class="ri">${it.icon}</div><div style="flex:1"><b>${it.name}${n > 1 ? ` ×${n}` : ''}</b><div class="rd">${it.desc}</div></div>
       <div class="col2"><button class="btn primary" ${field ? '' : 'disabled'}>${field ? '使用' : '戰鬥中用'}</button><button class="btn">丟棄</button></div>`;
     const [useB, dropB] = el.querySelectorAll('button');
     useB.onclick = () => useFieldItem(i);
@@ -257,6 +257,7 @@ async function applyFieldItem(k) {
     return true;
   }
   if (k === 'juice') { gainCourage(25); toast('🔥 勇氣值 +25'); return true; }
+  if (k === 'expdata') { teamExp(.3); toast('📀 全隊獲得了經驗值！'); sfx('levelup'); return true; }
   if (k === 'scanner') {   // 數據掃描器：標出這張地圖所有還沒撿的數據碎片
     if (!AREA || G.screen !== 'area') { toast('🔍 要在探索地圖時才能用'); return false; }
     const n = AREA.objs.filter(o => o.kind === 'pickup' && !o.done).length;
@@ -567,18 +568,21 @@ function updateMusic() {
 }
 // 瀏覽器要等玩家第一次點擊才能出聲；切到背景時暫停
 ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { if (VOICE.music) BGM.audio(); }, { capture: true }));
-document.addEventListener('visibilitychange', () => { const A = BGM.audio && BGM.ctxRaw && BGM.ctxRaw(); if (A) document.hidden ? A.suspend() : A.resume(); });
+document.addEventListener('visibilitychange', () => { [BGM.ctxRaw && BGM.ctxRaw(), SFX.ctx].forEach(A => { if (A) document.hidden ? A.suspend() : A.resume(); }); });   // 切到背景：音樂、音效都暫停
 // 聲音設定（🔊 按鈕）
 const VOICE_LANGS = [['ja', '日文'], ['zh', '國語'], ['robot', '機械音'], ['off', '關閉']];
 function openAudioSettings() {
-  const m = openModal(`<h2>🔊 聲音設定</h2><div class="audioSet">
+  const m = openModal(`<h2>🔊 聲音與省電</h2><div class="audioSet">
     <div class="aRow"><span>🎵 背景音樂</span><button class="btn" id="aMusic"></button></div>
     <div class="aRow"><span>🔔 音效</span><button class="btn" id="aSfx"></button></div>
     <div class="aRow col"><span>🗣️ 進化語音</span><div class="aLangs">${VOICE_LANGS.map(([k, t]) => `<button class="btn" data-lang="${k}">${t}</button>`).join('')}</div></div>
-    <p class="sub" id="aNote"></p></div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
+    <p class="sub" id="aNote"></p>
+    <div class="aRow"><span>🔋 省電模式</span><button class="btn" id="aPower"></button></div>
+    <p class="sub">開啟後畫面每秒重畫比較少次、戰鬥背景沒有粒子、解析度降低、地圖的水面和迷霧不會動，比較不耗電。</p></div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
   const paint = () => {
     m.querySelector('#aMusic').textContent = VOICE.music ? '開' : '關'; m.querySelector('#aMusic').classList.toggle('primary', VOICE.music);
     m.querySelector('#aSfx').textContent = SFX.on ? '開' : '關'; m.querySelector('#aSfx').classList.toggle('primary', SFX.on);
+    m.querySelector('#aPower').textContent = POWER.save ? '開' : '關'; m.querySelector('#aPower').classList.toggle('primary', POWER.save);
     m.querySelectorAll('[data-lang]').forEach(b => b.classList.toggle('primary', b.dataset.lang === VOICE.lang));
     const L = VOICE.lang;
     m.querySelector('#aNote').innerHTML = L === 'off' ? '進化時不念台詞。' : L === 'robot' ? '合成的機械音「Evolution」，每台裝置聽起來都一樣。'
@@ -588,6 +592,7 @@ function openAudioSettings() {
   };
   m.querySelector('#aMusic').onclick = () => { VOICE.music = !VOICE.music; VOICE.save(); if (!VOICE.music) BGM.stop(); paint(); };
   m.querySelector('#aSfx').onclick = () => { toggleSound(); paint(); };
+  m.querySelector('#aPower').onclick = () => { POWER.toggle(); toast(POWER.save ? '🔋 省電模式開啟' : '🔋 省電模式關閉'); paint(); };
   m.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { VOICE.lang = b.dataset.lang; VOICE.save(); paint(); VOICE.evoLine({ img: 'Agumon', name: '亞古獸' }, { img: 'Greymon', name: '暴龍獸' }, 'evo'); });
   m.querySelector('#mClose').onclick = closeModal;
   paint();
@@ -606,13 +611,16 @@ function toggleAllSound() {
 // =========================================================
 let last = performance.now();
 function frame(now) {
+  requestAnimationFrame(frame);
+  // 地圖上沒在走、沒有按鍵、1.5 秒沒操作 → 降到每秒 10 次
+  const idle = G.mode === 'area' && AREA && !AREA.mv.moving && !(AREA.path && AREA.path.length) && !keys.size && now - POWER.act > 1500;
+  if (!POWER.gate('main', now, idle ? 10 : POWER.fps())) return;
   const dt = Math.min(.2, (now - last) / 1000); last = now;
   if (AREA && G.mode === 'area' && !G.dialog) updateArea(dt);
   if (G.mode === 'transition') G.trans.t += dt;
   if (G.mode === 'battle' && B) { updateBattle(dt); if (B) updateGauges(); }
   updateMusic();
-  if (AREA && RUN && G.screen === 'area' && !$('#areaScreen').classList.contains('hidden')) drawArea(now / 1000);
-  requestAnimationFrame(frame);
+  if (AREA && RUN && G.screen === 'area' && !$('#areaScreen').classList.contains('hidden')) drawArea(POWER.save ? 0 : now / 1000);   // 省電模式：水面、迷霧不動
 }
 
 loadMeta();
