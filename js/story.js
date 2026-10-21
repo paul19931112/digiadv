@@ -454,7 +454,7 @@ async function ending() {
   unlockStarter('palmon');
   unlockKid('takeru');
   if (META.endings.length >= 2) { unlockKid('hikari'); unlockStarter('plotmon'); }
-  if (first && META.endings.length === 2) await cutscene([   // 第一次收集到 2 種結局：第二部的預告
+  if (first && META.endings.length === 1) await cutscene([   // 第一次拿到結局：第二部的預告
     { bg: 'sea', music: 'route', amb: 'waves', chars: [['Whamon', 56, 74, 46, 'in-r']], fx: '<div class="cutRays" style="--rx:72%;--ry:42%"></div>',
       lines: [[null, '檔案島恢復了和平。但在大海的另一邊……'], [null, '還有一塊被選召的孩子們沒去過的土地——「伺服大陸」。']] },
     { bg: 'stage', music: null, amb: null, chars: [['Etemon', 50, 78, 58, 'dark']], lines: [['shadow', '嘿嘿嘿……下一場演唱會，就等你們來囉～']] },

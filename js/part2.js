@@ -19,7 +19,7 @@ const AWAKEN = {
   takeru:   { mods: { revivePct: .6 }, text: '復活時回復 60% HP' },
   hikari:   { mods: { discEvery: true }, text: '每回合第一張牌少 1 能量' },
 };
-const part2Unlocked = () => META.endings.length >= 2;
+const part2Unlocked = () => META.endings.length >= 1;   // v16.3：拿到任一個第一部的結局就能玩第二部
 
 // ---------- 通關紀錄 ----------
 function recordEl(r) {
