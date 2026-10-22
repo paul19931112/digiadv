@@ -851,3 +851,16 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .recRow span { color: var(--muted); text-align: right; }
 /* v16.4 進化維持：最後一回合時進化按鈕會發光 */
 #btnEvo.maintain { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; box-shadow: 0 0 12px #f59e0baa; }
+/* v16.5 手機直拿：敵人面板移到左上，跟右下的我方面板錯開，不會疊在一起 */
+@media (orientation: portrait) and (max-width: 700px) {
+  #battle #ePanel { left: 8px; right: auto; width: min(200px, 47vw); }
+  #battle #pPanel { width: min(200px, 47vw); }
+}
+/* v16.5 章節完成／結局畫面：手機上文字和夥伴不會跑出畫面（限制寬度、文字換行、夥伴排不下就換行） */
+.chapterCard { width: min(760px, calc(100vw - 32px)); box-sizing: border-box; }
+.chapterCard p { overflow-wrap: anywhere; }
+.endTeam { flex-wrap: wrap; justify-content: center; max-width: 100%; }
+@media (max-width: 600px) {
+  .chapterCard h1 { font-size: 34px; } .chapterCard p { font-size: 15px; }
+  .endTeam .dpic.s80 { width: 56px; height: 56px; }
+}
