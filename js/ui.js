@@ -98,6 +98,8 @@ function showRiddle() {
   b.querySelector('button').onclick = () => { b.classList.add('hidden'); sfx('close'); };
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-riddle]')) { e.stopPropagation(); showRiddle(); } });
+// 手機沒有滑鼠移上去的提示：點道具圖示、標籤就在最上層跳出說明（幾秒後自己消失）
+document.addEventListener('click', e => { const t = e.target.closest('.hr[title]:not([data-riddle]), .tierTag[title]'); if (t) toast(t.title, 3500); });
 function relicEl(k, { onClick, price } = {}) {
   const r = RELICS[k];
   const el = document.createElement('div');

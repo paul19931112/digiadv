@@ -523,7 +523,7 @@ async function restSpot() {
   if (c === 2) { gainCourage(30); toast('🔥 勇氣值 +30'); return true; }
   return false;
 }
-function recruitables() { return Object.keys(SPECIES).filter(k => SPECIES[k].evo && !SPECIES[k].starter); }
+function recruitables() { return Object.keys(SPECIES).filter(k => SPECIES[k].evo && !SPECIES[k].starter && (!SPECIES[k].p2 || P2())); }
 // 發光的數碼蛋能孵出的夥伴：孩子們的搭檔（已解鎖、不在隊伍裡）
 const starterEggs = () => Object.keys(SPECIES).filter(k => SPECIES[k].starter && META.unlocked.includes(k) && !RUN.team.some(m => m.sp === k));
 async function hatchEgg(star) {
@@ -533,7 +533,7 @@ async function hatchEgg(star) {
   const opts = stars.length ? shuffle([pick(stars), pick(recruitables())]) : shuffle(recruitables()).slice(0, 2);
   const id = await pickScreen({ title: '🥚 從數碼蛋裡誕生了！', sub: `選一隻加入隊伍（Lv.${avg}）`, items: opts, allowSkip: false,
     render: id => { const s = SPECIES[id], el = document.createElement('div'); el.className = 'pickMon';
-      el.innerHTML = `${spPic(id, 's110')}<b>${s.starter ? '✨ ' : ''}${s.name}</b><span>${ATTR_ICON[s.attr]} ${ATTR_NAME[s.attr]}</span><small>${s.desc}</small><small>${s.evo.map(e => e.name).join(' → ')}</small>`; return el; } });
+      el.innerHTML = `${spPic(id, 's110')}<b>${s.starter ? '✨ ' : ''}${s.name}</b><span>${ATTR_ICON[s.attr]} ${ATTR_NAME[s.attr]}</span><small>${s.desc}</small><small>${evoNote(s)}</small>`; return el; } });
   if (RUN.team.length >= teamMax()) {
     const m = await pickScreen({ title: '隊伍已經滿了！', sub: `要讓哪一隻夥伴離開，換 ${SPECIES[id].name} 加入？`, skip: `不換了（${SPECIES[id].name} 送你 💰 50 後離開）`,
       items: RUN.team.slice(), render: m => { const s = SPECIES[m.sp], el = document.createElement('div'); el.className = 'pickMon';

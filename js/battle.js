@@ -626,6 +626,7 @@ function evoCost(f, tier) {
   return Math.round(c * (has('darkpower') ? .7 : 1) * K().evo * (B && B.dom === 'dark' ? 1.3 : 1) * (partner ? .9 : 1));
 }
 function evoBlock(f, tier) {
+  if (!f.sp.evo) return '這隻數碼寶貝不會進化（只有原本的型態）';
   if (f.noEvo) return '這場戰鬥無法再進化';
   if (B && f.sealUntil >= B.turnNo) return '筋疲力盡，這回合無法進化';   // 錯誤進化退化後封印 1 回合
   if (B && B.sealTurn && B.turnNo <= B.sealTurn) return '被黑暗封印，暫時無法進化';
@@ -916,7 +917,7 @@ function syncTeamHp() { B.fighters.forEach(f => { devolve(true, f); f.m.hp = Mat
 // ---------- 勸降 ----------
 // 成功率 = (1 − 剩餘血量%) × 80%，再依狀態、等級差、孩子、失敗次數加減，最高 90%
 function persuadeChance(e = B.e) {
-  if (e.boss || !e.sp.evo) return 0;
+  if (e.boss || !(e.sp.evo || e.sp.fixed)) return 0;
   if (B.opt.tutorial === 3) return 1;
   let c = (1 - e.hp / e.maxhp) * .8;
   if (e.st.para || e.st.poison || e.st.burn) c += .1;
@@ -935,7 +936,7 @@ const PERSUADE_OPTS = [
 function persuadeHard() {   // 不管付什麼都不能勸降的情況
   const e = B.e;
   if (e.boss) return '頭目不聽勸';
-  if (!e.sp.evo) return '無法勸降';
+  if (!(e.sp.evo || e.sp.fixed)) return '無法勸降';
   if ((e.pfail || 0) >= 3) return '不肯再聽了';
   return null;
 }
@@ -946,7 +947,7 @@ function persuade() {
   closePopups();
   const panel = $('#persuadePanel');
   panel.innerHTML = `<h3><span>🤝 勸降 ${B.e.sp.name}　成功率 ${Math.round(persuadeChance() * 100)}%</span><button class="btn" id="psClose">取消</button></h3>
-    <div class="mini2" style="margin-bottom:8px">選擇要付出的代價（失敗的話敵人會被激怒）</div>`;
+    <div class="mini2" style="margin-bottom:8px">${evoNote(B.e.sp)}<br>選擇要付出的代價（失敗的話敵人會被激怒）</div>`;
   PERSUADE_OPTS.forEach(o => {
     const el = document.createElement('div');
     el.className = 'swOpt' + (o.ok() ? '' : ' off');
@@ -1082,7 +1083,7 @@ async function battleReward(msgs, recruit, opt) {
       const box = o.querySelector('#recruitBox');
       box.innerHTML = `<div class="recruit">${dpic(recruit.sp.img, recruit.emoji, 's80')}
         <div><div class="txt">${recruit.sp.name}（Lv.${recruit.lvl}）${full ? '想加入，但隊伍已經滿了！' : '加入了隊伍！'}</div>
-        <div class="mini2">${ATTR_ICON[recruit.attr]} ${ATTR_NAME[recruit.attr]}　${recruit.sp.desc}<br>會進化成 ${recruit.sp.evo.map(e => e.name).join(' → ')}</div></div>
+        <div class="mini2">${ATTR_ICON[recruit.attr]} ${ATTR_NAME[recruit.attr]}　${recruit.sp.desc}<br>${evoNote(recruit.sp)}</div></div>
         ${full ? `<div class="col2"><button class="btn evo" id="btnSwap">放走一隻夥伴換牠</button><button class="btn" id="btnBits">讓牠離開（💰 +40）</button></div>` : ''}</div>`;
       if (full) {
         box.querySelector('#btnSwap').onclick = async () => {
@@ -1169,7 +1170,8 @@ function renderFighter(f) {
   const el = f.el, u = unitOf(f);
   u.dataset.scale = f.isPlayer ? 1 + f.tier * .13 : f.boss ? 1.12 : f.elite ? 1.06 : 1;
   u.querySelector('.miniHp i').style.width = (f.hp / f.maxhp * 100) + '%';
-  el.querySelector('.fname').innerHTML = (f.leader ? '👑 ' : '') + f.name + (f.dark ? '<span class="tierTag dark">錯誤進化</span>' : f.tier ? `<span class="tierTag">${TIERS[f.tier].name}</span>` : '') + (f.boss ? '<span class="tierTag boss">頭目</span>' : f.elite ? '<span class="tierTag boss">精英</span>' : '');
+  el.querySelector('.fname').innerHTML = (f.leader ? '👑 ' : '') + f.name + (f.dark ? '<span class="tierTag dark">錯誤進化</span>' : f.tier ? `<span class="tierTag">${TIERS[f.tier].name}</span>` : '') + (f.boss ? '<span class="tierTag boss">頭目</span>' : f.elite ? '<span class="tierTag boss">精英</span>' : '') +
+    (!f.boss && f.sp.fixed ? '<span class="tierTag fixed" title="不會進化，只有原本的型態">不會進化</span>' : !f.isPlayer && !f.boss && f.sp.evo && !f.sp.starter ? '<span class="tierTag evo" title="收服後可以進化">🧬可進化</span>' : '');
   el.querySelector('.flv').textContent = `Lv.${f.lvl}`;
   el.querySelector('.fattr').textContent = `${ATTR_ICON[f.attr]} ${ATTR_NAME[f.attr].replace('種', '')}`;
   const emo = u.querySelector('.emo');
@@ -1253,7 +1255,7 @@ function renderBattle() {
   be.disabled = !my;
   be.classList.toggle('blocked', ![1, 2, 3].some(t => !evoBlock(p, t)) && !!maintainBlock(p));
   be.classList.toggle('maintain', !maintainBlock(p));   // 不能進化也可以按：會說明原因
-  be.textContent = !maintainBlock(p) ? '🔁 維持進化 (E)' : p.tier === 3 ? '✨ 究極體！' : p.tier ? '✨ 再進化 (E)' : '✨ 進化 (E)';
+  be.textContent = !p.sp.evo ? '🚫 不會進化' : !maintainBlock(p) ? '🔁 維持進化 (E)' : p.tier === 3 ? '✨ 究極體！' : p.tier ? '✨ 再進化 (E)' : '✨ 進化 (E)';
   updateGauges();
 }
 function updateGauges() {
@@ -1272,6 +1274,7 @@ function openEvo() {
   if (!B || B.phase !== 'player' || B.anim) return;
   if (!$('#evoPanel').classList.contains('hidden')) { closePopups(); return; }
   const f = B.p, panel = $('#evoPanel');
+  if (!f.sp.evo) { sfx('error'); toast(`🚫 ${f.name} 不會進化，只有原本的型態`, 3200); return; }
   const tiers = P1() ? [1] : P2() ? (RUN.awaken ? [1, 2, 3] : [1, 2]) : [1, 2, 3];
   if (!tiers.some(t => !evoBlock(f, t)) && maintainBlock(f)) {   // 現在不能進化（也不能維持）：直接告訴玩家原因
     const t = tiers.find(t => t > f.tier) || tiers[tiers.length - 1];

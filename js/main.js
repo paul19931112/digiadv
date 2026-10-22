@@ -185,6 +185,7 @@ function updateHUD() {
 }
 
 function evoPathHTML(sp, level) {
+  if (!sp.evo) return `<div class="step">${dpic(sp.img, sp.emoji, 's44')}<span>${sp.name}</span><span>🚫 不會進化（能力比一般夥伴高）</span></div>`;
   const steps = [{ name: sp.name, img: sp.img, tier: 0 }, ...sp.evo.map((e, i) => ({ ...e, tier: i + 1 }))];
   return steps.map((s, i) => {
     const locked = s.tier && level < TIERS[s.tier].lv;

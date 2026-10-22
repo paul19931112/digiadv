@@ -423,7 +423,7 @@ const ENDINGS = {
 async function ending() {
   // 黑暗結局：打倒惡魔獸時身上還有黑暗徽章（黑色齒輪／黑暗之力），或錯誤進化 3 次以上
   const kind = (has('darkgear') || has('darkpower') || (F().wrongEvo || 0) >= 3) ? 'dark' : (F().saved || 0) >= 4 ? 'hidden' : 'light';
-  const sp = SPECIES[RUN.team[0].sp], mega = sp.evo[2];
+  const sp = SPECIES[RUN.team[0].sp], mega = sp.evo ? sp.evo[2] : sp;
   const fall = { bg: 'castle', music: null, amb: 'drone', chars: [['Devimon', 50, 78, 52, 'dark']], lines: [[null, '惡魔獸發出最後的慘叫，化成無數的黑色碎片…']] };
   if (kind === 'light') {
     await cutscene([fall,
@@ -441,7 +441,7 @@ async function ending() {
       { bg: 'island', amb: 'waves', chars: [['Jijimon', 30, 74, 30], ['partner', 72, 76, 30, 'flip']], lines: [['jijimon', '黑暗再也不會回來了。這是只有心地善良的你，才能開啟的未來。']] }]);
   } else {
     // 夥伴的黑暗型態（第一部是成熟期的黑暗型態）
-    const dk = (P1() && sp.dark1) || sp.dark || { img: sp.evo[0].img };
+    const dk = (P1() && sp.dark1) || sp.dark || { img: (sp.evo ? sp.evo[0] : sp).img };
     await cutscene([fall,
       { bg: 'void', amb: 'drone', chars: [[dk.img, 50, 78, 50, 'evil']],
         lines: [[null, '黑暗之力擊敗了惡魔獸…但那股力量並沒有消失，而是在你的心中擴散。'], ['shadow', '夥伴的身體開始扭曲、發出可怕的咆哮——']] },

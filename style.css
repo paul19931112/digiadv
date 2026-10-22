@@ -137,7 +137,7 @@ button{font-family:inherit;cursor:pointer}
 #banner{position:fixed;top:38%;left:0;right:0;text-align:center;font-size:44px;font-weight:900;color:var(--accent);text-shadow:0 4px 0 #000;pointer-events:none;opacity:0;z-index:15}
 #banner.show{animation:banner 1s forwards}
 @keyframes banner{0%{opacity:0;transform:scale(1.6)}20%{opacity:1;transform:scale(1)}70%{opacity:1}100%{opacity:0}}
-#toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#141936f0;border:2px solid var(--accent);border-radius:12px;padding:10px 20px;font-size:16px;z-index:40;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center;max-width:90vw}
+#toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#141936f0;border:2px solid var(--accent);border-radius:12px;padding:10px 20px;font-size:16px;z-index:40;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center;width:max-content;max-width:min(90vw,520px)}
 #toast.show{opacity:1}
 
 /* ===== v2：真實圖片 / 勇氣值 / 隊伍 / 多段進化 ===== */
@@ -338,7 +338,7 @@ button{font-family:inherit;cursor:pointer}
 .vfx.ring{border:5px solid;background:transparent}
 #battle.bigShake{animation:bigShake .45s}
 @keyframes bigShake{15%{transform:translate(-10px,6px)}30%{transform:translate(9px,-7px)}45%{transform:translate(-7px,-4px)}60%{transform:translate(6px,5px)}80%{transform:translate(-3px,2px)}}
-#domainBar{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#3b0a1ee6;border:2px solid #ef4444;color:#fecaca;border-radius:12px;padding:5px 14px;font-size:14px;z-index:3;white-space:nowrap;box-shadow:0 0 18px #ef444466}
+#domainBar{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#3b0a1ee6;border:2px solid #ef4444;color:#fecaca;border-radius:12px;padding:5px 14px;font-size:14px;z-index:39;white-space:nowrap;box-shadow:0 0 18px #ef444466}
 #domainBar b{color:#fff}
 #domainBar{cursor:pointer}
 /* v9.8：領域效果收起後的小標籤（在敵人面板右下角） */
@@ -355,6 +355,8 @@ button{font-family:inherit;cursor:pointer}
 .evoOpt .odds .ok{color:#86efac}.evoOpt .odds .bad{color:#c4b5fd}.evoOpt .odds .fail{color:#fca5a5}
 .evoOpt .cost small{font-size:10px;font-weight:400}
 .tierTag.dark{background:#6d28d9;color:#fff}
+.tierTag.evo{background:#0e7490;color:#ecfeff}
+.tierTag.fixed{background:#475569;color:#f1f5f9}
 .sprite.darkevo .dpic img{filter:drop-shadow(0 0 16px #7c3aed) drop-shadow(0 0 4px #000)}
 .sprite.darkevo.darktint .dpic img{filter:hue-rotate(250deg) saturate(1.8) brightness(.65) drop-shadow(0 0 16px #7c3aed)}
 .sprite.darkevo .emo{animation:darkPulse 1.2s steps(10) infinite}
