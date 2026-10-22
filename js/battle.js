@@ -170,6 +170,14 @@ function drawCards(n) {
   }
 }
 // 📌 釘住的牌回合結束時會留在手上（最多 PIN_MAX 張，究極技卡本來就會保留、不算在內）
+// v16.5 出牌要點兩次（避免想按 📌 保留卻誤出牌）：第一次選中、第二次出牌；設定裡可以關掉
+const TAP2 = { on: true };
+try { TAP2.on = localStorage.getItem('digimon-tap2') !== 'off'; } catch (e) { }
+function tapCard(i, uid) {
+  if (!B || B.phase !== 'player' || B.anim) return;
+  if (!TAP2.on || B.armed === uid) { B.armed = null; playCard(i); return; }
+  B.armed = uid; sfx('click'); renderBattle();
+}
 function togglePin(i) {
   if (!B || B.phase !== 'player' || B.anim) return;
   const c = B.hand[i]; if (!c || c.temp) return;
@@ -387,6 +395,7 @@ function startPlayerTurn() {
   applyBossHand();
   banner('你的回合！');
   renderBattle();
+  if (p.tier > 0 && p.evoTurns === 1 && !maintainBlock(p)) maintainAsk(p);   // v16.5：最後一回合自動詢問要不要維持進化
   if (p.dark && Math.random() < .25) setTimeout(rampage, 500);
 }
 
@@ -709,6 +718,17 @@ function maintainEvo() {
   closePopups(); sfx('evolve'); floatText(f, `🔁 維持進化 +${MAINTAIN_TURNS} 回合`, 'super', 40);
   log(`🔁 ${f.name} 撐住了！進化再維持 ${MAINTAIN_TURNS} 回合，拿到 1 張究極技卡`);
   updateCourageUI(); renderBattle();
+}
+// 最後一回合開始時自動詢問要不要維持（勇氣值或刻度不夠就不問）
+async function maintainAsk(p) {
+  const myB = B; B.anim = true; renderBattle();
+  const crest = maintainUsesCrest(p), cost = maintainCost(p);
+  const c = await ask(null, `⏳ <b>${p.name}</b> 的進化只剩這 1 回合！要維持進化嗎？`, [
+    { text: '🔁 維持進化', note: `${crest ? `🔰 徽章刻度 ${cost} 格（現在 ${RUN.crestTicks || 0} 格）` : `🔥 勇氣值 ${cost}（現在 ${Math.floor(RUN.courage)}）`}：再撐 ${MAINTAIN_TURNS} 回合，＋1 張究極技卡` },
+    { text: '不用了', note: '這回合結束後退化（會力氣用盡）' }]);
+  if (B !== myB) return;
+  B.anim = false;
+  if (c === 0) maintainEvo(); else renderBattle();
 }
 function evolveTo(tier) {
   const f = B?.p;
@@ -1108,7 +1128,7 @@ async function battleReward(msgs, recruit, opt) {
 // ---------- v12：斜向戰場（我方在左下、敵人在右上） ----------
 // [x%, y%, 身高佔戰場高度 %]：d 一般、p 手機直拿、w 手機橫拿（很扁的畫面）
 const SLOTS = {
-  eUnit:  { d: [72, 62, 29], p: [70, 61, 24], w: [62, 63, 40] },
+  eUnit:  { d: [72, 62, 29], p: [68, 44, 24], w: [62, 63, 40] },   // v16.5：手機直拿時敵人往上移，不會被我方資訊框擋住
   pUnit:  { d: [32, 88, 26], p: [31, 94, 22], w: [36, 95, 36] },
   bUnit1: { d: [14, 72, 15], p: [10, 72, 12.5], w: [20, 70, 22] },
   bUnit2: { d: [8, 86, 14], p: [9, 88, 11.9], w: [14, 88, 21] },
@@ -1209,7 +1229,9 @@ function renderBattle() {
     B.hand.forEach((c, i) => {
       const d = cardDef(c.id);
       const marks = (c.burn ? '🔥' : '') + (isHalf(c, d) ? '☠️' : '') + (c.seen ? '🔍' : '') + (c.fog ? '🌫️' : '') + (c.encore ? '🎵' : '') + (c.noise ? '⚙️' : '') + (c.moon ? '🌙' : '') + (c.str ? '🎭' : '');
-      hand.appendChild(cardEl(c.id, { cost: cardCost(c, d), marks, fog: c.fog, playable: cardCost(c, d) <= B.energy && !(p.dark && !['atk', 'sig', 'ult'].includes(d.type)) && (!d.canPlay || d.canPlay()), key: i + 1, keep: c.temp, pin: c.temp ? undefined : !!c.pin, onPin: () => togglePin(i), onClick: () => playCard(i) }));
+      const ce = cardEl(c.id, { cost: cardCost(c, d), marks, fog: c.fog, playable: cardCost(c, d) <= B.energy && !(p.dark && !['atk', 'sig', 'ult'].includes(d.type)) && (!d.canPlay || d.canPlay()), key: i + 1, keep: c.temp, pin: c.temp ? undefined : !!c.pin, onPin: () => togglePin(i), onClick: () => tapCard(i, c.uid) });
+      if (c.uid === B.armed) ce.classList.add('armed');   // 已經點過一次：再點一次才出牌
+      hand.appendChild(ce);
     });
     if (!B.hand.length) hand.innerHTML = '<div class="waiting">沒有手牌了，按「結束回合」</div>';
   } else if (B.phase === 'choose') {

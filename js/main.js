@@ -605,11 +605,13 @@ function openAudioSettings() {
     <div class="aRow col"><span>🗣️ 進化語音</span><div class="aLangs">${VOICE_LANGS.map(([k, t]) => `<button class="btn" data-lang="${k}">${t}</button>`).join('')}</div></div>
     <p class="sub" id="aNote"></p>
     <div class="aRow"><span>🔋 省電模式</span><button class="btn" id="aPower"></button></div>
+    <div class="aRow"><span>👆 出牌要點兩次</span><button class="btn" id="aTap2"></button></div>
     <p class="sub">開啟後畫面每秒重畫比較少次、戰鬥背景沒有粒子、解析度降低、地圖的水面和迷霧不會動，比較不耗電。</p></div><button class="btn primary" id="mClose">關閉 (Esc)</button>`);
   const paint = () => {
     m.querySelector('#aMusic').textContent = VOICE.music ? '開' : '關'; m.querySelector('#aMusic').classList.toggle('primary', VOICE.music);
     m.querySelector('#aSfx').textContent = SFX.on ? '開' : '關'; m.querySelector('#aSfx').classList.toggle('primary', SFX.on);
     m.querySelector('#aPower').textContent = POWER.save ? '開' : '關'; m.querySelector('#aPower').classList.toggle('primary', POWER.save);
+    m.querySelector('#aTap2').textContent = TAP2.on ? '開' : '關'; m.querySelector('#aTap2').classList.toggle('primary', TAP2.on);
     m.querySelectorAll('[data-lang]').forEach(b => b.classList.toggle('primary', b.dataset.lang === VOICE.lang));
     const L = VOICE.lang;
     m.querySelector('#aNote').innerHTML = L === 'off' ? '進化時不念台詞。' : L === 'robot' ? '合成的機械音「Evolution」，每台裝置聽起來都一樣。'
@@ -619,6 +621,7 @@ function openAudioSettings() {
   };
   m.querySelector('#aMusic').onclick = () => { VOICE.music = !VOICE.music; VOICE.save(); if (!VOICE.music) BGM.stop(); paint(); };
   m.querySelector('#aSfx').onclick = () => { toggleSound(); paint(); };
+  m.querySelector('#aTap2').onclick = () => { TAP2.on = !TAP2.on; try { localStorage.setItem('digimon-tap2', TAP2.on ? 'on' : 'off'); } catch (e) { } toast(TAP2.on ? '👆 出牌要點兩次（第一次選中、第二次出牌）' : '👆 點一次就出牌'); paint(); };
   m.querySelector('#aPower').onclick = () => { POWER.toggle(); toast(POWER.save ? '🔋 省電模式開啟' : '🔋 省電模式關閉'); paint(); };
   m.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { VOICE.lang = b.dataset.lang; VOICE.save(); paint(); VOICE.evoLine({ img: 'Agumon', name: '亞古獸' }, { img: 'Greymon', name: '暴龍獸' }, 'evo'); });
   m.querySelector('#mClose').onclick = closeModal;
