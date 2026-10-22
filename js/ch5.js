@@ -256,7 +256,7 @@ async function hackReward() {
 
 // ---------- 徽章探索 ----------
 const crestLeft = () => Object.keys(KIDS).filter(k => k !== RUN.kid && !(RUN.crests || []).includes(k));
-const crestPartner = f => P2() && !!f && !!f.m && ((RUN.crests || []).some(k => KIDS[k] && KIDS[k].partner === f.m.sp) || (RUN.crestBinds || []).includes(f.m.uid));   // 徽章的主人（那個孩子的搭檔，或認主的夥伴）：不是隊長也能超進化
+const crestPartner = f => P2() && !!f && !!f.m && ((RUN.crests || (P3() ? Object.keys(KIDS) : [])).some(k => KIDS[k] && KIDS[k].partner === f.m.sp) || (RUN.crestBinds || []).includes(f.m.uid));   // 徽章的主人（那個孩子的搭檔，或認主的夥伴）：不是隊長也能超進化
 async function crestFound() {
   const left = crestLeft(); if (!left.length) return;
   const k = pick(left), kid = KIDS[k];

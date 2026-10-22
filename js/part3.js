@@ -48,7 +48,9 @@ async function startPart3() {
   chosenKid = rec.kid;
   RUN = { kid: rec.kid, team: rec.team.map(m => Object.assign(newMember(m.sp, m.level), { exp: m.exp || 0 })), items: ['potion', 'potion'], deck: [...rec.deck],
           courage: 10, bits: 80, relics: [], flags: {}, rules: 'p2', part: 3, chapter: 7, route: null, pos: null, visited: [], usedEvents: [], seen: [],
-          stats: { wins: 0, chapters: 0 }, crest: true, awaken: true, crestTicks: P3_TICKS, learned2: [] };
+          stats: { wins: 0, chapters: 0 }, crest: true, awaken: true, crestTicks: P3_TICKS, learned2: [],
+          crests: rec.crests || Object.keys(KIDS) };   // 第二部找到的徽章（舊紀錄沒存：當作全部都有）
+  RUN.crestBinds = RUN.team.filter((m, i) => rec.team[i].bound).map(m => m.uid);   // 認主的夥伴也帶過去
   RUN.team.forEach(m => m.hp = memberStats(m).maxhp);
   const pool = [...(rec.relics || [])];
   if (pool.length <= 3) RUN.relics = pool;

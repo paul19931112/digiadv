@@ -139,7 +139,7 @@ async function part2ChapterDone() {
   META.endings2 = [...new Set([...(META.endings2 || []), kind])];
   // 第二部通關紀錄（第三部接續用，最多 3 筆，太多就丟掉最舊的）
   META.records2 = [...(META.records2 || []), { id: Date.now(), kid: RUN.kid, ending: kind, date: new Date().toLocaleDateString('zh-TW'),
-    team: RUN.team.map(m => ({ sp: m.sp, level: m.level, exp: m.exp || 0 })), deck: [...RUN.deck], relics: RUN.relics.filter(k => RELICS[k] && !RELICS[k].dark) }].slice(-3);
+    team: RUN.team.map(m => ({ sp: m.sp, level: m.level, exp: m.exp || 0, bound: (RUN.crestBinds || []).includes(m.uid) })), crests: RUN.crests || [], deck: [...RUN.deck], relics: RUN.relics.filter(k => RELICS[k] && !RELICS[k].dark) }].slice(-3);
   recordDex(); saveMeta(); clearRun();
   const o = $('#overlay');
   o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">${E.icon}</div><h1>第二部 完成！</h1><p>${E.name}</p>

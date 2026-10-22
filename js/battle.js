@@ -1275,7 +1275,7 @@ function openEvo() {
   if (!$('#evoPanel').classList.contains('hidden')) { closePopups(); return; }
   const f = B.p, panel = $('#evoPanel');
   if (!f.sp.evo) { sfx('error'); toast(`🚫 ${f.name} 不會進化，只有原本的型態`, 3200); return; }
-  const tiers = P1() ? [1] : P2() ? (RUN.awaken ? [1, 2, 3] : [1, 2]) : [1, 2, 3];
+  const tiers = P1() ? [1] : [1, 2, 3];   // 第二部還沒覺醒時也列出究極體（灰掉＋寫原因），玩家才知道為什麼不能究極進化
   if (!tiers.some(t => !evoBlock(f, t)) && maintainBlock(f)) {   // 現在不能進化（也不能維持）：直接告訴玩家原因
     const t = tiers.find(t => t > f.tier) || tiers[tiers.length - 1];
     sfx('error'); toast(`✨ 現在不能進化：${evoBlock(f, t)}`, 3200);
