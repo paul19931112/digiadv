@@ -294,6 +294,7 @@ async function enterArea(nd) {
   saveRun();   // 一進節點就存檔：商店的貨、寶箱、敵人都固定下來，不能用重開來刷
   if (nd.type === 'boss') { await bossIntro(); AREA.introDone = true; saveRun(); }
   if (P2() && RUN.chapter === 4 && !RUN.crest && nd.f >= 2) await crestEvent();   // 第四章中段：拿到自己的徽章
+  if (P2() && RUN.chapter === 6 && !F().tempted && nd.f >= 2 && nd.type !== 'boss') await vampTempt();   // v16.4：吸血魔獸的誘惑（黑暗結局的入口）
   if (P2() && RUN.chapter === 6 && !RUN.awaken && nd.f >= CHAPTERS[6].floors - 2) await awakenEvent();   // 第六章：頭目前一層徽章覺醒
   if (AREA && AREA.objs.some(o => o.kind === 'clue' && !o.done)) setTimeout(() => toast('🔎 這附近好像有第 8 個孩子的線索……', 3500), 3300);
 }
@@ -505,11 +506,11 @@ async function restSpot() {
     { text: '特訓', note: '強化一張卡片', disabled: !RUN.deck.some(canUpgrade) },
     { text: '冥想', note: '勇氣值 +30' },
     { text: '先不要', note: '待會再來' },
-    ...(P3() ? [{ text: '🔰 徽章充能', note: `徽章刻度 +2（現在 ${RUN.crestTicks || 0} 格，不能回血）` }] : []),
+    ...(crestShop() ? [{ text: '🔰 徽章充能', note: `徽章刻度 +2（現在 ${RUN.crestTicks || 0} 格，不能回血）` }] : []),
     ...(hasDark() ? [{ text: '💧 淨化黑暗', note: '丟掉 1 個黑暗徽章（不能回血）' }] : []),
   ]);
-  if (P3() && c === 4) { RUN.crestTicks = (RUN.crestTicks || 0) + 2; sfx('levelup'); toast(`🔰 徽章充能！刻度 ${RUN.crestTicks} 格`, 3000); updateHUD(); return true; }
-  if (c === (P3() ? 5 : 4)) {   // 淨化黑暗：一個回復泉只能淨化 1 個
+  if (crestShop() && c === 4) { RUN.crestTicks = (RUN.crestTicks || 0) + 2; sfx('levelup'); toast(`🔰 徽章充能！刻度 ${RUN.crestTicks} 格`, 3000); updateHUD(); return true; }
+  if (c === (crestShop() ? 5 : 4)) {   // 淨化黑暗：一個回復泉只能淨化 1 個
     const darks = RUN.relics.filter(k => RELICS[k].dark);
     const k = darks.length > 1 ? await pickScreen({ title: '💧 要淨化哪一個？', sub: '回復泉只能洗掉 1 個黑暗徽章', items: darks, render: k => relicEl(k), skip: '取消' }) : darks[0];
     if (!k) return false;
@@ -568,7 +569,7 @@ async function openShop(o) {
           <button class="btn" id="svcUp" ${RUN.bits < upPrice || !RUN.deck.some(canUpgrade) ? 'disabled' : ''}>⬆️ 強化一張卡　💰${upPrice}<small>（第 ${upN} 次，每次 ×1.5）</small></button>
           ${showUlt ? `<button class="btn evo" id="svcUlt" ${RUN.bits < ultBoostPrice() ? 'disabled' : ''}>💠 究極強化：所有究極技 +25%　💰${ultBoostPrice()}</button>` : ''}
           <button class="btn" id="svcHeal" ${RUN.bits < 35 ? 'disabled' : ''}>💊 全隊回復 40%　💰35</button>
-          ${P3() ? `<button class="btn evo" id="svcCrest" ${RUN.bits < CREST_SHARD || (s.crestN || 0) >= 2 ? 'disabled' : ''}>🔰 徽章碎片：刻度 +1　💰${CREST_SHARD}<small>（這間店還能買 ${2 - (s.crestN || 0)} 個，現在 ${RUN.crestTicks || 0} 格）</small></button>` : ''}
+          ${crestShop() ? `<button class="btn evo" id="svcCrest" ${RUN.bits < CREST_SHARD || (s.crestN || 0) >= 2 ? 'disabled' : ''}>🔰 徽章碎片：刻度 +1　💰${CREST_SHARD}<small>（這間店還能買 ${2 - (s.crestN || 0)} 個，現在 ${RUN.crestTicks || 0} 格）</small></button>` : ''}
         </div>
         <button class="btn primary" id="shopLeave">離開商店</button>`;
       const cr = ov.querySelector('.cards'), rr = ov.querySelector('.relics');
@@ -601,7 +602,7 @@ async function openShop(o) {
         }
         render();
       };
-      if (P3()) ov.querySelector('#svcCrest').onclick = () => { if (RUN.bits < CREST_SHARD || (s.crestN || 0) >= 2) return; RUN.bits -= CREST_SHARD; s.crestN = (s.crestN || 0) + 1; RUN.crestTicks = (RUN.crestTicks || 0) + 1; sfx('levelup'); toast(`🔰 徽章刻度 +1（${RUN.crestTicks} 格）`); render(); };
+      if (crestShop()) ov.querySelector('#svcCrest').onclick = () => { if (RUN.bits < CREST_SHARD || (s.crestN || 0) >= 2) return; RUN.bits -= CREST_SHARD; s.crestN = (s.crestN || 0) + 1; RUN.crestTicks = (RUN.crestTicks || 0) + 1; sfx('levelup'); toast(`🔰 徽章刻度 +1（${RUN.crestTicks} 格）`); render(); };
       if (showUlt) ov.querySelector('#svcUlt').onclick = () => {
         if (RUN.bits < ultBoostPrice()) return;
         RUN.bits -= ultBoostPrice(); RUN.relics.push('ultboost'); sfx('levelup');

@@ -50,6 +50,13 @@ function showBossInfo() {
   battleNotice(`😈 頭目 ${B.e.name} 的能力`, BOSS_INFO[B.dom], '💡 商店的「✨ 淨化」卡可以清除手牌和夥伴身上的負面效果。之後點敵人面板右下角的標籤可以再看一次。');
 }
 
+// 徽章刻度：一格一格的 ◆（沒有上限，超過 10 格換行）；不到 10 格的部分用 ◇ 補滿一排
+function crestBar(n) {
+  n = Math.max(0, n || 0);
+  const rows = [], full = Math.max(10, Math.ceil(n / 10) * 10);
+  for (let i = 0; i < full; i += 10) rows.push('◆'.repeat(Math.max(0, Math.min(10, n - i))) + '◇'.repeat(Math.max(0, Math.min(10, i + 10 - Math.max(n, i)))));
+  return rows.join('<br>') + ` ${n}`;
+}
 function gainCourage(n, show) {
   n = hv(n);
   const before = Math.floor(RUN.courage);
@@ -76,7 +83,7 @@ function updateCourageUI() {
   document.querySelectorAll('.courageBar>i').forEach(e => e.style.width = pct);
   const showCrest = P2() && RUN.crest;   // 第二部：徽章刻度
   document.querySelectorAll('.crestRow').forEach(e => e.classList.toggle('hidden', !showCrest));
-  if (showCrest) document.querySelectorAll('.crestVal').forEach(e => e.textContent = `${'◆'.repeat(Math.max(0, RUN.crestTicks))}${'◇'.repeat(Math.max(0, CREST_TICKS - RUN.crestTicks))} ${RUN.crestTicks}`);
+  if (showCrest) document.querySelectorAll('.crestVal').forEach(e => e.innerHTML = crestBar(RUN.crestTicks));
 }
 
 // ---------- 核心計算 ----------
@@ -368,7 +375,7 @@ function startPlayerTurn() {
   if (K().discEvery) B.firstDisc = true;   // 嘉兒覺醒：每回合第一張牌 -1
   B.switchedThisTurn = false; B.relayFree = false; B.pinBonus = 0;
   if (B.dom === 'heat') { p.st.burn = Math.max(p.st.burn || 0, 1); floatText(p, '🔥 灼熱！', 'dot', 40); }
-  if (p.tier > 0) { p.evoTurns--; if (p.evoTurns <= 0) { devolve(); if (exhaust(p)) return; } }
+  if (p.tier > 0) { p.evoTurns--; if (p.evoTurns <= 0) { devolve(); if (exhaust(p)) return; } else if (p.evoTurns === 1 && !p.dark) log(`⏳ ${p.name} 的進化只剩這 1 回合！可以按「🔁 維持進化」再撐 ${MAINTAIN_TURNS} 回合`); }
   const carry = Math.min(CARRY_MAX, B.carry || 0);
   B.carry = 0;
   B.energy = ENERGY + carry + (B.firstTurn && has('light') ? 1 : 0);
@@ -386,6 +393,7 @@ function startPlayerTurn() {
 async function playCard(i, forced) {
   if (!B || B.phase !== 'player' || (!forced && popupOpen()) || B.anim) return;
   const c = B.hand[i]; if (!c) return;
+  B.angelHit = false;   // 最後一擊是不是天女獸（第二部隱藏結局）
   const d = cardDef(c.id), cost = cardCost(c, d);
   if (B.p.dark && !['atk', 'sig', 'ult'].includes(d.type)) { floatText(B.p, '暴走中！只能攻擊', 'info'); return; }
   if (d.canPlay && !d.canPlay()) { floatText(B.p, '現在無法使用', 'info'); return; }
@@ -503,7 +511,8 @@ function enemyTurn(actor) {
       cannonFire(e, p);
     } else if (m.kind === 'serenade') {   // 猴子獸：愛之小夜曲・全力
       if (!B.serenadeBroken && B.serenadeHp - e.hp >= B.serenadeNeed) B.serenadeBroken = true;   // 燒傷、援護、反擊也算
-      if (B.serenadeBroken) { floatText(e, '🎤 唱不下去…', 'info'); log('🎤 歌被打斷了，猴子獸愣在原地！'); }
+      applyHit(e, p, 8);   // v16.4：歌聲本身就是攻擊
+      if (B.serenadeBroken) { floatText(e, '🎤 唱不完整…', 'info'); log('🎤 歌被打斷了，只剩下刺耳的噪音（沒有陶醉）！'); }
       else { B.charmed = true; floatText(p, '💘 陶醉', 'dot'); log('💘 愛之小夜曲！夥伴聽得陶醉了——下回合能量 -1'); }
     } else if (m.kind === 'support') {
       venomAct(e, m);
@@ -618,8 +627,8 @@ function evoBlock(f, tier) {
   if (P2() && tier >= 2) {   // 第二部：要有徽章、先進化成前一個階段、刻度夠
     if (!RUN.crest) return '要先在伺服大陸找到徽章';
     if (tier === 3 && !RUN.awaken) return '究極進化要等第六章的覺醒';
-    if (f.tier !== tier - 1) return tier === 2 ? '要先進化成成熟期' : '要先超進化成完全體';
-    if (!B.freeCrest && (RUN.crestTicks || 0) < crestCost(tier)) return `徽章刻度不足（需要 ${crestCost(tier)} 格）`;
+    if (f.tier < 1) return '要先進化成成熟期';   // v16.4：成熟期可以直接究極進化（2 格）
+    if (!B.freeCrest && (RUN.crestTicks || 0) < crestCost(tier, f.tier)) return `徽章刻度不足（需要 ${crestCost(tier, f.tier)} 格）`;
   }
   if (f.m.level < TIERS[tier].lv) return `需要 Lv.${TIERS[tier].lv}`;
   if (RUN.courage < evoCost(f, tier) && RUN.courage < FORCE_MIN) return `勇氣值不足（強行進化至少要 ${FORCE_MIN}）`;
@@ -680,6 +689,27 @@ function doEvolve(f, tier, dark) {
   }
   renderBattle();
 }
+// v16.4 進化維持：最後 1 回合可以花勇氣值（成熟期）或徽章刻度（完全體、究極體）再撐 2 回合，＋1 張究極技卡；不限次數
+const MAINTAIN_COURAGE = 20, MAINTAIN_TURNS = 2;
+const maintainUsesCrest = f => P2() && f.tier >= 2;
+const maintainCost = f => maintainUsesCrest(f) ? 1 : MAINTAIN_COURAGE;
+function maintainBlock(f) {
+  if (!f.tier) return '還沒有進化';
+  if (f.dark) return '暴走中，無法控制';
+  if (f.evoTurns > 1) return `最後 1 回合才能維持（還剩 ${f.evoTurns} 回合）`;
+  if (maintainUsesCrest(f) ? (RUN.crestTicks || 0) < 1 : RUN.courage < MAINTAIN_COURAGE) return maintainUsesCrest(f) ? '徽章刻度不足（需要 1 格）' : `勇氣值不足（需要 ${MAINTAIN_COURAGE}）`;
+  return null;
+}
+function maintainEvo() {
+  const f = B?.p;
+  if (!f || B.phase !== 'player' || B.anim || maintainBlock(f)) return;
+  if (maintainUsesCrest(f)) { RUN.crestTicks -= 1; log(`🔰 徽章刻度 -1（剩 ${RUN.crestTicks} 格）`); } else RUN.courage -= MAINTAIN_COURAGE;
+  f.evoTurns += MAINTAIN_TURNS;
+  B.hand.push({ uid: ++uidSeq, id: 'ult', temp: true });
+  closePopups(); sfx('evolve'); floatText(f, `🔁 維持進化 +${MAINTAIN_TURNS} 回合`, 'super', 40);
+  log(`🔁 ${f.name} 撐住了！進化再維持 ${MAINTAIN_TURNS} 回合，拿到 1 張究極技卡`);
+  updateCourageUI(); renderBattle();
+}
 function evolveTo(tier) {
   const f = B?.p;
   if (!f || B.phase !== 'player' || B.anim || evoBlock(f, tier)) return;
@@ -692,7 +722,7 @@ function evolveTo(tier) {
   }
   if (P2() && tier >= 2) {   // 第二部：超進化花徽章刻度
     if (B.freeCrest) { B.freeCrest = false; log('🔰 標籤共鳴：這次超進化不消耗徽章刻度！'); }
-    else { RUN.crestTicks -= crestCost(tier); log(`🔰 徽章刻度 -${crestCost(tier)}（剩 ${RUN.crestTicks} 格）`); }
+    else { const cc = crestCost(tier, f.tier); RUN.crestTicks -= cc; log(`🔰 徽章刻度 -${cc}（剩 ${RUN.crestTicks} 格）`); }
   }
   const r = Math.random();
   if (r < o.success) doEvolve(f, tier, false);
@@ -836,7 +866,7 @@ function flee() {
 }
 
 function checkEnd() {
-  if (B.parts) { partsCheck(); if (B.partsAll ? !livingParts().length : B.parts.core.hp <= 0) { B.e = B.parts.core || Object.values(B.parts)[0]; win(); return true; } }   // 吸血魔王獸：打倒本體；雙頭目：全部打倒
+  if (B.parts) { partsCheck(); if (B.partsAll ? !livingParts().length : B.parts.core.hp <= 0) { B.e = B.parts.core || Object.values(B.parts)[0]; if (B.dom === 'vamp') RUN.flags.p2finish = B.angelHit || B.p.tier === 3 ? 'holy' : 'normal'; win(); return true; } }   // 吸血魔王獸：打倒本體；雙頭目：全部打倒
   else if (B.e.hp <= 0) { win(); return true; }
   if (B.p.hp <= 0 && K().loveGuard && (B.loveUsed || 0) < (K().loveGuardN || 1)) {   // 素娜：愛的守護（每場戰鬥一次，覺醒後 2 次）
     B.loveUsed = (B.loveUsed || 0) + 1; B.p.hp = 1;
@@ -939,6 +969,7 @@ function win() {
   syncTeamHp();
   if (has('love')) teamHeal(.1);
   if (K().winHeal) teamHeal(K().winHeal);
+  if (crestShop() && (opt.boss || opt.elite) && !persuaded) { const g = opt.boss ? 2 : 1; RUN.crestTicks = (RUN.crestTicks || 0) + g; log(`🔰 徽章刻度 +${g}（${RUN.crestTicks} 格）`); }   // v16.4：打倒精英 +1、頭目 +2
   const mult = (opt.boss ? 4 : opt.elite ? (P3() ? 4 : 2) : 1) * (persuaded ? .5 : 1);   // 勸降只拿一半經驗
   const exp = Math.round(e.lvl * 5 * mult);
   const msgs = [];
@@ -1198,8 +1229,9 @@ function renderBattle() {
   pb.innerHTML = hard ? `🤝 ${hard}` : `🤝 勸降 ${Math.round(persuadeChance() * 100)}%<small>${why ? why : '可選擇代價'}</small>`;
   const be = $('#btnEvo');
   be.disabled = !my;
-  be.classList.toggle('blocked', ![1, 2, 3].some(t => !evoBlock(p, t)));   // 不能進化也可以按：會說明原因
-  be.textContent = p.tier === 3 ? '✨ 究極體！' : p.tier ? '✨ 再進化 (E)' : '✨ 進化 (E)';
+  be.classList.toggle('blocked', ![1, 2, 3].some(t => !evoBlock(p, t)) && !!maintainBlock(p));
+  be.classList.toggle('maintain', !maintainBlock(p));   // 不能進化也可以按：會說明原因
+  be.textContent = !maintainBlock(p) ? '🔁 維持進化 (E)' : p.tier === 3 ? '✨ 究極體！' : p.tier ? '✨ 再進化 (E)' : '✨ 進化 (E)';
   updateGauges();
 }
 function updateGauges() {
@@ -1219,13 +1251,22 @@ function openEvo() {
   if (!$('#evoPanel').classList.contains('hidden')) { closePopups(); return; }
   const f = B.p, panel = $('#evoPanel');
   const tiers = P1() ? [1] : P2() ? (RUN.awaken ? [1, 2, 3] : [1, 2]) : [1, 2, 3];
-  if (!tiers.some(t => !evoBlock(f, t))) {   // 現在不能進化：直接告訴玩家原因
+  if (!tiers.some(t => !evoBlock(f, t)) && maintainBlock(f)) {   // 現在不能進化（也不能維持）：直接告訴玩家原因
     const t = tiers.find(t => t > f.tier) || tiers[tiers.length - 1];
     sfx('error'); toast(`✨ 現在不能進化：${evoBlock(f, t)}`, 3200);
     if (f.tier >= tiers[tiers.length - 1]) return;
   }
   closePopups(); sfx('open');
   panel.innerHTML = `<h3><span>選擇進化的強度　🔥 勇氣值 ${Math.floor(RUN.courage)}</span><button class="btn" id="evoClose">關閉</button></h3>`;
+  if (f.tier > 0 && !f.dark) {   // 🔁 進化維持
+    const why = maintainBlock(f), el = document.createElement('div'), cc = maintainCost(f), crest = maintainUsesCrest(f);
+    el.className = 'evoOpt' + (why ? ' off' : '');
+    el.innerHTML = `${dpic(f.img, f.emoji, 's64')}<div><div class="nm">🔁 維持進化<span class="tierTag">${TIERS[f.tier].name}</span></div>
+      <div class="info">再持續 ${MAINTAIN_TURNS} 回合　｜　＋1 張究極技卡　｜　最後 1 回合才能用，不限次數</div>${why ? `<div class="why">${why}</div>` : ''}</div>
+      <div class="cost">${crest ? `🔰 ${cc}<br><small>剩 ${RUN.crestTicks || 0}</small>` : `🔥 ${cc}`}</div>`;
+    if (!why) el.onclick = maintainEvo;
+    panel.appendChild(el);
+  }
   tiers.forEach(t => {
     const T = TIERS[t], ev = f.sp.evo[t - 1], why = evoBlock(f, t), cost = Math.max(0, evoCost(f, t));
     const o = why ? null : evoOdds(f, t), force = !!(o && o.force), risky = !!(o && !force && o.wrong > 0);
@@ -1237,7 +1278,7 @@ function openEvo() {
       ${force ? `<div class="odds"><span class="ok">成功 ${pct(o.total)}%</span>${o.wrong > 0 ? `<span class="bad">（其中失控 ${pct(o.wrong)}%）</span>` : ''}<span class="fail">失敗 ${pct(o.fail)}%</span>${o.charm ? '<span>🧿 護符生效</span>' : ''}</div>` : ''}
       ${risky ? `<div class="odds"><span class="bad">⚠️ 失控 ${pct(o.wrong)}%（${[hasDark() ? '🌑 黑暗徽章' : '', B.wrongN ? `💢 這場已失控 ${B.wrongN} 次` : ''].filter(Boolean).join('、')}）</span></div>` : ''}${o && !force && o.charm ? '<div class="odds"><span>🧿 護符生效：這次不會失控</span></div>' : ''}
       ${why ? `<div class="why">${why}</div>` : ''}</div>
-      <div class="cost">${P2() && t >= 2 ? `🔰 ${crestCost(t)}<br><small>剩 ${RUN.crestTicks || 0}</small>` : `🔥 ${force ? `${Math.floor(RUN.courage)}/${cost}<br><small>全部用掉</small>` : cost}`}</div>`;
+      <div class="cost">${P2() && t >= 2 ? `🔰 ${crestCost(t, f.tier)}<br><small>剩 ${RUN.crestTicks || 0}</small>` : `🔥 ${force ? `${Math.floor(RUN.courage)}/${cost}<br><small>全部用掉</small>` : cost}`}</div>`;
     if (!why) el.onclick = () => evolveTo(t);
     panel.appendChild(el);
   });

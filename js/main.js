@@ -348,6 +348,8 @@ function openRecords() {
     <div class="saveBox"><h3>🏆 結局（${(M.endings || []).length} / ${Object.keys(ENDINGS).length}）</h3>
       ${Object.keys(ENDINGS).map(k => `<div class="recRow"><b>${ENDINGS[k].icon} ${ENDINGS[k].name}</b><span>${(M.endings || []).includes(k) ? '✅ 已達成' : '❔ 還沒看過'}</span></div>`).join('')}
       <div class="mini2">通關次數 ${M.clears || 0}　｜　冒險次數 ${M.runs || 0}</div></div>
+    <div class="saveBox"><h3>🏆 第二部結局（${(M.endings2 || []).length} / ${Object.keys(ENDINGS2).length}）</h3>
+      ${Object.keys(ENDINGS2).map(k => `<div class="recRow"><b>${ENDINGS2[k].icon} ${ENDINGS2[k].name}</b><span>${(M.endings2 || []).includes(k) ? '✅ 已達成' : '❔ 還沒看過'}</span></div>`).join('')}</div>
     <div class="saveBox"><h3>📖 進度</h3>
       ${part('🌍 第二部・伺服大陸篇', part2Unlocked(), M.p2clear ? '✅ 已通關' : M.p2ch ? `打到第 ${M.p2ch} 章` : '已解鎖，還沒開始')}
       ${part('🌋 第三部・黑暗四天王篇', part3Unlocked(), M.p3ch ? `打到第 ${M.p3ch} 章` : '已解鎖，還沒開始')}

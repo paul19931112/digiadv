@@ -24,7 +24,7 @@ const part2Unlocked = () => META.endings.length >= 1;   // v16.3：拿到任一�
 // ---------- 通關紀錄 ----------
 function recordEl(r) {
   const el = document.createElement('div'); el.className = 'relic clickable recordCard';
-  const e = ENDINGS[r.ending];
+  const e = ENDINGS[r.ending] || (typeof ENDINGS2 !== 'undefined' && ENDINGS2[r.ending]);
   el.innerHTML = `<div class="ri">${e ? e.icon : '🏁'}</div><div style="flex:1"><b>${KIDS[r.kid].name}${e ? '・' + e.name : ''}</b>
     <div class="rd">${r.team.map(m => `${SPECIES[m.sp].name} Lv.${m.level}`).join('、')}<br>牌組 ${r.deck.length} 張｜道具 ${r.relics.length} 個｜${r.date}</div></div>`;
   return el;
@@ -118,23 +118,32 @@ async function crestEvent() {
   saveRun(); updateHUD();
 }
 
-// ---------- 第二部結局（第三部製作中） ----------
+// ---------- 第二部結局（接第三部） ----------
 async function part2ChapterDone() {
   G.mode = 'busy';
+  const kind = part2EndingKind(), E = ENDINGS2[kind];
+  const first = { light2: [{ bg: 'light', music: 'route', amb: null, chars: [['partner', 30, 76, 32, 'in-l']], lines: [[null, '紫色的霧散去，東京迎來了早晨。'], ['partner', '我們贏了……！吸血魔獸被打倒了！'], ['me', '大家，謝謝你們。']] }],
+    hidden2: [{ bg: 'light', music: 'route', amb: null, sting: true, chars: [['Angewomon', 66, 76, 44, 'in-r'], ['partner', 26, 78, 28, 'in-l']], fx: '<div class="cutRays" style="--rx:66%;--ry:30%"></div>',
+      lines: [[null, '神聖之箭的光芒劃破紫色的霧——東京迎來了早晨。'], [{ img: 'Angewomon', name: '天女獸' }, '謝謝你們……讓我找到了我的孩子。']] },
+      { bg: 'light', music: 'route', amb: null, chars: [['Tailmon', 60, 78, 26, 'in-r'], ['partner', 26, 78, 28, 'in-l']],
+      lines: [['hikari', '……迪路獸，我一直在等你。'], [{ img: 'Tailmon', name: '迪路獸' }, '嘉兒！我終於見到妳了！'], ['me', '第 8 個孩子……原來就是嘉兒！'], [null, `🌈 <b>${E.name}</b>`]] }],
+    dark2: [{ bg: 'void', music: null, amb: 'drone', chars: [['partner', 40, 78, 32, 'dark']], lines: [[null, '吸血魔王獸倒下了。可是——東京的天空，沒有亮起來。'],
+      ['partner', '力量……停不下來……'], ['me', '這就是……黑暗之力的代價嗎……'], [null, `🌑 <b>${E.name}</b>`]] }] }[kind];
   await cutscene([
-    { bg: 'light', music: 'route', amb: null, chars: [['partner', 30, 76, 32, 'in-l']], lines: [[null, '紫色的霧散去，東京迎來了早晨。'], ['partner', '我們贏了……！吸血魔獸被打倒了！'], ['me', '大家，謝謝你們。']] },
-    { bg: 'tokyo', music: null, amb: 'drone', chars: [], lines: [[null, '可是——天空裂開了一道縫，裡面映出數碼世界扭曲的樣子。'], [null, '一座倒過來的山，從雲裡垂了下來……']] },
-    { bg: 'void', music: null, amb: 'drone', chars: [['Piemon', 50, 78, 56, 'dark']], fx: '<div class="cutTitle"><b>第三部</b><strong>黑暗四天王</strong><small>製作中・敬請期待</small></div>',
+    ...first,
+    { bg: 'tokyo', music: null, amb: 'drone', chars: [], lines: [[null, '天空裂開了一道縫，裡面映出數碼世界扭曲的樣子。'], [null, '一座倒過來的山，從雲裡垂了下來……']] },
+    { bg: 'void', music: null, amb: 'drone', chars: [['Piemon', 50, 78, 56, 'dark']], fx: '<div class="cutTitle"><b>第三部</b><strong>黑暗四天王</strong><small>標題畫面已經可以開始第三部了！</small></div>',
       lines: [['shadow', '吸血魔獸只不過是開場的小丑而已。'], ['shadow', '來吧，被選召的孩子們——數碼世界的真正黑暗，在等著你們。']] },
   ]);
   META.p2ch = Math.max(META.p2ch || 0, RUN.chapter); META.p2clear = (META.p2clear || 0) + 1; META.clears++;
+  META.endings2 = [...new Set([...(META.endings2 || []), kind])];
   // 第二部通關紀錄（第三部接續用，最多 3 筆，太多就丟掉最舊的）
-  META.records2 = [...(META.records2 || []), { id: Date.now(), kid: RUN.kid, date: new Date().toLocaleDateString('zh-TW'),
+  META.records2 = [...(META.records2 || []), { id: Date.now(), kid: RUN.kid, ending: kind, date: new Date().toLocaleDateString('zh-TW'),
     team: RUN.team.map(m => ({ sp: m.sp, level: m.level, exp: m.exp || 0 })), deck: [...RUN.deck], relics: RUN.relics.filter(k => RELICS[k] && !RELICS[k].dark) }].slice(-3);
   recordDex(); saveMeta(); clearRun();
   const o = $('#overlay');
-  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">🌅</div><h1>第二部 完成！</h1>
-    <p>第三部「黑暗四天王」還在製作中，敬請期待（這次的隊伍已經存成第二部通關紀錄）</p>
+  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">${E.icon}</div><h1>第二部 完成！</h1><p>${E.name}</p>
+    <p>這次的隊伍已經存成第二部通關紀錄，可以從標題畫面開始「第三部・黑暗四天王篇」</p>
     <div class="endTeam">${RUN.team.map(m => spPic(m.sp, 's80')).join('')}</div>
     <p>擊敗 ${RUN.stats.wins} 隻敵人　｜　隊伍 ${RUN.team.length} 隻　｜　牌組 ${RUN.deck.length} 張</p>
     <button class="btn primary big" id="p2Back">回到標題</button></div>`;

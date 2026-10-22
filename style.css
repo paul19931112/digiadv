@@ -849,3 +849,5 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 /* v16.1 我的紀錄 */
 .recRow { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid #ffffff14; font-size: 14px; }
 .recRow span { color: var(--muted); text-align: right; }
+/* v16.4 進化維持：最後一回合時進化按鈕會發光 */
+#btnEvo.maintain { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; box-shadow: 0 0 12px #f59e0baa; }

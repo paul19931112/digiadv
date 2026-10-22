@@ -61,7 +61,7 @@ async function eighthChild() {
 // 天女獸援護：只能從線索得到
 ASSISTS.angewomon = { sp: 'plotmon', name: '天女獸', img: 'Angewomon', move: '神聖之箭', special: true,
   desc: '造成大傷害；打吸血魔王獸的左翼或右臂時直接擊破該部位',
-  fx: a => { if (B.parts && B.e !== B.parts.core && B.e.hp > 0) { const d = B.e.hp; B.e.hp = 0; floatText(B.e, `-${d} ✨ 擊破！`, 'crit'); shake(B.e); sfx('crit'); log(`🏹 神聖之箭貫穿了${B.e.name}！`); }
+  fx: a => { B.angelHit = true; if (B.parts && B.e !== B.parts.core && B.e.hp > 0) { const d = B.e.hp; B.e.hp = 0; floatText(B.e, `-${d} ✨ 擊破！`, 'crit'); shake(B.e); sfx('crit'); log(`🏹 神聖之箭貫穿了${B.e.name}！`); }
              else assistHit(a, 46); } };
 
 // ---------- 頭目前一層：徽章覺醒 ----------
@@ -122,4 +122,38 @@ function venomAct(e, m) {
   const core = B.parts && B.parts.core;
   if (core && core.hp > 0) { gainBlock(core, Math.round(core.maxhp * .05)); addStatus(core, 'atkUp', 2); floatText(core, '🦇 黑暗之翼的加持', 'info', 40); log(`🦇 左翼包覆住本體：本體獲得護盾、攻擊↑`); }
   return true;
+}
+
+// =========================================================
+//   v16.4 第二部的三種結局
+//   ☀️ 光明：一般通關
+//   🌈 隱藏「第 8 個孩子」：集滿 3 條線索、拿到天女獸援護，最後一擊是神聖之箭或究極體
+//   🌑 黑暗：接受吸血魔獸的「黑暗之力」，帶著它打倒吸血魔王獸
+// =========================================================
+const ENDINGS2 = {
+  light2:  { name: '光明結局「東京的早晨」', icon: '🌅' },
+  hidden2: { name: '隱藏結局「第 8 個孩子」', icon: '🌈' },
+  dark2:   { name: '黑暗結局「沒有黎明的城市」', icon: '🌑' },
+};
+function part2EndingKind() {
+  if (hasDark()) return 'dark2';
+  const angel = (RUN.flags.assistGot || []).includes('angewomon');
+  if ((F().clues || 0) >= 3 && angel && RUN.flags.p2finish === 'holy') return 'hidden2';
+  return 'light2';
+}
+// 第六章：吸血魔獸的誘惑（一場冒險只出現一次）
+async function vampTempt() {
+  F().tempted = true;
+  await cutscene([{ bg: 'tokyo', music: null, amb: 'drone', chars: [['Vamdemon', 62, 78, 50, 'dark'], ['partner', 22, 78, 26, 'in-l']],
+    lines: [[null, '紫色的霧裡，浮現出一個披著斗篷的影子。'], ['shadow', '被選召的孩子……你們的力量，還遠遠不夠。'],
+      ['shadow', '我可以把黑暗之力借給你們。只要接受，你們就能輕鬆打倒任何敵人……'], ['partner', '不、不要相信他……！']] }]);
+  const c = await ask(null, '要接受吸血魔獸的「黑暗之力」嗎？', [
+    { text: '🌑 接受黑暗之力', note: '得到「黑暗之力」：進化勇氣 -30%、全隊攻擊 ×1.2，但進化容易失控。帶著它打倒吸血魔王獸會走向黑暗結局（回復泉可以淨化）' },
+    { text: '拒絕', note: '什麼都不會發生' }]);
+  if (c === 0) {
+    if (!has('darkpower')) RUN.relics.push('darkpower');
+    sfx('wrongevo');
+    await say(null, '🌑 黑暗的力量流進了數碼裝置……夥伴的眼神，染上了一絲陰影。');
+  } else await say('partner', '我們不需要那種力量！靠我們自己的力量打倒你！');
+  saveRun(); updateHUD();
 }

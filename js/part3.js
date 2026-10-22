@@ -43,7 +43,7 @@ async function startPart3() {
   const recs = META.records2 || [];
   if (!recs.length) { toast('還沒有第二部的通關紀錄'); return; }
   const rec = await pickScreen({ title: '🌋 第三部・黑暗四天王篇', sub: '選一筆第二部的通關紀錄接續：隊伍、等級、牌組都會帶過去；數碼幣、背包、勇氣值重新開始',
-    items: recs, skip: '返回', render: r => recordEl({ ...r, ending: null }) });
+    items: recs, skip: '返回', render: r => recordEl(r) });
   if (!rec) return;
   chosenKid = rec.kid;
   RUN = { kid: rec.kid, team: rec.team.map(m => Object.assign(newMember(m.sp, m.level), { exp: m.exp || 0 })), items: ['potion', 'potion'], deck: [...rec.deck],
@@ -218,7 +218,7 @@ function cannonCheck() {
 // 發射
 function cannonFire(e, p) {
   if (!B.cannonBroken && B.cannonHp - e.hp >= B.cannonNeed) B.cannonBroken = true;
-  if (B.cannonBroken) { floatText(e, '💨 大砲故障…', 'info'); log('💨 無限大砲被打斷，冒出一陣黑煙！'); return; }
+  if (B.cannonBroken) { floatText(e, '💨 大砲故障…', 'info'); log('💨 無限大砲被打斷，只射出一發普通的砲彈！'); applyHit(e, p, 12); return; }
   log('💥💥 無限大砲發射！'); applyHit(e, p, CANNON_POWER, { pierce: true });
 }
 const cannonText = () => B.cannonBroken ? '💥 （大砲已經打斷）' : `💥 無限大砲集氣中（再打 ${Math.max(0, B.cannonNeed - (B.cannonHp - B.e.hp))} 傷害打斷！）`;
@@ -273,6 +273,7 @@ function keyPrep(e) {
 function keyCast(e, p) {
   const cands = B.fighters.filter(f => f !== p && f.hp > 0 && !f.keychain);
   if (!cands.length) { log(`🃏 後排沒有夥伴可以變，${e.name} 改用撲克劍直接攻擊！`); applyHit(e, p, 18); return; }
+  applyHit(e, p, 8);   // v16.4：施放魔術的同時用撲克劍攻擊
   const f = pick(cands); f.keychain = true; B.keyDmg = 0;
   floatText(p, `🃏 ${f.name} 變成鑰匙圈了！`, 'super', 50); sfx('wrongevo');
   log(`🃏 小丑皇的魔術！${f.name} 被變成了鑰匙圈（打出 ${Math.round(e.maxhp * KEY_PCT)} 傷害救回來）`);

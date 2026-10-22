@@ -30,7 +30,8 @@ const NEW = () => P1() || P2();   // 第一部、第二部共用的新規則（�
 const COURAGE_MAX_P1 = 40;
 const courageMax = () => NEW() ? COURAGE_MAX_P1 : COURAGE_MAX;
 const tierCap = f => P1() ? 1 : P2() ? ((f.leader || (typeof crestPartner === 'function' && crestPartner(f))) ? (RUN.awaken ? 3 : RUN.crest ? 2 : 1) : 1) : (f.leader ? 3 : 1);   // 能進化到的最高階段
-const crestCost = tier => tier >= 3 ? 2 : 1;   // 第二部：超進化花 1 格徽章刻度、究極進化花 2 格
+const crestCost = (tier, from = tier - 1) => Math.max(1, tier - Math.max(1, from));   // v16.4：每往上一階 1 格（成熟期→完全體 1、完全體→究極體 1、成熟期直接究極進化 2）
+const crestShop = () => P2() && RUN && RUN.crest;   // 有徽章之後：回復泉可以充能、商店賣徽章碎片
 const CREST_KEYS = ['courage', 'friendship', 'love', 'knowledge', 'sincerity', 'purity', 'hope', 'light'];
 const teamMax = () => 6 + (K().teamPlus || 0);
 const RECRUIT_CHANCE = 0.2;
@@ -475,7 +476,7 @@ const RELICS = {
   ultboost:  { name: '究極強化', icon: '💠', desc: '所有究極技威力 +25%（商店購買）', special: true },
   ultproof:  { name: '究極之證', icon: '🏅', desc: '進化時多拿 1 張究極技卡（隱藏獎勵）', special: true },
   darkgear:  { name: '黑色齒輪', icon: '⚙️', desc: '全隊攻擊 ×1.25，但每回合開始失去 3% HP、進化失控機率 +50%；帶著它打倒惡魔獸會走向黑暗結局（回復泉可以淨化）', dark: true },
-  darkpower: { name: '黑暗之力', icon: '🌑', desc: '進化所需勇氣值 -30%，全隊攻擊 ×1.2，但進化失控機率 +50%；帶著它打倒惡魔獸會走向黑暗結局（回復泉可以淨化）', dark: true },
+  darkpower: { name: '黑暗之力', icon: '🌑', desc: '進化所需勇氣值 -30%，全隊攻擊 ×1.2，但進化失控機率 +50%；帶著它打倒最後的頭目會走向黑暗結局（回復泉可以淨化）', dark: true },
 };
 const has = k => RUN.relics.includes(k);
 
@@ -666,7 +667,7 @@ const CAT_INFO = {
   atk: { icon: '⚔️', name: '攻擊', get max() { return P2() ? 9 : 8; } },   // 第二部 9 張
   def: { icon: '🛡️', name: '防禦回復', get max() { return P2() ? 7 : 6; } },
   cou: { icon: '🔥', name: '勇氣', max: 3 },
-  buf: { icon: '💨', name: '強化干擾', max: 4 },
+  buf: { icon: '💨', name: '強化干擾', get max() { return P2() ? 6 : 4; } },   // v16.4：第二部新增很多強化卡，第二、三部放寬到 6 張
   sig: { icon: '✴️', name: '必殺', max: 3 },
 };
 const CARD_CAT = {
@@ -712,10 +713,12 @@ const healAmt = n => Math.round(n * K().heal);
 function newMember(sp, level) {
   return { uid: Date.now() + Math.random(), sp, level, exp: 0, hp: scaleStats(SPECIES[sp], level).maxhp };
 }
+let BOSS_SPD = 1.25;   // 第二、三部頭目的速度倍率
 function makeEnemy(id, lv, opt = {}) {
   const sp = SPECIES[id], s = scaleStats(sp, lv);
   if (sp.weak) { s.maxhp = Math.round(s.maxhp * .6); s.atk = Math.round(s.atk * .85); s.def = Math.round(s.def * .9); }
   if (opt.elite) { s.maxhp = Math.round(s.maxhp * 1.6); s.atk = Math.round(s.atk * 1.25); }
+  if (opt.elite && typeof RUN !== 'undefined' && RUN && RUN.part === 3) s.maxhp = Math.round(s.maxhp * .65);   // v16.4：第三部精英太厚
   if (opt.boss) { s.maxhp = Math.round(s.maxhp * 3.6); s.atk = Math.round(s.atk * 1.35); s.def = Math.round(s.def * 1.15); }
   // 難度旋鈕：敵人整體的血量與攻擊加成
   // 各章節的敵人強度：第一章手下留情，越後面越強 [血量, 攻擊]
@@ -723,8 +726,9 @@ function makeEnemy(id, lv, opt = {}) {
   const [chHp, chAtk] = (typeof RUN !== 'undefined' && RUN && CH_SCALE[RUN.chapter]) || [1, 1];
   s.maxhp = Math.round(s.maxhp * ENEMY_HP * chHp); s.atk = Math.round(s.atk * ENEMY_ATK * chAtk);
   // 第二部的頭目再加強（第二部隊伍有完全體可以用；用電腦模擬調到勝率約六成）
-  const BOSS_EXTRA = { 4: [2.34, 1.78], 5: [1.61, .94], 6: [1.23, .69], 7: [1.05, .53], 8: [1.65, .93], 9: [1.2, .5] };   // 第九章：鑰匙圈會讓隊伍少一隻，本體數值壓低   // 第八章：無限大砲打斷門檻 8%   // 第七章：雙頭目（兩隻都會再乘上 DUO 的血量、攻擊比例）   // 第六章：吸血魔獸半血後還有吸血魔王獸 3 個部位，本體數值壓低   // 第五章：機械猴子獸的能力很強，本體數值低一點（駭入 2 項約六成）
-  if (opt.boss && typeof RUN !== 'undefined' && RUN && BOSS_EXTRA[RUN.chapter]) { s.maxhp = Math.round(s.maxhp * BOSS_EXTRA[RUN.chapter][0]); s.atk = Math.round(s.atk * BOSS_EXTRA[RUN.chapter][1]); }
+  const BOSS_EXTRA = { 4: [1.26, 1.1], 5: [1, .88], 6: [.71, .77], 7: [.37, .55], 8: [.51, 1.25], 9: [.46, .8] };   // v16.4：血量大幅降低（每隻頭目大約 40～50 張基本攻擊卡），攻擊用模擬重新調
+  if (opt.boss && typeof RUN !== 'undefined' && RUN && BOSS_EXTRA[RUN.chapter]) { s.spd = +(s.spd * BOSS_SPD).toFixed(1);   // v16.4：第二、三部的頭目比較快，能力比較常出現
+    s.maxhp = Math.round(s.maxhp * BOSS_EXTRA[RUN.chapter][0]); s.atk = Math.round(s.atk * BOSS_EXTRA[RUN.chapter][1]); }
   const name = (opt.elite ? '暗黑' : '') + sp.name;
   return { id, sp, name, img: sp.img, emoji: sp.emoji, attr: sp.attr, lvl: lv, ...s, hp: s.maxhp,
            block: 0, st: {}, gauge: rand(0, 30), moves: sp.moves, boss: !!opt.boss, elite: !!opt.elite, tier: 0 };
