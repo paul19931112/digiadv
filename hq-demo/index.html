@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0e1124">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="數碼冒險">
+<meta name="description" content="非官方粉絲同人作品：數碼寶貝風格的肉鴿卡牌冒險遊戲">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<title>畫質樣品・數碼冒險：肉鴿版</title>
+<link rel="stylesheet" href="style.css?v=17.0">
+</head>
+<body>
+
+<!-- 標題 -->
+<div id="title" class="screen">
+  <h1>數碼冒險</h1>
+  <div class="subtitle">～ 被選召的孩子 ～　肉鴿版</div>
+  <div class="titleArt" id="titleArt"></div>
+  <div class="selectBtns col">
+    <button class="btn big hidden" id="btnContinue"></button>
+    <button class="btn primary big" id="btnNew">開始新的冒險</button>
+    <button class="btn big hidden" id="btnPart2">🌍 第二部・伺服大陸篇</button>
+    <button class="btn big hidden" id="btnPart3">🌋 第三部・黑暗四天王篇</button>
+    <button class="btn big" id="btnTutorial">📖 新手教學</button>
+  </div>
+  <div id="titleMeta"></div>
+  <div class="selectBtns"><button class="btn" id="btnRecords">📜 我的紀錄</button><button class="btn" id="btnSave">💾 備份／匯入存檔</button><button class="btn" id="btnGiftCode">🎁 禮包碼</button><button class="btn" id="btnAbout">ⓘ 關於本作／版權聲明</button><button class="btn soundBtn" title="聲音設定（M 鍵：全部靜音）">🔊</button></div>
+  <div class="credit">非官方粉絲同人作品・非營利　｜　《數碼寶貝》角色與圖像版權屬於本鄉明善（本郷あきよし）、東映動畫、萬代（BANDAI）等原權利方</div>
+</div>
+
+<!-- 選孩子 -->
+<div id="kidSelect" class="screen hidden">
+  <h1>選擇被選召的孩子</h1>
+  <p class="sub">每個孩子都有自己的徽章、加成與弱點</p>
+  <div id="kidList"></div>
+  <div class="selectBtns">
+    <button class="btn big" id="btnKidBack">返回</button>
+    <button class="btn primary big" id="btnKidOk" disabled>就是我了！</button>
+  </div>
+</div>
+
+<!-- 選夥伴 -->
+<div id="select" class="screen hidden">
+  <h1>選擇夥伴</h1>
+  <p class="sub">達成條件可以解鎖更多夥伴</p>
+  <div id="starterList"></div>
+  <div class="selectBtns">
+    <button class="btn big" id="btnBackTitle">返回</button>
+    <button class="btn primary big" id="btnChoose" disabled>就決定是你了！</button>
+  </div>
+</div>
+
+<!-- 共用 HUD -->
+<div id="hud" class="hidden">
+  <div id="hudKid" class="hudKid"></div>
+  <div class="t"><span id="hudPic"></span><div><div id="hudName"></div><div id="hudSub" class="mini2"></div><div id="hudQuick" class="mini2"></div></div></div>
+  <div class="mini"><span>HP</span><span id="hudHp"></span></div>
+  <div class="bar"><i id="hudHpBar"></i></div>
+  <div class="mini"><span>EXP</span><span id="hudExp"></span></div>
+  <div class="bar exp"><i id="hudExpBar"></i></div>
+  <div class="mini"><span>🔥 勇氣值（全隊共用）</span><span class="courageVal"></span></div>
+  <div class="bar courage courageBar" title="勇氣值（全隊共用）：用來進化。刻度是 30／60／100，戰鬥結束後保留一半"><i></i><s style="left:25%"></s><s style="left:50%"></s><s style="left:83.3%"></s></div>
+  <div class="mini"><span>💰 數碼幣</span><span id="hudBits"></span></div>
+  <div id="hudTeam"></div>
+  <div id="hudItems"></div>
+  <div id="hudRelics"></div>
+  <div class="hbtns">
+    <button class="btn" id="btnTeam">👥 隊伍 (T)</button>
+    <button class="btn" id="btnDeck">🃏 牌組 (C)</button>
+    <button class="btn" id="btnBagField">🎒 背包 (I)</button>
+    <button class="btn soundBtn" title="聲音設定（M 鍵：全部靜音）">🔊</button>
+  </div>
+  <button class="btn quit" id="btnQuit">回到標題</button>
+</div>
+
+<!-- 路線圖 -->
+<div id="routeScreen" class="hidden">
+  <div class="routeHead"><h2 id="routeTitle"></h2><div id="routeSub" class="sub"></div></div>
+  <div id="routeWrap"><div id="routeMap"></div></div>
+  <div class="routeLegend">⚔️ 戰鬥　💀 精英　❓ 事件　💗 回復泉　🛒 商店　🥚 數碼蛋　🎁 寶藏　🧩 古代遺跡　😈 頭目</div>
+</div>
+
+<!-- 探索地圖 -->
+<div id="areaScreen" class="hidden">
+  <canvas id="area" width="768" height="512"></canvas>
+  <div id="joyZone"></div>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <div id="joyHint">👆 按住左半邊拖曳移動</div>
+  <div id="dpad">
+    <button data-k="arrowup" class="up">▲</button>
+    <button data-k="arrowleft" class="left">◀</button>
+    <button data-k="arrowright" class="right">▶</button>
+    <button data-k="arrowdown" class="down">▼</button>
+  </div>
+  <div id="areaHelp">方向鍵 / WASD 移動（也可以點地圖自動走過去；手機按住左半邊拖曳）　｜　碰到東西就會互動　｜　迷霧中藏著敵人和寶箱　｜　找到發光的傳送門離開　｜　T 隊伍　C 牌組</div>
+</div>
+
+<!-- 戰鬥 -->
+<div id="battle" class="hidden">
+  <div id="battleRelics"></div>
+  <button class="btn" id="btnHelp">❓ 說明 (H)</button>
+  <button class="btn soundBtn" id="btnSoundBattle" title="聲音設定（M 鍵：全部靜音）">🔊</button>
+  <div id="domainBar" class="hidden"></div>
+  <div id="bNotice" class="hidden"></div>
+  <div class="arena" id="arena">
+    <canvas id="arenaBg"></canvas>
+    <div class="unit bench" id="bUnit2"><div class="ring"></div><div class="shadow"></div><div class="sprite"><span class="emo"></span></div><div class="miniHp"><i></i></div></div>
+    <div class="unit bench" id="bUnit1"><div class="ring"></div><div class="shadow"></div><div class="sprite"><span class="emo"></span></div><div class="miniHp"><i></i></div></div>
+    <div class="unit foe" id="eUnit"><div class="ring"></div><div class="shadow"></div><div class="sprite"><span class="emo"></span></div><div class="miniHp"><i></i></div></div>
+    <div class="unit mine" id="pUnit"><div class="ring"></div><div class="shadow"></div><div class="sprite"><span class="emo"></span></div><div class="miniHp"><i></i></div></div>
+    <div class="fighter" id="pPanel">
+      <div class="block hidden"></div>
+      <div class="fhead"><span><span class="fname"></span> <span class="flv"></span></span><span class="fattr"></span></div>
+      <div class="row"><span>HP</span><span class="hptxt"></span></div>
+      <div class="bar hp"><i></i></div>
+      <div class="row"><span>行動條</span><span class="spdtxt"></span></div>
+      <div class="bar atb" title="行動條：集滿就輪到你行動，輪到你時時間會暫停"><i></i></div>
+      <div class="row"><span>🔥 勇氣值</span><span class="courageVal"></span></div>
+      <div class="bar courage courageBar" title="勇氣值（全隊共用）：用來進化。刻度是 30／60／100，戰鬥結束後保留一半"><i></i><s style="left:25%"></s><s style="left:50%"></s><s style="left:83.3%"></s></div>
+      <div class="row crestRow hidden"><span>🔰 徽章刻度</span><span class="crestVal"></span></div>
+      <div class="statuses"></div>
+      <div class="bench"></div>
+    </div>
+    <div class="fighter" id="ePanel">
+      <div class="intent"></div>
+      <button id="domBadge" class="hidden" title="查看領域效果"></button>
+      <div class="block hidden"></div>
+      <div class="fhead"><span><span class="fname"></span> <span class="flv"></span></span><span class="fattr"></span></div>
+      <div class="row"><span>HP</span><span class="hptxt"></span></div>
+      <div class="bar hp"><i></i></div>
+      <div class="row"><span>行動條</span><span class="spdtxt"></span></div>
+      <div class="bar atb enemy" title="敵人的行動條：集滿就會攻擊你"><i></i></div>
+      <div class="statuses"></div>
+    </div>
+    <div class="log" id="log"></div>
+    <div class="vignette"></div>
+  </div>
+  <div class="handbar">
+    <div class="energy"><div class="orb" id="orb" title="能量：出牌要花能量，沒用完的最多保留 2 點到下回合">3</div><div class="piles" id="piles"></div></div>
+    <div class="hand" id="hand"></div>
+    <div class="btns">
+      <button class="btn evo" id="btnEvo">✨ 進化 (E)</button>
+      <button class="btn primary" id="btnEnd">結束回合 (空白鍵)</button>
+      <button class="btn persuade" id="btnPersuade">🤝 勸降 (R)</button>
+      <div class="btnrow">
+        <button class="btn" id="btnSwitch">🔄 換手 (Q)</button>
+        <button class="btn" id="btnBag">🎒 道具</button>
+        <button class="btn" id="btnFlee">逃跑</button>
+      </div>
+    </div>
+  </div>
+  <div id="evoPanel" class="popup hidden"></div>
+  <div id="switchPanel" class="popup hidden"></div>
+  <div id="bagPanel" class="popup hidden"></div>
+  <div id="persuadePanel" class="popup hidden"></div>
+  <div id="result" class="hidden"><h2></h2><p></p></div>
+</div>
+
+<div id="reward" class="screen hidden"></div>
+<div id="overlay" class="screen hidden"></div>
+<div id="modal" class="screen hidden"></div>
+<div id="dialog" class="hidden"></div>
+<div id="vfxLayer"></div>
+<div id="coachRing" class="hidden"></div>
+<div id="coachTip" class="hidden"></div>
+<div id="evoFlash" class="hidden"></div>
+<div id="banner"></div>
+<div id="toast"></div>
+<div id="verTag"></div>
+<div id="updateBar" class="hidden">🆕 有新版本了！點這裡更新（存檔會保留）</div>
+
+<script src="js/version.js?v=17.0"></script>
+<script src="js/data.js?v=17.0"></script>
+<script src="js/ui.js?v=17.0"></script>
+<script src="js/sfx.js?v=17.0"></script>
+<script src="js/bgm.js?v=17.0"></script>
+<script src="js/vfx.js?v=17.0"></script>
+<script src="js/scene.js?v=17.0"></script>
+<script src="js/battle.js?v=17.0"></script>
+<script src="js/three.min.js"></script>
+<script src="js/island.js?v=17.0"></script>
+<script src="js/world.js?v=17.0"></script>
+<script src="js/area3d.js?v=17.0"></script>
+<script src="js/cutscene.js?v=17.0"></script>
+<script src="js/story.js?v=17.0"></script>
+<script src="js/puzzle.js?v=17.0"></script>
+<script src="js/assist.js?v=17.0"></script>
+<script src="js/part2.js?v=17.0"></script>
+<script src="js/ch5.js?v=17.0"></script>
+<script src="js/ch6.js?v=17.0"></script>
+<script src="js/part3.js?v=17.0"></script>
+<script src="js/final.js?v=17.0"></script>
+<script src="js/tutorial.js?v=17.0"></script>
+<script src="js/main.js?d=17.0"></script>
+<script>
+  document.getElementById('verTag').textContent = 'v' + GAME_VERSION;
+</script>
+<script src="js/demo.js"></script>
+</body>
+</html>
