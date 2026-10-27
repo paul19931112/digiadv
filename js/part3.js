@@ -52,6 +52,7 @@ async function startPart3() {
           crests: rec.crests || Object.keys(KIDS) };   // 第二部找到的徽章（舊紀錄沒存：當作全部都有）
   RUN.crestBinds = RUN.team.filter((m, i) => rec.team[i].bound).map(m => m.uid);   // 認主的夥伴也帶過去
   RUN.team.forEach(m => m.hp = memberStats(m).maxhp);
+  applyGiftBits();
   const pool = [...(rec.relics || [])];
   if (pool.length <= 3) RUN.relics = pool;
   else for (let i = 0; i < 3 && pool.length; i++) {

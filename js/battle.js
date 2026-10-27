@@ -396,6 +396,7 @@ function startPlayerTurn() {
   banner('你的回合！');
   renderBattle();
   if (p.tier > 0 && p.evoTurns === 1 && !maintainBlock(p)) maintainAsk(p);   // v16.5：最後一回合自動詢問要不要維持進化
+  else if (p.tier > 0 && p.evoTurns === 1 && !p.dark) toast(`⏳ ${p.name} 的進化只剩這 1 回合<br><small>${maintainBlock(p)}，這次不能維持進化</small>`, 4000);   // 付不起也提醒一下
   if (p.dark && Math.random() < .25) setTimeout(rampage, 500);
 }
 
@@ -1090,7 +1091,7 @@ async function battleReward(msgs, recruit, opt) {
           const m = await pickScreen({ title: `要讓哪一隻夥伴離開？`, sub: `${recruit.sp.name} 會取代牠的位置`, skip: '取消',
             items: RUN.team.slice(), render: m => { const s = SPECIES[m.sp], el = document.createElement('div'); el.className = 'pickMon';
               el.innerHTML = `${spPic(m.sp, 's80')}<b>${s.name}</b><span>Lv.${m.level}</span>`; return el; } });
-          if (!m) return;
+          if (!m || !(await confirmRelease(m, recruit.sp.name))) return;
           RUN.team.splice(RUN.team.indexOf(m), 1);
           joinTeam(recruit.id, recruit.lvl);
           box.innerHTML = `<div class="recruit"><div class="txt">${SPECIES[m.sp].name} 回到了森林。${recruit.sp.name} 加入了隊伍！</div></div>`;

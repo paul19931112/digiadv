@@ -28,6 +28,39 @@ function saveMeta() { store.set(META_KEY, META); }
 function loadMeta() {
   META = Object.assign({ unlocked: ['agumon', 'gabumon', 'piyomon', 'tentomon'], kids: ['taichi', 'yamato', 'sora', 'koushiro'], endings: [], clears: 0, runs: 0, dex: [] }, store.get(META_KEY) || {});
 }
+// ---------- 禮包碼 ----------
+// 每個存檔每組碼只能換一次（META.gifts 記錄換過的碼）
+const GIFT_CODES = { LYNN1026: { bits: 1000 } };
+// 還沒用掉的禮包數碼幣（換碼時沒有進行中的冒險）→ 下一次開始冒險時加進去
+function applyGiftBits() {
+  if (!RUN || !META.giftBits) return;
+  RUN.bits += META.giftBits;
+  toast(`🎁 禮包碼的 💰 ${META.giftBits} 數碼幣已經加進這次的冒險！`, 4000);
+  META.giftBits = 0; saveMeta();
+}
+function openGiftCode() {
+  const m = openModal(`<h2>🎁 禮包碼</h2>
+    <p class="sub">輸入禮包碼領取獎勵。每組禮包碼一個存檔只能領一次。</p>
+    <div class="saveBox"><input id="giftCode" type="text" maxlength="20" spellcheck="false" autocapitalize="characters" autocomplete="off" autocorrect="off" placeholder="輸入禮包碼">
+      <button class="btn evo" id="btnGift">領取</button></div>
+    <button class="btn primary" id="mClose">關閉 (Esc)</button>`);
+  m.querySelector('#mClose').onclick = closeModal;
+  const inp = m.querySelector('#giftCode');
+  const redeem = () => {
+    const code = inp.value.trim().toUpperCase(), g = GIFT_CODES[code];
+    if (!g) { toast('❌ 禮包碼不正確', 3000); sfx('error'); return; }
+    META.gifts = META.gifts || [];
+    if (META.gifts.includes(code)) { toast('⚠️ 這組禮包碼已經領過了', 3000); sfx('error'); return; }
+    META.gifts.push(code);
+    const run = store.get(RUN_KEY);
+    if (run) { run.bits += g.bits; store.set(RUN_KEY, run); saveMeta(); toast(`🎁 領取成功！進行中的冒險 💰 數碼幣 +${g.bits}`, 4000); }
+    else { META.giftBits = (META.giftBits || 0) + g.bits; saveMeta(); toast(`🎁 領取成功！💰 ${g.bits} 數碼幣會在下一次開始冒險時加進去`, 4500); }
+    sfx('open'); inp.value = '';
+  };
+  m.querySelector('#btnGift').onclick = redeem;
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') redeem(); else if (e.key === 'Escape') closeModal(); });
+  inp.focus();
+}
 function unlockStarter(id) {
   if (META.unlocked.includes(id)) return;
   META.unlocked.push(id); saveMeta();
@@ -122,6 +155,7 @@ async function newRun(id) {
           chapter: 1, route: null, pos: null, visited: [], usedEvents: [], seen: [], stats: { wins: 0, chapters: 0 } };
   RUN.team.push(newMember(id, 1));
   if (META.tutBonus) { RUN.items.push('potion'); META.tutBonus = false; saveMeta(); }
+  applyGiftBits();
   startChapter(1);
   META.runs++; saveMeta();
   G.mode = 'story';
@@ -501,6 +535,7 @@ document.querySelectorAll('.soundBtn').forEach(b => { b.textContent = SFX.on || 
 $('#btnAbout').onclick = () => { G.mode = 'title'; openAbout(); };
 $('#btnSave').onclick = () => { G.mode = 'title'; openSaveTransfer(); };
 $('#btnRecords').onclick = () => { G.mode = 'title'; openRecords(); };
+$('#btnGiftCode').onclick = () => { G.mode = 'title'; openGiftCode(); };
 $('#btnContinue').onclick = continueRun;
 $('#btnBackTitle').onclick = showKidSelect;
 $('#btnQuit').onclick = () => { if (confirm('回到標題畫面？（進度會保留在最後經過的節點）')) showTitle(); };

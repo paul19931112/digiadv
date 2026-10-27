@@ -60,6 +60,12 @@ function showRoute() {
   updateHUD();
   const ch = CHAPTERS[RUN.chapter], floors = RUN.route;
   const box = $('#routeMap');
+  $('#routeTitle').textContent = ch.title;
+  // 3D 浮空小島（不支援 WebGL 時用下面的平面路線圖）
+  const is3D = showRoute3D(box, floors, ch);
+  $('#routeScreen').classList.toggle('isl3d', is3D);
+  if (is3D) { $('#routeSub').textContent = RUN.pos ? `第 ${RUN.pos.f + 2} / ${floors.length} 層　｜　選一座小島前進` : `第 1 / ${floors.length} 層　｜　選擇出發的小島`; return; }
+  box.style.height = '';
   const W = box.clientWidth || 700, rowH = 92, H = floors.length * rowH + 40;
   box.style.height = H + 'px';
   const pos = (nd) => ({ x: ((nd.i + 1) / (floors[nd.f].length + 1) + nd.jx) * W, y: H - 50 - nd.f * rowH });
@@ -322,7 +328,7 @@ function updateArea(dt) {
   ch5Tick(A);
   if (m.moving) {
     m.t += dt / (STEP_TIME * (m.len || 1));   // 斜走一步比較遠（×1.4）
-    if (m.t >= 1) { m.moving = false; A.x = m.toX; A.y = m.toY; reveal(); conveyor(A); }   // 輸送帶：站上去會被往前送
+    if (m.t >= 1) { m.moving = false; A.x = m.toX; A.y = m.toY; A.exitHold = false; reveal(); conveyor(A); }   // 輸送帶：站上去會被往前送
   }
   if (!m.moving && G.mode === 'area') {
     let vec = heldVec();
@@ -338,7 +344,7 @@ function updateArea(dt) {
       // 往某一格走一步：出口、碰到東西、空地才走得動；回傳有沒有成功
       const step = (sx, sy) => {
         const nx = A.x + sx, ny = A.y + sy;
-        if (nx === A.exit.x && ny === A.exit.y) { A.path = null; tryExit(); return true; }
+        if (nx === A.exit.x && ny === A.exit.y) { if (A.exitHold) return false; A.path = null; tryExit(); return true; }   // 剛選了「再看看」：先走開一步才會再問
         if (sealBlocks(A, nx, ny)) { A.path = null; return false; }   // 陷阱房的光牆
         const o = objAt(nx, ny);
         if (o) { A.path = null; interact(o); return true; }
@@ -373,9 +379,32 @@ function updateArea(dt) {
   }
 }
 
-function tryExit() {
+// 這張地圖還沒做完的主要事件（離開前提醒）
+function unfinished() {
+  const left = k => AREA.objs.filter(o => !o.done && o.kind === k).length, out = [];
+  if (left('egg')) out.push('🥚 數碼蛋還沒撿');
+  if (left('spring')) out.push('💗 回復泉還沒使用');
+  if (AREA.objs.some(o => o.kind === 'shop' && !o.seen)) out.push('🛒 還沒逛玩偶獸的商店');
+  if (left('chest')) out.push(`🎁 還有 ${left('chest')} 個寶箱沒打開`);
+  if (left('npc')) out.push('💬 還有數碼寶貝在等你說話');
+  if (left('stone')) out.push('🧩 古代石碑的謎題還沒解');
+  if (left('trial')) out.push('🌟 試煉還沒挑戰');
+  if (left('hack')) out.push('💻 古代終端機還沒駭入');
+  if (left('crest')) out.push('🔰 地圖上的徽章還沒找到');
+  if (left('clue')) out.push('🔎 第 8 個孩子的線索還沒調查');
+  return out;
+}
+async function tryExit() {
   if (exitLocked()) { sfx('error'); toast(AREA.objs.some(o => !o.done && o.kind === 'npc' && !o.opt) ? '🔒 先去跟附近的數碼寶貝說說話吧' : '🔒 出口被擋住了，先打倒守門的敵人！'); keys.clear(); return; }
   keys.clear();
+  if (!G.tutorial) {   // 確定要離開嗎？（避免不小心走進出口）
+    G.mode = 'busy';
+    const todo = unfinished();
+    const c = await ask(null, `確定要離開這裡嗎？${todo.length ? `<br><b style="color:#fca5a5">⚠️ 還沒完成：</b><br>${todo.join('<br>')}` : ''}<br><small>離開後就不能再回來了</small>`,
+      [{ text: '🚪 離開', note: AREA.nd.type === 'boss' ? '前往下一段旅程' : '回到路線圖' }, { text: '再看看', note: '留在這張地圖' }]);
+    keys.clear();
+    if (c !== 0) { AREA.exitHold = true; G.mode = 'area'; return; }
+  }
   leaveArea();
 }
 
@@ -399,7 +428,7 @@ async function interact(o) {
   if (o.kind === 'chest') { o.done = true; await openChest(o.rich); }
   else if (o.kind === 'npc') { if (o.asp) await assistEvent(o); else await runEvent(o.ev); o.done = true; }
   else if (o.kind === 'spring') { if (await restSpot()) o.done = true; }
-  else if (o.kind === 'shop') { await openShop(o); }
+  else if (o.kind === 'shop') { o.seen = true; await openShop(o); }
   else if (o.kind === 'egg') { o.done = true; await hatchEgg(o.star); }
   else if (o.kind === 'pickup') { o.done = true; await openPickup(); }
   else if (o.kind === 'stone') { if (await stoneTablet()) o.done = true; }
@@ -440,8 +469,9 @@ function findPath(tx, ty) {
 }
 function tapArea(ev) {
   if (!AREA || G.mode !== 'area' || G.dialog) return;
-  const r = cvs.getBoundingClientRect();
-  const tx = Math.floor(((ev.clientX - r.left) / r.width * cvs.width + CAM.x) / TS), ty = Math.floor((ev.clientY - r.top) / r.height * ROWS);
+  const r = cvs.getBoundingClientRect(), p3 = area3DOn() && a3TileAt(ev);
+  if (area3DOn() && !p3) return;
+  const tx = p3 ? p3.x : Math.floor(((ev.clientX - r.left) / r.width * cvs.width + CAM.x) / TS), ty = p3 ? p3.y : Math.floor((ev.clientY - r.top) / r.height * ROWS);
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return;
   if (!AREA.seen[ty * COLS + tx] && !(tx === AREA.exit.x && ty === AREA.exit.y)) { toast('那裡還被迷霧籠罩，先往附近走走看'); return; }
   const path = findPath(tx, ty);
@@ -523,6 +553,12 @@ async function restSpot() {
   if (c === 2) { gainCourage(30); toast('🔥 勇氣值 +30'); return true; }
   return false;
 }
+// 讓夥伴離隊前再確認一次（避免誤按）
+async function confirmRelease(m, newName) {
+  const s = SPECIES[m.sp];
+  return await ask(m.sp, `確定要讓 <b>${s.name}</b>（Lv.${m.level}）離開隊伍嗎？${newName ? `<br>換 ${newName} 加入` : ''}<br><small>離開後就不會回來了</small>`,
+    [{ text: '確定，讓牠離開' }, { text: '再想想' }]) === 0;
+}
 function recruitables() { return Object.keys(SPECIES).filter(k => SPECIES[k].evo && !SPECIES[k].starter && (!SPECIES[k].p2 || P2())); }
 // 發光的數碼蛋能孵出的夥伴：孩子們的搭檔（已解鎖、不在隊伍裡）
 const starterEggs = () => Object.keys(SPECIES).filter(k => SPECIES[k].starter && META.unlocked.includes(k) && !RUN.team.some(m => m.sp === k));
@@ -535,9 +571,11 @@ async function hatchEgg(star) {
     render: id => { const s = SPECIES[id], el = document.createElement('div'); el.className = 'pickMon';
       el.innerHTML = `${spPic(id, 's110')}<b>${s.starter ? '✨ ' : ''}${s.name}</b><span>${ATTR_ICON[s.attr]} ${ATTR_NAME[s.attr]}</span><small>${s.desc}</small><small>${evoNote(s)}</small>`; return el; } });
   if (RUN.team.length >= teamMax()) {
-    const m = await pickScreen({ title: '隊伍已經滿了！', sub: `要讓哪一隻夥伴離開，換 ${SPECIES[id].name} 加入？`, skip: `不換了（${SPECIES[id].name} 送你 💰 50 後離開）`,
+    let m;
+    do m = await pickScreen({ title: '隊伍已經滿了！', sub: `要讓哪一隻夥伴離開，換 ${SPECIES[id].name} 加入？`, skip: `不換了（${SPECIES[id].name} 送你 💰 50 後離開）`,
       items: RUN.team.slice(), render: m => { const s = SPECIES[m.sp], el = document.createElement('div'); el.className = 'pickMon';
         el.innerHTML = `${spPic(m.sp, 's80')}<b>${s.name}</b><span>Lv.${m.level}</span>`; return el; } });
+    while (m && !(await confirmRelease(m, SPECIES[id].name)));
     if (!m) { gainBits(50); return; }
     RUN.team.splice(RUN.team.indexOf(m), 1);
     toast(`${SPECIES[m.sp].name} 回到了森林`);
@@ -732,6 +770,7 @@ function drawTile(x, y, c, t, P, g = ctx) {
 // ---------- 鏡頭：手機直向時只顯示一部分地圖，跟著角色捲動 ----------
 const CAM = { cols: COLS, x: 0 };
 function layoutArea() {
+  if (area3DOn()) { a3Layout(); return; }
   const compact = matchMedia('(max-width:900px),(max-height:600px)').matches;
   const touch = matchMedia('(pointer:coarse)').matches;
   const portrait = innerHeight > innerWidth;
@@ -768,6 +807,7 @@ function losVis(A, cx, cy, R) {
   return v;
 }
 function drawArea(t) {
+  if (area3DOn()) return drawArea3D(t);   // 3D 浮空小島版
   const A = AREA, P = PALETTE[A.theme];
   // 鏡頭跟著主角（地圖比畫面寬時才需要）
   const pmx = A.mv.moving ? A.mv.fromX + (A.mv.toX - A.mv.fromX) * A.mv.t : A.x;

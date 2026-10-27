@@ -73,6 +73,7 @@ async function startPart2() {
           courage: 10, bits: 60, relics: [], flags: {}, rules: 'p2', chapter: 4, route: null, pos: null, visited: [], usedEvents: [], seen: [],
           stats: { wins: 0, chapters: 0 }, crest: false, crestTicks: 0, from: rec.ending };
   RUN.team.forEach(m => m.hp = memberStats(m).maxhp);
+  applyGiftBits();
   // 道具：最多帶 3 個
   const pool = [...rec.relics];
   if (pool.length <= 3) RUN.relics = pool;

@@ -285,9 +285,11 @@ async function crestCall(kid, partner) {
   if (c === 0) {
     let ok = true;
     if (RUN.team.length >= teamMax()) {
-      const m = await pickScreen({ title: '隊伍已經滿了！', sub: `要讓哪一隻夥伴離開，換 ${partner.name} 加入？（隊長不能離開）`, skip: '還是不要了（改成讓徽章認主）',
+      let m;
+      do m = await pickScreen({ title: '隊伍已經滿了！', sub: `要讓哪一隻夥伴離開，換 ${partner.name} 加入？（隊長不能離開）`, skip: '還是不要了（改成讓徽章認主）',
         items: RUN.team.slice(1), render: m => { const s = SPECIES[m.sp], el = document.createElement('div'); el.className = 'pickMon';
           el.innerHTML = `${spPic(m.sp, 's80')}<b>${s.name}</b><span>Lv.${m.level}</span>`; return el; } });
+      while (m && !(await confirmRelease(m, partner.name)));
       if (!m) ok = false;
       else { RUN.team.splice(RUN.team.indexOf(m), 1); toast(`${SPECIES[m.sp].name} 離開了隊伍`); }
     }
