@@ -65,9 +65,14 @@ function a3Board(size) {
   return s;
 }
 function a3SetBoard(s, tex, flip) {
+  if (flip) tex = a3FlipTex(tex);   // 看板的 scale 不能是負的（會被當成正的），改用左右相反的貼圖
   if (s.material.map !== tex) { s.material.map = tex; s.material.needsUpdate = true; }
   const { w, h } = tex.userData, k = s.userData.size / Math.max(w, h);
-  s.scale.set(w * k * (flip ? -1 : 1), h * k, 1);
+  s.scale.set(w * k, h * k, 1);
+}
+function a3FlipTex(tex) {
+  if (!tex.userData.flip) { const f = tex.clone(); f.repeat.x = -1; f.offset.x = 1; f.needsUpdate = true; f.userData = { w: tex.userData.w, h: tex.userData.h }; tex.userData.flip = f; }
+  return tex.userData.flip;
 }
 function a3BoardSp(s, sp, flip) { a3SetBoard(s, a3SpTex(sp.img, sp.emoji) || a3EmojiTex(sp.emoji), flip); }
 
@@ -94,12 +99,24 @@ const WALL_PARTS = {
   carouB: () => [new THREE.CylinderGeometry(.42, .46, .75, 8).translate(0, .38, 0), 0xffffff],
   spike:  () => [new THREE.ConeGeometry(.45, 1.15, 5).translate(0, .57, 0), 0x4a3d55],
 };
-// ---------- 高畫質（樣品：第一章）：柔和影子、電影感色調、圓滑的模型、高解析地面、光暈 ----------
-// 地圖內容完全不變，只改呈現方式
+// ---------- 高畫質：柔和影子、電影感色調、圓滑的模型、高解析地面、光暈 ----------
+// 地圖內容完全不變，只改呈現方式。每章有自己的光線（hemi：天空光／地面反光／強度，sun：太陽強度，sunC：太陽顏色）
+// sky、mist、top、dirt、rock 沒寫就用小島主題（ISL_THEME）原本的；puff：一般的樹畫成圓滑的球狀樹冠
 const COZY = {
-  grass: { sky: ['#5aa9e6', '#dff2ff'], mist: '#d3ebf6', hemi: [0xfff4e0, 0x6f8f5a, .55], sun: 1.35, exposure: 1.05,
-           top: 0x6cc24a, dirt: 0x8a5a35, rock: 0x7a6a5c, puff: [0x3f9e3a, 0x4fae42, 0x358a32, 0x5cb84a] },
+  grass:    { sky: ['#5aa9e6', '#dff2ff'], mist: '#d3ebf6', hemi: [0xfff4e0, 0x6f8f5a, .55], sun: 1.35, exposure: 1.05,
+              top: 0x6cc24a, dirt: 0x8a5a35, rock: 0x7a6a5c, puff: [0x3f9e3a, 0x4fae42, 0x358a32, 0x5cb84a] },
+  metal:    { hemi: [0xeef2ff, 0x4a5262, .55], sun: 1.15, sunC: 0xf2f4ff, exposure: 1 },
+  forest:   { hemi: [0xe6f5ec, 0x2f4a32, .6], sun: .85, sunC: 0xf4fff0, exposure: 1 },
+  mountain: { hemi: [0xffe2d2, 0x5c4a52, .5], sun: 1.35, sunC: 0xffc38a, exposure: 1.05 },   // 黃昏的金色逆光
+  desert:   { hemi: [0xfff0d6, 0x9a7040, .55], sun: 1.5, sunC: 0xfff0c8, exposure: 1.05 },
+  pyramid:  { hemi: [0xffd9b0, 0x2a1d30, .5], sun: .85, sunC: 0xffb070, exposure: 1 },
+  tokyo:    { hemi: [0xc8c0ff, 0x1c1f2e, .5], sun: .65, sunC: 0xaab8ff, exposure: 1.05 },   // 月光
+  spiral:   { hemi: [0xeefaff, 0x2f5a60, .55], sun: 1.25, sunC: 0xfff4e0, exposure: 1.05, puff: [0x2f8a4a, 0x3a9a52, 0x267a40, 0x45a85a] },
+  factory:  { hemi: [0xffd8c0, 0x2a1e1c, .5], sun: .9, sunC: 0xffa060, exposure: 1 },
+  park:     { hemi: [0xffd6f0, 0x3a2050, .5], sun: .8, sunC: 0xffb0e0, exposure: 1.05 },
+  void:     { hemi: [0xd8c0ff, 0x1a1028, .5], sun: .75, sunC: 0xb38cff, exposure: 1.05 },
 };
+const ROUND_PARTS = ['cTrunk', 'cP1', 'cP2', 'cP3', 'cP4', 'cP5', 'cRock'];   // 用平滑材質的零件（其他維持有稜角的造型）
 const cozyMat = (color, extra) => new THREE.MeshLambertMaterial(Object.assign({ color }, extra));
 const puff = (r, x, y, z) => () => [new THREE.SphereGeometry(r, 14, 10).translate(x, y, z), 0xffffff];
 Object.assign(WALL_PARTS, {
@@ -120,18 +137,17 @@ function a3Halo(color, size, op = .6) {
   s.scale.set(size, size, 1); return s;
 }
 function wallKind(theme, c) {
-  const P = PALETTE[theme] || {};
-  if (COZY[theme]) return c === 'R' ? ['cRock'] : ['cTrunk', 'cP1', 'cP2', 'cP3', 'cP4', 'cP5'];
+  const P = PALETTE[theme] || {}, cz = A3.hq !== false && COZY[theme];
   if (P.park) return c === 'T' ? ['card'] : ['carouB', 'carou'];
   if (P.void) return c === 'T' ? ['dcube'] : ['dshard'];
   if (P.building) return c === 'T' ? ['bldg'] : ['car'];
   if (P.brick) return ['block'];
   if (P.crate) return ['crate'];
   if (P.lava) return ['spike'];
-  if (c === 'R') return ['rock'];
+  if (c === 'R') return [cz ? 'cRock' : 'rock'];
   if (P.cactus) return ['cactus', 'cArm'];
   if (theme === 'forest') return ['trunk', 'pineA', 'pineB'];
-  return ['trunk', 'leaf'];
+  return cz && cz.puff ? ['cTrunk', 'cP1', 'cP2', 'cP3', 'cP4', 'cP5'] : ['trunk', 'leaf'];
 }
 // 大樓的窗戶貼圖
 function a3WindowTex() {
@@ -147,19 +163,19 @@ function a3WindowTex() {
 function a3Build(A) {
   if (A3.scene) A3.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && !o.isSprite) o.material.dispose(); });
   const th = ISL_THEME[A.theme] || ISL_THEME.grass, P = PALETTE[A.theme];
-  const scene = new THREE.Scene(), dark = ['tokyo', 'pyramid', 'factory', 'park', 'void'].includes(A.theme), cz = COZY[A.theme], sky = cz ? cz.sky : th.sky;
+  const scene = new THREE.Scene(), dark = ['tokyo', 'pyramid', 'factory', 'park', 'void'].includes(A.theme), cz = A3.hq !== false && COZY[A.theme], sky = cz && cz.sky || th.sky;
   scene.background = islSky(sky[0], sky[1]);
   scene.fog = new THREE.Fog(new THREE.Color(sky[1]), 26, 70);
   scene.add(cz ? new THREE.HemisphereLight(cz.hemi[0], cz.hemi[1], cz.hemi[2]) : new THREE.HemisphereLight(0xffffff, 0x445066, dark ? .65 : .8));
   const sun = new THREE.DirectionalLight(0xfff2dd, cz ? cz.sun : dark ? .55 : .8); sun.position.set(8, 14, 10); scene.add(sun);
   if (cz) {   // 柔和的影子：整座島一張陰影圖（往右下方落）
-    sun.color.set(0xfff0d8); sun.position.set(COLS / 2 - 9, 17, ROWS / 2 - 7); sun.target.position.set(COLS / 2, 0, ROWS / 2); scene.add(sun.target);
+    sun.color.set(cz.sunC || 0xfff0d8); sun.position.set(COLS / 2 - 9, 17, ROWS / 2 - 7); sun.target.position.set(COLS / 2, 0, ROWS / 2); scene.add(sun.target);
     sun.castShadow = true; const sc = sun.shadow.camera, big = Math.min(innerWidth, innerHeight) > 600;
     sun.shadow.mapSize.set(big ? 2048 : 1024, big ? 2048 : 1024); sc.left = -17; sc.right = 17; sc.top = 14; sc.bottom = -14; sc.near = 1; sc.far = 50; sc.updateProjectionMatrix();
     sun.shadow.bias = -.0006; sun.shadow.normalBias = .02;
   }
   A3.scene = scene; A3.A = A; A3.dark = dark; A3.cozy = !!cz;
-  A3.mist = dark ? [10, 12, 28] : (() => { const c = new THREE.Color(cz ? cz.mist : sky[1]); return [c.r * 255 | 0, c.g * 255 | 0, c.b * 255 | 0]; })();
+  A3.mist = dark ? [10, 12, 28] : (() => { const c = new THREE.Color(cz && cz.mist || sky[1]); return [c.r * 255 | 0, c.g * 255 | 0, c.b * 255 | 0]; })();
   A3.renderer.toneMapping = cz ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;   // 電影感色調：亮部不死白
   A3.renderer.toneMappingExposure = cz ? cz.exposure : 1;
 
@@ -195,11 +211,11 @@ function a3Build(A) {
 
   // 島的底部：厚土層 + 倒過來的大岩錐 + 掛著的小石頭
   const rng = islRng(A.nd.f * 131 + A.nd.i * 17 + 5);
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(COLS + .4, 1, ROWS + .4), a3Lam(cz ? cz.top : th.top)); slab.position.set(COLS / 2, -.505, ROWS / 2); scene.add(slab);
-  const under = new THREE.Mesh(islJitter(new THREE.ConeGeometry(COLS * .5, 12, 10, 3), rng, .8), a3Lam(cz ? cz.dirt : th.dirt));
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(COLS + .4, 1, ROWS + .4), a3Lam(cz && cz.top || th.top)); slab.position.set(COLS / 2, -.505, ROWS / 2); scene.add(slab);
+  const under = new THREE.Mesh(islJitter(new THREE.ConeGeometry(COLS * .5, 12, 10, 3), rng, .8), a3Lam(cz && cz.dirt || th.dirt));
   under.rotation.x = Math.PI; under.scale.z = ROWS / COLS * 1.1; under.position.set(COLS / 2, -7, ROWS / 2); scene.add(under);
   for (let k = 0; k < 8; k++) {
-    const st = new THREE.Mesh(new THREE.DodecahedronGeometry(.5 + rng() * .9, 0), a3Lam(cz ? cz.rock : th.rock));
+    const st = new THREE.Mesh(new THREE.DodecahedronGeometry(.5 + rng() * .9, 0), a3Lam(cz && cz.rock || th.rock));
     st.position.set(COLS / 2 + (rng() - .5) * COLS * 1.1, -3 - rng() * 9, ROWS / 2 + (rng() - .5) * ROWS * 1.1); scene.add(st);
   }
   const cloudMat = new THREE.MeshLambertMaterial({ color: th.cloud || 0xffffff, transparent: true, opacity: dark ? .35 : .85, flatShading: true });
@@ -227,7 +243,7 @@ function a3Build(A) {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   for (const k in parts) {
     const [geo, col] = WALL_PARTS[k](th), list = parts[k];
-    const mat = k === 'bldg' ? new THREE.MeshLambertMaterial({ map: a3WindowTex(), emissive: 0x332a10 }) : cz ? cozyMat(0xffffff) : a3Lam(0xffffff);
+    const mat = k === 'bldg' ? new THREE.MeshLambertMaterial({ map: a3WindowTex(), emissive: 0x332a10 }) : cz && ROUND_PARTS.includes(k) ? cozyMat(0xffffff) : a3Lam(0xffffff);
     const mesh = new THREE.InstancedMesh(geo, mat, list.length);
     mesh.castShadow = !!cz;
     list.forEach((it, n) => {
@@ -357,7 +373,7 @@ function drawArea3D(t) {
     if (!d) { d = a3MakeObj(o); A3.objs.set(o, d); }
     d.g.visible = true;
     d.g.position.set(o.x + .5, 0, o.y + .5);   // 敵人會走動
-    if (d.board) { a3BoardSp(d.board, d.sp, false); d.board.position.y = o.kind === 'band' ? Math.abs(Math.sin(t * 6)) * .12 : Math.sin(t * 3 + o.x) * .04; }
+    if (d.board) { a3BoardSp(d.board, d.sp, rx > o.x + .2); d.board.position.y = o.kind === 'band' ? Math.abs(Math.sin(t * 6)) * .12 : Math.sin(t * 3 + o.x) * .04; }   // 數碼寶貝會面向主角（圖本來是朝左）
     if (d.aura) d.aura.material.opacity = .4 + Math.sin(t * 4) * .2;
     if (d.spin) { d.spin.rotation.y = t * 2; d.spin.position.y = (o.kind === 'pickup' ? .4 : .65) + Math.sin(t * 2.5 + o.x) * .06; }
     if (d.wob) d.wob.rotation.z = Math.sin(t * 8) * .08;
