@@ -324,6 +324,7 @@ const STEP_TIME = 0.14;
 // 目前按住的方向（可以同時按兩個方向 → 斜著走）
 function heldVec() { let x = 0, y = 0; for (const k of keys) if (DIRS[k]) { x += DIRS[k][0]; y += DIRS[k][1]; } x = Math.sign(x); y = Math.sign(y); return x || y ? [x, y] : null; }
 const objAt = (x, y) => AREA.objs.find(o => !o.done && o.x === x && o.y === y);
+const ruinAt = (x, y) => AREA.objs.some(o => o.done && o.kind === 'stone' && o.x === x && o.y === y);   // 解完的古代遺跡還立在那裡（3D 地圖），不能穿過去
 
 function updateArea(dt) {
   const A = AREA, m = A.mv;
@@ -350,11 +351,11 @@ function updateArea(dt) {
         if (sealBlocks(A, nx, ny)) { A.path = null; return false; }   // 陷阱房的光牆
         const o = objAt(nx, ny);
         if (o) { A.path = null; interact(o); return true; }
-        if (SOLID.has(A.T[ny][nx])) return false;
+        if (SOLID.has(A.T[ny][nx]) || ruinAt(nx, ny)) return false;
         Object.assign(m, { fromX: A.x, fromY: A.y, toX: nx, toY: ny, t: 0, moving: true, len: sx && sy ? 1.41 : 1 });
         return true;
       };
-      const free = (x, y) => !SOLID.has(A.T[y][x]) && !objAt(x, y) && !sealBlocks(A, x, y);
+      const free = (x, y) => !SOLID.has(A.T[y][x]) && !objAt(x, y) && !ruinAt(x, y) && !sealBlocks(A, x, y);
       if (dx && dy) {
         // 斜著走：旁邊兩格都是空地才能過（不能穿過牆角）；過不去就沿著牆滑
         if (!(free(A.x + dx, A.y) && free(A.x, A.y + dy) && step(dx, dy))) { if (!step(dx, 0)) step(0, dy); }
@@ -459,7 +460,7 @@ function findPath(tx, ty) {
       if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS || prev.has(k)) continue;
       // 目標格可以是物件或出口；路上不能穿過牆和物件
       const ob = objAt(nx, ny), hiddenTrap = ob && ob.kind === 'trap';   // 看不見的陷阱不能拿來繞路（會直接踩上去）
-      const blocked = SOLID.has(A.T[ny][nx]) || sealBlocks(A, nx, ny) || (((ob && !hiddenTrap) || (nx === A.exit.x && ny === A.exit.y)) && !isTarget(nx, ny));
+      const blocked = SOLID.has(A.T[ny][nx]) || ruinAt(nx, ny) || sealBlocks(A, nx, ny) || (((ob && !hiddenTrap) || (nx === A.exit.x && ny === A.exit.y)) && !isTarget(nx, ny));
       if (blocked) continue;
       prev.set(k, c); q.push({ x: nx, y: ny });
     }

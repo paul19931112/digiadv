@@ -91,7 +91,7 @@ const WALL_PARTS = {
   cactus: th => [new THREE.CylinderGeometry(.12, .14, .95, 6).translate(0, .47, 0), 0x4f8a3a],
   cArm:   th => [new THREE.CylinderGeometry(.07, .07, .4, 6).rotateZ(-.9).translate(.18, .55, 0), 0x4f8a3a],
   block:  () => [new THREE.BoxGeometry(1, 1.15, 1).translate(0, .575, 0), 0xc9a25e],
-  bldg:   () => [new THREE.BoxGeometry(.94, 1, .94).translate(0, .5, 0), 0xffffff],
+  bldg:   () => [new THREE.BoxGeometry(.94, 1, .94).translate(0, .5, 0), 0x9aa2c0],
   car:    () => [new THREE.BoxGeometry(.72, .32, .42).translate(0, .22, 0), 0xffffff],
   crate:  () => [new THREE.BoxGeometry(.86, .86, .86).translate(0, .43, 0), 0x8a95a8],
   card:   () => [new THREE.BoxGeometry(.96, 1.3, .1).translate(0, .65, 0), 0xf8fafc],
@@ -148,6 +148,15 @@ function wallKind(theme, c) {
   if (P.cactus) return ['cactus', 'cArm'];
   if (theme === 'forest') return ['trunk', 'pineA', 'pineB'];
   return cz && cz.puff ? ['cTrunk', 'cP1', 'cP2', 'cP3', 'cP4', 'cP5'] : ['trunk', 'leaf'];
+}
+// 古代遺跡石碑上發光的紋路
+function a3GlyphTex() {
+  if (A3_TEX.has('glyph')) return A3_TEX.get('glyph');
+  const c = document.createElement('canvas'); c.width = 64; c.height = 96; const g = c.getContext('2d');
+  g.strokeStyle = '#67e8f9'; g.lineWidth = 3; g.lineCap = 'round'; g.shadowColor = '#22d3ee'; g.shadowBlur = 6;
+  g.beginPath(); g.arc(32, 30, 14, 0, Math.PI * 2); g.moveTo(32, 16); g.lineTo(32, 44); g.moveTo(18, 30); g.lineTo(46, 30); g.stroke();
+  for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(14, 58 + k * 11); g.lineTo(50 - k * 6, 58 + k * 11); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; A3_TEX.set('glyph', t); return t;
 }
 // 大樓的窗戶貼圖
 function a3WindowTex() {
@@ -250,6 +259,7 @@ function a3Build(A) {
       const hy = k === 'bldg' ? 1 + (it.h % 5) * .3 : k === 'block' ? 1 : it.s;
       const flatRot = ['block', 'crate', 'bldg'].includes(k) ? 0 : it.rot, card = k === 'card';
       it.m = m4.compose(v.set(it.x + .5 + (it.ox || 0), 0, it.y + .5 + (it.oz || 0)), q.setFromAxisAngle(up, flatRot), sc.set(k === 'block' || k === 'bldg' || card ? 1 : it.s, card ? 1 : hy, k === 'block' || k === 'bldg' || card ? 1 : it.s)).clone();
+      if (!['rock', 'cRock', 'car'].includes(k)) it.mc = m4.compose(v, q, sc.setY(sc.y * .15)).clone();   // 壓扁的版本（擋到主角時用）
       const cc = cz && k.startsWith('cP') ? cz.puff[(it.h + +k[2]) % cz.puff.length] : k === 'car' ? [0xb91c1c, 0x1d4ed8, 0xe5e7eb, 0x15803d][it.h % 4] : k === 'carou' || k === 'carouB' ? [0xf472b6, 0xfacc15, 0x60a5fa][it.h % 3] : k === 'card' && it.h % 2 ? 0xfde2e2 : col;
       it.c = new THREE.Color(cc).multiplyScalar(cz ? .96 + (it.h % 3) * .03 : .9 + (it.h % 5) * .04);
       mesh.setMatrixAt(n, it.m); mesh.setColorAt(n, it.c);
@@ -267,7 +277,7 @@ function a3Build(A) {
   scene.add(ex);
 
   // 主角
-  A3.hero = new THREE.Group(); A3.heroBoard = a3Board(1.15); A3.hero.add(a3Shadow(), A3.heroBoard); scene.add(A3.hero);
+  A3.hero = new THREE.Group(); A3.heroBoard = a3Board(1.15); A3.heroBoard.position.z = .4; A3.hero.add(a3Shadow(), A3.heroBoard); scene.add(A3.hero);
   A3.tap = a3Ring(.25, .4, 0xfde047, .9); scene.add(A3.tap);
   A3.seal = null;
   A3.objs = new Map();
@@ -284,7 +294,7 @@ function a3MakeObj(o) {
     add(a3Shadow(.3 * big));
     if (o.role === 'elite' || o.role === 'boss') d.aura = add(a3Ring(.35 * big, .5 * big, o.role === 'boss' ? 0xdc003c : 0x8c00c8, .6));
     if (o.kind !== 'enemy') d.aura = add(a3Ring(.36, .5, o.kind === 'band' ? 0xfde047 : 0xffffff, .4));
-    d.board = add(a3Board(big)); d.sp = sp;
+    d.board = add(a3Board(big)); d.sp = sp; d.board.position.z = big * .35;   // 看板斜斜朝向鏡頭，往前挪一點，頭才不會插進後面那格的牆（穿模）
     if (o.kind === 'enemy' && RUN.chapter === 10 && o.role !== 'boss') d.board.material.color.set(0xa07aff);   // 最終章：殘影
     const tag = o.kind === 'shop' ? '🛒' : o.kind === 'npc' ? '💬' : o.kind === 'band' ? '🎵' : o.role === 'guard' ? '❗' : null;
     if (tag) { d.tag = add(a3Board(.4)); a3SetBoard(d.tag, a3EmojiTex(tag)); d.tag.position.set(.35, big + .05, 0); }
@@ -305,6 +315,20 @@ function a3MakeObj(o) {
     d.aura = add(a3Ring(.15, .32, 0x22d3ee, .5));
     d.spin = add(new THREE.Mesh(new THREE.OctahedronGeometry(.17, 0), a3Lam(0x22d3ee, { emissive: 0x0e7490 }))); d.spin.position.y = .4;
     if (A3.cozy) { const h = add(a3Halo(0x22d3ee, 1.1, .5)); h.position.y = .4; }
+  } else if (o.kind === 'stone') {   // 🧩 古代遺跡：石台、刻著發光紋路的石碑、斷掉的石柱（比一格大一點）
+    const stone = 0xb8ad98, dark = 0x8f8674;
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.66, .74, .16, 8).translate(0, .08, 0), a3Lam(dark)));
+    add(new THREE.Mesh(new THREE.BoxGeometry(.66, 1.05, .18).translate(0, .68, 0), a3Lam(stone)));
+    add(new THREE.Mesh(new THREE.BoxGeometry(.76, .12, .24).translate(0, 1.26, 0), a3Lam(dark)));
+    d.glyph = add(new THREE.Mesh(new THREE.PlaneGeometry(.5, .72), new THREE.MeshBasicMaterial({ map: a3GlyphTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })));
+    d.glyph.position.set(0, .7, .095);
+    for (const [x, z, h] of [[-.55, -.45, 1.05], [.56, -.4, .6], [-.5, .5, .35], [.55, .48, .8]]) {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(.08, .1, h, 8).translate(x, .16 + h / 2, z), a3Lam(0xc8bea8)));
+      if (h > 1) add(new THREE.Mesh(new THREE.BoxGeometry(.26, .08, .26).translate(x, .2 + h, z), a3Lam(dark)));
+    }
+    for (const [x, z, r] of [[.3, .55, .1], [-.2, -.6, .08], [.66, .1, .07]]) add(new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0).translate(x, r * .7, z), a3Lam(0x9a9080)));
+    d.aura = add(a3Ring(.7, .86, 0xfde047, .5));
+    g.scale.setScalar(1.25);
   } else {   // 其他：用 emoji 看板
     const e = o.mem ? '💠' : { stone: '🗿', tp: '🌀', hack: '💻', trial: '🌟', clue: '🔎', crest: '✨', trap: '⚠️' }[o.kind] || '❓';
     const col = o.mem ? 0xa855f7 : { stone: 0xfde047, tp: 0x22d3ee, hack: 0x4ade80, trial: 0xfde047, clue: 0xf472b6, trap: 0xf87171 }[o.kind];
@@ -324,11 +348,12 @@ function a3Fog(A, rx, ry, R, vis) {
   A3.fogKey = key; A._fogDirty = false;
   const G0 = A3.ground, fg = G0.fog.getContext('2d'), [mr, mg, mb] = A3.mist, light = new Float32Array(COLS * ROWS);
   fg.clearRect(0, 0, COLS, ROWS);
+  if (vis) { A._los = A._los || new Uint8Array(COLS * ROWS); vis.forEach(i => A._los[i] = 1); }   // 金字塔：真的看過的地方記起來（暗暗的），不會整片全黑
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    const i = y * COLS + x, d = Math.hypot(x - rx, y - ry), seen = A.seen[i];
+    const i = y * COLS + x, d = Math.hypot(x - rx, y - ry), seen = A.seen[i], mem = vis && A._los[i];
     const base = vis ? (A.scanned ? .6 : 1) : seen ? .5 : .93;
-    const a = vis && !vis.has(i) ? (A.scanned ? .6 : 1) : d <= R - 1.2 ? 0 : d <= R ? base * (d - (R - 1.2)) / 1.2 : base;
-    const hidden = vis ? !vis.has(i) && !A.scanned : !seen;
+    const a = vis && !vis.has(i) ? (mem ? .7 : A.scanned ? .6 : 1) : d <= R - 1.2 ? 0 : d <= R ? base * (d - (R - 1.2)) / 1.2 : base;
+    const hidden = vis ? !vis.has(i) && !A.scanned && !mem : !seen;
     light[i] = hidden ? -1 : 1 - a * .65;
     if (a > 0) { fg.fillStyle = hidden ? `rgba(${mr},${mg},${mb},${a})` : `rgba(8,10,26,${a * .85})`; fg.fillRect(x, y, 1, 1); }
   }
@@ -337,11 +362,13 @@ function a3Fog(A, rx, ry, R, vis) {
   og.imageSmoothingEnabled = true; og.drawImage(G0.fog, 0, 0, G0.out.width, G0.out.height);
   G0.tex.needsUpdate = true;
   // 牆：沒看過的藏起來（像被雲遮住），看過但不在視野內的變暗
+  // 主角前面（靠鏡頭那側）的高牆、大樓會壓扁，才不會擋住主角和路
   const zero = new THREE.Matrix4().makeScale(0, 0, 0), c = new THREE.Color();
+  const cut = it => it.mc && it.y >= ry - .3 && it.y - ry <= 3.2 && Math.abs(it.x - rx) <= 1.4 + (it.y - ry) * .4;
   A3.walls.forEach(w => {
     w.list.forEach((it, n) => {
       const L = light[it.i];
-      w.mesh.setMatrixAt(n, L < 0 ? zero : it.m);
+      w.mesh.setMatrixAt(n, L < 0 ? zero : cut(it) ? it.mc : it.m);
       if (L >= 0) w.mesh.setColorAt(n, c.copy(it.c).multiplyScalar(L));
     });
     w.mesh.instanceMatrix.needsUpdate = true; if (w.mesh.instanceColor) w.mesh.instanceColor.needsUpdate = true;
@@ -364,8 +391,8 @@ function drawArea3D(t) {
   // 物件（看得到的規則跟平面版一樣）
   for (const o of A.objs) {
     let d = A3.objs.get(o);
-    let show = !o.done;
-    if (show) show = o.kind === 'enemy' || (o.kind === 'pickup' && !o.show) ? inSight(o.x, o.y) || (o.kind === 'pickup' && A.scanned) : !!A.seen[o.y * COLS + o.x];
+    let show = !o.done || o.kind === 'stone';   // 古代遺跡解完謎題也會留在地圖上
+    if (show) show =o.kind === 'enemy' || (o.kind === 'pickup' && !o.show) ? inSight(o.x, o.y) || (o.kind === 'pickup' && A.scanned) : !!A.seen[o.y * COLS + o.x];
     if (show && vis && !vis.has(o.y * COLS + o.x) && !(o.kind === 'pickup' && A.scanned)) show = false;
     if (show && o.kind === 'crest') show = Math.hypot(o.x - A.x, o.y - A.y) <= 1.6;
     if (show && o.kind === 'trap') show = !!A.scanned;
@@ -374,7 +401,8 @@ function drawArea3D(t) {
     d.g.visible = true;
     d.g.position.set(o.x + .5, 0, o.y + .5);   // 敵人會走動
     if (d.board) { a3BoardSp(d.board, d.sp, rx > o.x + .2); d.board.position.y = o.kind === 'band' ? Math.abs(Math.sin(t * 6)) * .12 : Math.sin(t * 3 + o.x) * .04; }   // 數碼寶貝會面向主角（圖本來是朝左）
-    if (d.aura) d.aura.material.opacity = .4 + Math.sin(t * 4) * .2;
+    if (d.aura) d.aura.material.opacity = o.done ? 0 : .4 + Math.sin(t * 4) * .2;
+    if (d.glyph) d.glyph.material.opacity = o.done ? .25 : .75 + Math.sin(t * 2) * .25;
     if (d.spin) { d.spin.rotation.y = t * 2; d.spin.position.y = (o.kind === 'pickup' ? .4 : .65) + Math.sin(t * 2.5 + o.x) * .06; }
     if (d.wob) d.wob.rotation.z = Math.sin(t * 8) * .08;
     if (d.tag && d.board) d.tag.position.y = d.board.position.y + d.board.scale.y + .05;
