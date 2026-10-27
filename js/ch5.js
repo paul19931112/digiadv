@@ -11,12 +11,14 @@
 const METAL_ABIL = {
   armor: { icon: '🛡️', name: '鋼鐵裝甲', desc: '受到的傷害 -25%' },
   net:   { icon: '📡', name: '黑暗網路', desc: '每次行動後回復最大 HP 1.5%' },
-  over:  { icon: '⚡', name: '數據超載', desc: '每 4 次行動超載一次，下一次行動只要等一半的時間（頭上會先顯示 ⚡）' },
+  over:  { icon: '⚡', name: '數據超載', desc: '每 4 次行動超載一次，行動條直接跳到一半（狀態列會顯示倒數）' },
 };
 const hacked = () => (RUN && RUN.flags && RUN.flags.hacked) || [];
 const metalOn = k => !hacked().includes(k);
 let METAL_HEAL = .015;   // 黑暗網路：每次行動回復比例
 let OVER_GAUGE = 50;     // 數據超載：觸發後行動條直接從一半開始
+BOSS_CLOCK.push({ on: () => B.dom === 'metal' && metalOn('over'), every: 4, at: 0, icon: '⚡', name: '數據超載',
+  fire: e => { e.gauge = Math.max(e.gauge, OVER_GAUGE); floatText(e, '⚡ 數據超載！', 'super', 40); log(`⚡ 數據超載！${e.name} 的行動條直接跳到一半！`); } });
 let METAL_ARMOR = .75;   // 鋼鐵裝甲：受到傷害倍率
 let NOISE_PCT = .03;     // 金屬噪音：每張沒打出去的卡給他的護盾（最大 HP 比例）
 Object.defineProperty(DOMAINS, 'metal', { enumerable: true, get() {
@@ -115,9 +117,9 @@ function drawCh5Obj(o, cx, cy, t) {
   } else if (o.kind === 'trial') {   // 🌟 試煉
     ctx.fillStyle = `rgba(253,224,71,${.3 + Math.sin(t * 4) * .15})`; ctx.beginPath(); ctx.arc(cx, cy + 2, 18, 0, 7); ctx.fill();
     emojiAt('🌟', cx, cy + 2 + Math.sin(t * 3) * 1.5, 22);
-  } else if (o.kind === 'clue') {   // 第 8 個孩子的線索
-    ctx.fillStyle = `rgba(244,114,182,${.3 + Math.sin(t * 4) * .15})`; ctx.beginPath(); ctx.arc(cx, cy + 2, 16, 0, 7); ctx.fill();
-    emojiAt('🔎', cx, cy + 2 + Math.sin(t * 3) * 1.5, 20);
+  } else if (o.kind === 'clue') {   // 第 8 個孩子的線索（最終章：被刪除者的記憶）
+    ctx.fillStyle = o.mem ? `rgba(168,85,247,${.35 + Math.sin(t * 4) * .15})` : `rgba(244,114,182,${.3 + Math.sin(t * 4) * .15})`; ctx.beginPath(); ctx.arc(cx, cy + 2, 16, 0, 7); ctx.fill();
+    emojiAt(o.mem ? '💠' : '🔎', cx, cy + 2 + Math.sin(t * 3) * 1.5, 20);
   } else if (o.kind === 'crest') {   // 很靠近才看得到一點閃光
     if (Math.hypot(o.x - A.x, o.y - A.y) <= 1.6) { ctx.globalAlpha = .5 + Math.sin(t * 6) * .4; emojiAt('✨', cx, cy + 2, 18); ctx.globalAlpha = 1; }
   }
@@ -191,7 +193,7 @@ async function ch5Interact(o) {
   } else if (o.kind === 'trial') {
     if (await trialEvent(o)) o.done = true;
   } else if (o.kind === 'clue') {
-    o.done = true; await clueFound();
+    o.done = true; await (o.mem ? memoryFound() : clueFound());
   } else if (o.kind === 'crest') {
     o.done = true; await crestFound();
   } else if (o.kind === 'band') {

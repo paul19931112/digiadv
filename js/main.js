@@ -387,7 +387,7 @@ function openRecords() {
       ${Object.keys(ENDINGS2).map(k => `<div class="recRow"><b>${ENDINGS2[k].icon} ${ENDINGS2[k].name}</b><span>${(M.endings2 || []).includes(k) ? '✅ 已達成' : '❔ 還沒看過'}</span></div>`).join('')}</div>
     <div class="saveBox"><h3>📖 進度</h3>
       ${part('🌍 第二部・伺服大陸篇', part2Unlocked(), M.p2clear ? '✅ 已通關' : M.p2ch ? `打到第 ${M.p2ch} 章` : '已解鎖，還沒開始')}
-      ${part('🌋 第三部・黑暗四天王篇', part3Unlocked(), M.p3ch ? `打到第 ${M.p3ch} 章` : '已解鎖，還沒開始')}
+      ${part('🌋 第三部・黑暗四天王篇', part3Unlocked(), M.p3clear ? `🏁 已經通關 ${M.p3clear} 次（${(M.endings3 || []).map(k => ENDINGS3[k].icon).join('')}）` : M.p3ch ? `打到${M.p3ch === 10 ? '最終章' : `第 ${M.p3ch} 章`}` : '已解鎖，還沒開始')}
       <div class="recRow"><b>🧒 孩子</b><span>${(M.kids || []).filter(k => KIDS[k]).length} / ${Object.keys(KIDS).length}　${(M.kids || []).filter(k => KIDS[k]).map(k => KIDS[k].icon).join('')}</span></div>
       <div class="recRow"><b>🐾 夥伴</b><span>${starters.filter(k => (M.unlocked || []).includes(k)).length} / ${starters.length}</span></div>
       <div class="recRow"><b>📕 圖鑑</b><span>${(M.dex || []).length} 種</span></div></div>

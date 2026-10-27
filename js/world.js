@@ -129,6 +129,7 @@ function genArea(nd) {
   else if (theme === 'spiral') spiralMap(T);   // 螺旋山：左邊森林、右邊海岸
   else if (theme === 'factory') factoryMap(T);   // 工廠：機器和輸送帶
   else if (theme === 'park') parkMap(T);   // 遊樂園：撲克牌牆、旋轉木馬
+  else if (theme === 'void') voidMap(T);   // 最終章：黑暗之海的數據島
   else {
     blob(',', randInt(5, 8), 1.5, 3.2);
     blob('T', theme === 'forest' ? randInt(9, 13) : theme === 'desert' ? randInt(3, 5) : randInt(5, 8), .8, 1.8);
@@ -243,6 +244,7 @@ function genArea(nd) {
   maybePlaceAssist(place, free, nd.type);   // 援護事件：任何地圖都可能出現
   extraObjs(nd, place, free, T, dist);   // 第二部：傳送點、陷阱、駭客終端、徽章、樂團
   placeClue(nd, place, free);   // 第六章：第 8 個孩子的線索
+  placeMemory(nd, place, free);   // 最終章：被刪除者的記憶
   p3Objs(nd, place, free);   // 第三部：試煉
   return { T, objs, start, exit, theme, nd, x: start.x, y: start.y, mv: { moving: false, t: 0 }, facing: 1, seen: new Uint8Array(COLS * ROWS) };
 }
@@ -302,7 +304,7 @@ async function enterArea(nd) {
   if (P2() && RUN.chapter === 4 && !RUN.crest && nd.f >= 2) await crestEvent();   // 第四章中段：拿到自己的徽章
   if (P2() && RUN.chapter === 6 && !F().tempted && nd.f >= 2 && nd.type !== 'boss') await vampTempt();   // v16.4：吸血魔獸的誘惑（黑暗結局的入口）
   if (P2() && RUN.chapter === 6 && !RUN.awaken && nd.f >= CHAPTERS[6].floors - 2) await awakenEvent();   // 第六章：頭目前一層徽章覺醒
-  if (AREA && AREA.objs.some(o => o.kind === 'clue' && !o.done)) setTimeout(() => toast('🔎 這附近好像有第 8 個孩子的線索……', 3500), 3300);
+  if (AREA && AREA.objs.some(o => o.kind === 'clue' && !o.done)) setTimeout(() => toast(RUN.chapter === 10 ? '💠 這附近好像有被刪除者的記憶……' : '🔎 這附近好像有第 8 個孩子的線索……', 3500), 3300);
 }
 
 function leaveArea() {
@@ -391,7 +393,7 @@ function unfinished() {
   if (left('trial')) out.push('🌟 試煉還沒挑戰');
   if (left('hack')) out.push('💻 古代終端機還沒駭入');
   if (left('crest')) out.push('🔰 地圖上的徽章還沒找到');
-  if (left('clue')) out.push('🔎 第 8 個孩子的線索還沒調查');
+  if (left('clue')) out.push(RUN.chapter === 10 ? '💠 被刪除者的記憶還沒調查' : '🔎 第 8 個孩子的線索還沒調查');
   return out;
 }
 async function tryExit() {
@@ -723,6 +725,7 @@ function drawTile(x, y, c, t, P, g = ctx) {
   } else if (c === 'T' || c === 'R') {
     g.fillStyle = P.treeBg; g.fillRect(px, py, TS, TS);
     if (P.park) drawPark(g, x, y, c, px, py, h, t);   // 遊樂園：撲克牌、旋轉木馬
+    else if (P.void) drawVoidWall(g, c, px, py, h, t);   // 最終章：數據方塊、結晶
     else if (P.building && c === 'T') {   // 東京：大樓（亮著燈的窗戶）
       g.fillStyle = P.tree; g.fillRect(px + 1, py + 1, TS - 2, TS - 2);
       for (let wy = 0; wy < 3; wy++) for (let wx = 0; wx < 3; wx++) { const on = (h >> (wx + wy * 3)) & 1;
@@ -850,7 +853,9 @@ function drawArea(t) {
       }
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(cx, cy + 15, 10, 4, 0, 0, 7); ctx.fill();
       const sp = SPECIES[o.sp];
+      if (RUN.chapter === 10 && o.role !== 'boss') ctx.filter = 'brightness(.65) sepia(1) hue-rotate(225deg) saturate(2.2)';   // 最終章：殘影
       drawSprite(sp.img, sp.emoji, cx, cy + bob, o.role === 'boss' ? 46 : o.role === 'elite' ? 40 : 34, false);
+      ctx.filter = 'none';
       if (o.role === 'guard') emojiAt('❗', cx + 12, cy - 16, 12);
     } else if (o.kind === 'npc' || o.kind === 'shop') {
       const sp = SPECIES[o.sp];

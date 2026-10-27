@@ -47,7 +47,8 @@ function showAttrChart() {
 }
 function showBossInfo() {
   if (!B || !BOSS_INFO[B.dom]) return;
-  battleNotice(`😈 頭目 ${B.e.name} 的能力`, BOSS_INFO[B.dom], '💡 商店的「✨ 淨化」卡可以清除手牌和夥伴身上的負面效果。之後點敵人面板右下角的標籤可以再看一次。');
+  const clk = ['⏱️ 戰場時鐘', '頭目說的「幾次行動」是<b>你和牠合計</b>的次數（你一回合算 1 次）。拖慢牠也躲不掉，牠頭上會顯示還剩幾次。'];
+  battleNotice(`😈 頭目 ${B.e.name} 的能力`, [...BOSS_INFO[B.dom], clk], '💡 商店的「✨ 淨化」卡可以清除手牌和夥伴身上的負面效果。之後點敵人面板右下角的標籤可以再看一次。');
 }
 
 // 徽章刻度：一格一格的 ◆（沒有上限，超過 10 格換行）；不到 10 格的部分用 ◇ 補滿一排
@@ -204,8 +205,7 @@ function bossHandAct(e) {
     else log(`🔍 ${e.name} 看破了你的下一手牌！`);
   } else if (B.dom === 'fog') {
     P.fog = 1;
-    if (!e.plant) { e.plant = 2; floatText(e, '🌱 種下種子', 'info', 60); log(`🌱 ${e.name} 種下了種子（2 次行動後回復 HP）`); }
-    else if (--e.plant <= 0) { delete e.plant; healF(e, Math.round(e.maxhp * .05)); log(`🌳 種子長大了！${e.name} 回復了 HP`); }
+    if (!e.plant) { e.plant = 2; e.plantClk = (B.clk || 0) + 1; floatText(e, '🌱 種下種子', 'info', 60); log(`🌱 ${e.name} 種下了種子（2 次行動後回復 HP）`); }   // 長大：看戰場時鐘
   } else if (B.dom === 'dark') {
     P.pol = e.phase2 ? 2 : 1;
     floatText(e, '☠️ 汙染手牌', 'info', 60); log(`☠️ ${e.name} 汙染了你的下一手牌（${P.pol} 張）！`);
@@ -218,7 +218,7 @@ function bossHandAct(e) {
   } else if (B.dom === 'metal') {
     P.noise = low ? 2 : 1;
     floatText(e, '⚙️ 金屬噪音', 'info', 60); log(`⚙️ ${e.name} 發出金屬噪音！你的下一手牌有 ${P.noise} 張被標記（這回合沒打出去，他會得到護盾）`);
-  }
+  } else if (B.dom === 'apoca') apocaArm(e);   // 最終章：怨念之手
 }
 function applyBossHand() {
   const P = B.pend; B.pend = null;
@@ -293,6 +293,7 @@ function runBattle(enemyId, lv, opt = {}) {
     B = { fighters, p: fighters[ai], e, phase: 'run', energy: 0, carry: 0, anim: false, dom, participants: new Set([ai]), opt, resolve, firstTurn: true,
           draw: shuffle(RUN.deck.map(id => ({ uid: ++uidSeq, id }))), hand: [], discard: [], exhaust: [], log: [], spread: {} };
     if (dom === 'duo') setupDuo(lv, opt);   // 第七章：雙頭目
+    if (dom === 'apoca') setupApoca();   // 最終章：阿波卡利獸
     if (!RUN.seen.includes(enemyId)) RUN.seen.push(enemyId);
     chooseIntent(e);
     G.mode = 'battle';
@@ -304,7 +305,7 @@ function runBattle(enemyId, lv, opt = {}) {
     $('#log').innerHTML = '';
     $('#pUnit .emo').dataset.k = ''; $('#eUnit .emo').dataset.k = '';
     arenaTheme();
-    log(opt.boss ? `😈 頭目 ${e.name}（Lv.${lv}）出現了！` : opt.elite ? `💀 被黑色齒輪控制的 ${e.name}（Lv.${lv}）！` : `野生的 ${e.name}（Lv.${lv}）出現了！`);
+    log(opt.boss ? `😈 頭目 ${e.name}（Lv.${lv}）出現了！` : e.shade ? `👻 ${e.name}（Lv.${lv}）從黑暗裡浮現了！` : opt.elite ? `💀 被黑色齒輪控制的 ${e.name}（Lv.${lv}）！` : `野生的 ${e.name}（Lv.${lv}）出現了！`);
     if (opt.preDamage) log(`${e.name} 已經受了重傷！`);
     if (RUN.stats.wins === 0) log('提示：把敵人的血量壓低，再按「🤝 勸降」就有機會讓牠加入隊伍！');
     if (has('courage')) { gainCourage(10); log('🔥 勇氣徽章發光了！勇氣值 +10'); }
@@ -332,15 +333,13 @@ function chooseIntent(e) {
   e.intent = pick(pool);
 }
 function intentText(e) {
-  const s = intentText0(e);
-  return B.dom === 'metal' && metalOn('over') && (e.mn || 0) % 4 === 3 ? '⚡ ' + s : s;
-}
-function intentText0(e) {
   if (B.dom === 'fog') return '❓ ？？？';
   const m = MOVES[e.intent];
   if (m.kind === 'doom') return '☠️ 死亡宣告（出戰夥伴會被打到 1 血並強制換下）';
   if (m.kind === 'cannon') return cannonText();
   if (m.kind === 'keychain') return keyText();
+  if (m.kind === 'deathevo') return devoText();
+  if (m.kind === 'bigbang') return '💥 大爆炸！（有護盾就不會退化）';
   if (m.kind === 'serenade') return B.serenadeBroken ? '🎤 （已經打斷）' : `🎤 愛之小夜曲（再打 ${Math.max(0, B.serenadeNeed - (B.serenadeHp - e.hp))} 傷害打斷！）`;
   if (m.kind === 'atk') {
     const est = Math.max(1, Math.round(calcRaw(e, B.p, m.power)));
@@ -355,8 +354,10 @@ function intentText0(e) {
 
 function updateBattle(dt) {
   if (B.phase !== 'run' || B.hold) return;
-  B.p.gauge += gaugeRate(B.p) * dt;
   const foes = livingParts();   // 吸血魔王獸：每個部位各有行動條
+  const due = foes.find(f => f.spAt && f.spAt <= (B.clk || 0));   // 戰場時鐘：預告的招式時間到了
+  if (due) return enemyTurn(due, true);
+  B.p.gauge += gaugeRate(B.p) * dt;
   foes.forEach(f => f.gauge += gaugeRate(f) * dt);
   if (B.p.gauge >= 100) startPlayerTurn();
   else { const f = foes.find(f => f.gauge >= 100); if (f) enemyTurn(f); }
@@ -404,6 +405,7 @@ async function playCard(i, forced) {
   if (!B || B.phase !== 'player' || (!forced && popupOpen()) || B.anim) return;
   const c = B.hand[i]; if (!c) return;
   B.angelHit = false;   // 最後一擊是不是天女獸（第二部隱藏結局）
+  B.lastUlt2 = c.id === 'ult2';   // 最後一擊是不是第二究極技（最終章隱藏結局）
   const d = cardDef(c.id), cost = cardCost(c, d);
   if (B.p.dark && !['atk', 'sig', 'ult'].includes(d.type)) { floatText(B.p, '暴走中！只能攻擊', 'info'); return; }
   if (d.canPlay && !d.canPlay()) { floatText(B.p, '現在無法使用', 'info'); return; }
@@ -436,6 +438,7 @@ async function playCard(i, forced) {
     try { d.fx(); } finally { HALF = false; CHARGE = 1; B.aoeNow = false; }
     if (B.water) tideCard(c);   // 🌊 防禦／回復卡：退潮
     cannonCheck();   // 💥 傷害夠了就打斷無限大砲
+    devoCheck();   // 💀 傷害夠了就打斷死亡進化
     if (B.dom === 'concert' && B.e.intent === 'loveSerenade' && !B.serenadeBroken && B.e.hp > 0 && B.serenadeHp - B.e.hp >= B.serenadeNeed) {   // 猴子獸：傷害夠了就打斷愛之小夜曲
       B.serenadeBroken = true; floatText(B.e, '🎤 打斷！', 'super', 40); log('💥 打斷了猴子獸的歌！');
     }
@@ -487,14 +490,50 @@ function endTurn() {
   B.speedBonus = 0;
   B.p.nextGauge = 0;
   B.phase = 'run';
+  clockTick();
   renderBattle();
 }
 
-function enemyTurn(actor) {
-  const myB = B, e = actor || B.e;
+// ---------- v17.0 戰場時鐘 ----------
+// 頭目「每 N 次行動」的能力，改成數雙方合計的行動次數（你一回合算 1 次、敵人行動一次也算 1 次），次數照舊。
+// 延遲、麻痺、加速只會改變普通攻擊的次數，躲不掉頭目的能力。
+// 預告型（prep）：預告之後的下一次行動（不管是誰的）時間就到了，頭目沒輪到也會立刻發動。
+const BOSS_CLOCK = [
+  { on: e => B.dom === 'concert', every: 3, at: 2, icon: '🎤', name: '愛之小夜曲',
+    prep: e => { e.intent = 'loveSerenade'; B.serenadeBroken = false; B.serenadeHp = e.hp; B.serenadeNeed = Math.round(e.maxhp * SERENADE_PCT); log(`🎤 ${e.name} 準備唱「愛之小夜曲・全力」！在他唱之前打出 ${B.serenadeNeed} 以上的傷害就能打斷！`); } },
+  { on: e => e.phase2, n: e => e.p2c, every: 3, at: 2, icon: '☠️', name: '死亡宣告',
+    prep: e => { e.intent = 'deathmark'; log(`⚠️ ${e.name} 正在準備「死亡宣告」！`); } },
+];
+const clockN = (r, e) => r.n ? r.n(e) || 0 : B.clk || 0;
+function clockTick() {
+  if (!B || !B.opt.boss || B.e.hp <= 0) return;
+  B.clk = (B.clk || 0) + 1;
+  livingParts().forEach(e => {
+    if (e.phase2) e.p2c = (e.p2c || 0) + 1;
+    if (e.apPhase) e.apc = (e.apc || 0) + 1;   // 最終章：這個階段開始後的次數
+    if (e.plant && B.clk > e.plantClk && --e.plant <= 0) { delete e.plant; healF(e, Math.round(e.maxhp * .05)); log(`🌳 種子長大了！${e.name} 回復了 HP`); }
+    BOSS_CLOCK.forEach(r => {
+      if (!r.on(e) || clockN(r, e) % r.every !== r.at) return;
+      if (r.fire) r.fire(e);
+      else if (!e.spAt) { r.prep(e); e.spAt = B.clk + (r.lag ?? 1); }   // lag 0：時間到馬上發動
+    });
+  });
+}
+// 頭目狀態列：還要幾次行動才發動
+function clockChips(e) {
+  if (!B || !B.opt.boss || e.isPlayer) return '';
+  return BOSS_CLOCK.filter(r => !r.hide && r.on(e) && !(r.prep && e.spAt)).map(r => {
+    const k = ((r.at - clockN(r, e)) % r.every + r.every) % r.every || r.every;
+    return `<span class="st">⏱️ ${r.icon} ${r.name}：再 ${r.prep ? k + (r.lag ?? 1) : k} 次行動</span>`;
+  }).join('') + (B.dom === 'apoca' ? apocaArmChip(e) : '');
+}
+
+function enemyTurn(actor, forced) {
+  const myB = B, e = actor || B.e, g0 = e.gauge;   // forced：預告的招式時間到了，沒輪到也先發動（行動條不動）
   B.phase = 'enemy';
   e.gauge = 100;
-  tickStatus(e);
+  delete e.spAt;
+  if (!forced) tickStatus(e);
   if (checkEnd()) return;
   if (e.hp <= 0) { e.gauge = 0; B.phase = 'run'; renderBattle(); return; }   // 部位被持續傷害打倒
   e.block = 0;
@@ -519,6 +558,10 @@ function enemyTurn(actor) {
       keyCast(e, p);
     } else if (m.kind === 'cannon') {   // 機械邪龍獸：無限大砲
       cannonFire(e, p);
+    } else if (m.kind === 'deathevo') {   // 阿波卡利獸：死亡進化
+      devoFire(e, p);
+    } else if (m.kind === 'bigbang') {   // 阿波卡利獸：大爆炸
+      bangFire(e, p);
     } else if (m.kind === 'serenade') {   // 猴子獸：愛之小夜曲・全力
       if (!B.serenadeBroken && B.serenadeHp - e.hp >= B.serenadeNeed) B.serenadeBroken = true;   // 燒傷、援護、反擊也算
       applyHit(e, p, 8);   // v16.4：歌聲本身就是攻擊
@@ -538,7 +581,7 @@ function enemyTurn(actor) {
         p.hp = 1; devolve(true, p); p.lockUntil = B.turnNo + 2;
         floatText(p, '☠️ 死亡宣告', 'super'); shake(p);
         log(`☠️ ${p.name} 被死亡宣告擊中，只剩 1 HP，被強制換下場（2 回合內不能上場）！`);
-        e.gauge = 0; e.p2n = (e.p2n || 0) + 1; chooseIntent(e);
+        e.gauge = forced ? g0 : 0; chooseIntent(e); if (!forced) clockTick();
         B.hand.forEach(clearMarks); B.discard.push(...B.hand.filter(c => !c.temp)); B.hand = []; B.carry = 0;
         B.phase = 'choose'; renderBattle(); openSwitch(true);
         return;
@@ -547,21 +590,11 @@ function enemyTurn(actor) {
         floatText(p, `-${d} ☠️`, 'crit'); shake(p); log(`☠️ 死亡宣告！沒有夥伴可以替換，${p.name} 受到 ${d} 點傷害！`);
       }
     }
-    e.gauge = 0;
-    if (e.phase2) e.p2n = (e.p2n || 0) + 1;
-    // 第二階段：每 3 次行動發動一次死亡宣告（前一次行動時就會預告）
-    if (B.dom === 'concert') e.cn = (e.cn || 0) + 1;
-    if (e.phase2 && e.p2n % 3 === 2) { e.intent = 'deathmark'; log(`⚠️ ${e.name} 正在準備「死亡宣告」！`); }
-    else if (cannonPrep(e)) { /* 機械邪龍獸：無限大砲集氣 */ }
-    else if (keyPrep(e)) { /* 小丑皇：鑰匙圈魔術 */ }
-    else if (B.dom === 'concert' && e.cn % 3 === 2) { e.intent = 'loveSerenade'; B.serenadeBroken = false; B.serenadeHp = e.hp; B.serenadeNeed = Math.round(e.maxhp * SERENADE_PCT); log(`🎤 ${e.name} 準備唱「愛之小夜曲・全力」！在他唱之前打出 ${B.serenadeNeed} 以上的傷害就能打斷！`); }
-    else chooseIntent(e);
-    if (B.dom === 'metal' && e.hp > 0) {   // 機械猴子獸：黑暗網路、數據超載
-      e.mn = (e.mn || 0) + 1;
-      if (metalOn('net')) { healF(e, Math.round(e.maxhp * METAL_HEAL)); log(`📡 黑暗網路：${e.name} 回復了 HP`); }
-      if (metalOn('over') && e.mn % 4 === 0) { e.gauge = OVER_GAUGE; floatText(e, '⚡ 數據超載！', 'super', 40); log(`⚡ 數據超載！${e.name} 的行動條直接跳到一半！`); }
-    }
-    duoAfterAct(e);   // 第七章：漲潮、操線
+    e.gauge = forced ? g0 : 0;
+    chooseIntent(e);   // 小夜曲、死亡宣告、大砲、鑰匙圈的預告改由戰場時鐘決定（clockTick）
+    if (B.dom === 'metal' && e.hp > 0 && metalOn('net')) { healF(e, Math.round(e.maxhp * METAL_HEAL)); log(`📡 黑暗網路：${e.name} 回復了 HP`); }   // 機械猴子獸：黑暗網路
+    duoAfterAct(e);   // 第七章：操線
+    if (!forced) clockTick();
     if (checkEnd()) return;
     renderBattle();
     setTimeout(() => { if (B === myB && B.phase === 'enemy') { B.phase = 'run'; renderBattle(); } }, 450);
@@ -587,7 +620,7 @@ function enterPhase2() {
   else { const d = Math.round(p.maxhp * .3); p.hp = Math.max(1, p.hp - d); p.gauge = 0; floatText(p, `-${d} 黑暗衝擊`, 'dot'); shake(p); log(`💥 黑暗衝擊！${p.name} 受到 ${d} 點傷害，行動條歸零！`);
     shock = `黑暗的衝擊波打中了 <b>${p.name}</b>，受到 ${d} 點傷害，行動條歸零！`; }
   B.sealTurn = B.turnNo + 1;
-  e.p2n = 0;
+  e.p2c = 0;
   sfx('wrongevo');
   battleNotice(`🌑 ${e.name} 進入第二階段！`, [
     ['💥 黑暗衝擊', shock],
@@ -615,7 +648,8 @@ function exhaust(p) {
 // 被死亡宣告換下的夥伴，幾回合內不能上場
 const isLocked = f => (f.lockUntil && f.lockUntil >= B.turnNo) || !!f.keychain;   // 鑰匙圈：這場戰鬥不能上場（救回來之前）
 function checkPhase2() { const e = B.e; if (B.dom === 'dark' && !e.phase2 && e.hp > 0 && e.hp <= e.maxhp / 2) enterPhase2();
-  if (B.dom === 'vamp' && !B.parts && e.hp > 0 && e.hp <= e.maxhp / 2) enterVenom(); }   // 吸血魔獸 → 吸血魔王獸
+  if (B.dom === 'vamp' && !B.parts && e.hp > 0 && e.hp <= e.maxhp / 2) enterVenom();
+  if (B.dom === 'apoca') apocaPhase(); }   // 吸血魔獸 → 吸血魔王獸
 
 // ---------- 進化 ----------
 const evoTurnsNow = () => Math.max(1, EVO_TURNS + (has('digivice') ? 1 : 0) - (B && B.dom === 'dark' ? 1 : 0));
@@ -715,7 +749,7 @@ function maintainEvo() {
   const f = B?.p;
   if (!f || B.phase !== 'player' || B.anim || maintainBlock(f)) return;
   if (maintainUsesCrest(f)) { RUN.crestTicks -= 1; log(`🔰 徽章刻度 -1（剩 ${RUN.crestTicks} 格）`); } else RUN.courage -= MAINTAIN_COURAGE;
-  f.evoTurns += MAINTAIN_TURNS;
+  f.evoTurns += MAINTAIN_TURNS; f.kept = true;   // 維持過進化（最終章隱藏結局）
   B.hand.push({ uid: ++uidSeq, id: 'ult', temp: true });
   closePopups(); sfx('evolve'); floatText(f, `🔁 維持進化 +${MAINTAIN_TURNS} 回合`, 'super', 40);
   log(`🔁 ${f.name} 撐住了！進化再維持 ${MAINTAIN_TURNS} 回合，拿到 1 張究極技卡`);
@@ -771,7 +805,7 @@ function evolveTo(tier) {
 function devolve(silent, f = B.p) {
   if (!f.tier) return;
   const ratio = f.hp / f.maxhp, evName = f.name, wasDark = f.dark;
-  Object.assign(f, f.base, { name: f.sp.name, img: f.sp.img, tier: 0, evoTurns: 0, dark: false, darkTint: false });
+  Object.assign(f, f.base, { name: f.sp.name, img: f.sp.img, tier: 0, evoTurns: 0, dark: false, darkTint: false, kept: false });
   f.hp = ratio <= 0 ? 0 : Math.max(1, Math.round(f.maxhp * ratio));
   removeTemp();
   if (wasDark) {
@@ -889,7 +923,7 @@ function flee() {
 
 function checkEnd() {
   if (B.parts) { partsCheck(); if (B.partsAll ? !livingParts().length : B.parts.core.hp <= 0) { B.e = B.parts.core || Object.values(B.parts)[0]; if (B.dom === 'vamp') RUN.flags.p2finish = B.angelHit || B.p.tier === 3 ? 'holy' : 'normal'; win(); return true; } }   // 吸血魔王獸：打倒本體；雙頭目：全部打倒
-  else if (B.e.hp <= 0) { win(); return true; }
+  else if (B.e.hp <= 0) { if (B.dom === 'apoca') RUN.flags.p3finish = B.lastUlt2 || (B.p.tier === 3 && B.p.kept) ? 'holy' : 'normal'; win(); return true; }
   if (B.p.hp <= 0 && K().loveGuard && (B.loveUsed || 0) < (K().loveGuardN || 1)) {   // 素娜：愛的守護（每場戰鬥一次，覺醒後 2 次）
     B.loveUsed = (B.loveUsed || 0) + 1; B.p.hp = 1;
     floatText(B.p, '💗 愛的守護！', 'heal', 30); sfx('heal');
@@ -937,6 +971,7 @@ const PERSUADE_OPTS = [
 function persuadeHard() {   // 不管付什麼都不能勸降的情況
   const e = B.e;
   if (e.boss) return '頭目不聽勸';
+  if (e.shade) return '殘影沒辦法勸降';
   if (!(e.sp.evo || e.sp.fixed)) return '無法勸降';
   if ((e.pfail || 0) >= 3) return '不肯再聽了';
   return null;
@@ -1151,7 +1186,7 @@ function arenaTheme() {
   if (typeof Scene === 'undefined') return;
   if (!Scene.cv) Scene.init($('#arenaBg'));
   const ch = RUN && RUN.chapter, dom = B && B.dom;
-  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : ch === 4 ? 'desert' : ch === 5 ? 'pyramid' : ch === 6 ? 'tokyo' : ch === 7 ? 'spiral' : ch === 8 ? 'factory' : ch === 9 ? 'park' : 'dusk';
+  const key = dom === 'dark' ? 'dark' : ch === 'city' ? 'city' : ch === 'forest' ? 'forest' : ch === 3 ? 'mountain' : ch === 4 ? 'desert' : ch === 5 ? 'pyramid' : ch === 6 ? 'tokyo' : ch === 7 ? 'spiral' : ch === 8 ? 'factory' : ch === 9 ? 'park' : ch === 10 ? 'dark' : 'dusk';
   Scene.set(key, key === 'dusk' ? (dom === 'heat' ? 'ember' : 'none') : null);
 }
 // 後排：最多再站 2 隻（活著、沒被封印的優先）
@@ -1181,6 +1216,7 @@ function renderFighter(f) {
   spr.classList.toggle('evolved', f.tier > 0);
   spr.classList.toggle('t3', f.tier === 3 && !f.dark);
   spr.classList.toggle('darkevo', !!f.dark);
+  spr.classList.toggle('shade', !!f.shade);   // 最終章的殘影
   spr.classList.toggle('darktint', !!f.darkTint);
   spr.classList.toggle('elite', !!f.elite);
   const r = f.hp / f.maxhp;
@@ -1197,11 +1233,11 @@ function renderFighter(f) {
   blk.textContent = `🛡${f.block}`;
   el.querySelector('.statuses').innerHTML =
     (f.tier ? `<span class="st">✨ ${TIERS[f.tier].name} 剩 ${f.evoTurns} 回合</span>` : '') +
-    (f.isPlayer && B && B.dom === 'clown' && keychains().length ? `<span class="st sealSt">🃏 鑰匙圈 ${keychains().length} 隻（再打 ${Math.max(0, Math.round(B.e.maxhp * KEY_PCT) - (B.keyDmg || 0))} 救回）</span>` : '') +
+    (f.isPlayer && B && keychains().length ? `<span class="st sealSt">🃏 鑰匙圈 ${keychains().length} 隻（再打 ${Math.max(0, Math.round(B.e.maxhp * KEY_PCT) - (B.keyDmg || 0))} 救回）</span>` : '') +
     (f.isPlayer && B && B.water ? `<span class="st sealSt">🌊 水位 ${B.water}：手牌 -${B.water}</span>` : '') +
     (f.isPlayer && B && B.sealTurn && B.turnNo <= B.sealTurn ? '<span class="st sealSt">🔒 黑暗封印：不能進化</span>' : '') +
     (f.isPlayer && B && !(B.sealTurn && B.turnNo <= B.sealTurn) && f.sealUntil >= B.turnNo ? '<span class="st sealSt">😮‍💨 筋疲力盡：不能進化</span>' : '') +
-    (f.gears ? `<span class="st">⚙️ 小齒輪 ×${f.gears}</span>` : '') + (f.plant ? `<span class="st">🌱 種子 ${f.plant}</span>` : '') +
+    (f.gears ? `<span class="st">⚙️ 小齒輪 ×${f.gears}</span>` : '') + (f.plant ? `<span class="st">🌱 種子 ${f.plant}</span>` : '') + clockChips(f) +
     Object.entries(f.st).map(([k, n]) => `<span class="st">${STATUS[k].icon} ${STATUS[k].name} ${n}</span>`).join('');
 }
 

@@ -337,6 +337,7 @@ async function bossDefeated() {
   else if (RUN.chapter === 'city') { addFlag('saved'); await say('andromon', '系統…恢復正常。被選召的孩子，感謝你。這份資料給你。'); await giveRelic(pick(relicPool())); }
   else if (RUN.chapter === 'forest') { addFlag('saved'); await say('jyureimon', '迷霧…散去了…原來森林的陽光這麼溫暖…'); teamHeal(.5); }
   else if (RUN.chapter === 5) await say('metaletemon', '不、不可能……本大爺的鋼鐵身體……！');
+  else if (RUN.chapter === 10) await say(null, '阿波卡利獸的身體裂開了，無數的數據碎片從裂縫裡湧了出來——');
   else if (RUN.chapter === 9) await say(null, '小丑皇的面具裂開了——所有的鑰匙圈都變回了數碼寶貝！');
   else if (RUN.chapter === 8) await say(null, '機械邪龍獸的眼睛閃了幾下，轟的一聲倒下——工廠安靜了下來。');
   else if (RUN.chapter === 6) await say(null, '吸血魔王獸發出最後的咆哮，化成無數的蝙蝠，消散在晨光裡——');
@@ -389,6 +390,9 @@ async function chapterComplete() {
         [null, '🃏 小丑皇會把<b>後排的夥伴</b>變成鑰匙圈；對牠打出足夠的傷害就能救回來。']] },
     ]);
     startChapter(9);
+  } else if (CHAPTERS[RUN.chapter].next === 'p3final') {
+    await finalChapterDone();
+    return;
   } else if (CHAPTERS[RUN.chapter].next === 'p3done') {
     await part3ChapterDone();
     return;

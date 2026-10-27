@@ -126,6 +126,9 @@ function islDeco(kind, th, rng) {
   } else if (kind === 'gear') {
     const r = add(new THREE.TorusGeometry(.22, .07, 4, 8), 0x9a8a7a, 0, .3, 0); r.rotation.x = Math.PI / 2 * rng();
     add(new THREE.CylinderGeometry(.05, .05, .5, 5), 0x6a4030, .22, .25, 0);
+  } else if (kind === 'void') {   // 最終章：浮著的數據方塊、結晶
+    add(new THREE.BoxGeometry(.3, .3, .3), 0x6d28d9, 0, .3 + rng() * .3, 0).rotation.set(rng() * 3, rng() * 3, 0);
+    add(new THREE.OctahedronGeometry(.16, 0), th.leaf, .22, .2, .05).scale.y = 1.6;
   } else if (kind === 'park') {
     add(new THREE.CylinderGeometry(.015, .015, .7, 3), 0xeeeeee, 0, .35, 0);
     add(new THREE.SphereGeometry(.16, 8, 6), [0xff5a7a, 0x5ad0ff, 0xffd23a, 0x8aff7a][Math.floor(rng() * 4)], 0, .8, 0);
@@ -271,7 +274,7 @@ function showRoute3D(box, floors, ch) {
 
   // 雲
   S.clouds = [];
-  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: .85, flatShading: true });
+  const cloudMat = new THREE.MeshLambertMaterial({ color: th.cloud || 0xffffff, transparent: true, opacity: .85, flatShading: true });
   const crng = islRng(seedBase + 77);
   for (let k = 0; k < 16; k++) {
     const c = new THREE.Group();
@@ -354,7 +357,7 @@ function islPanel(nd, th, seedBase) {
     const g = islBuildIsland({ type: '' }, th, rng, false); g.scale.setScalar(.35 + rng() * .25);
     g.position.set((rng() - .5) * 10, rng() * 3 - .5, -8 - rng() * 10); scene.add(g);
   }
-  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: .85, flatShading: true }), clouds = [];
+  const cloudMat = new THREE.MeshLambertMaterial({ color: th.cloud || 0xffffff, transparent: true, opacity: .85, flatShading: true }), clouds = [];
   for (let k = 0; k < 7; k++) {
     const c = new THREE.Group();
     for (let m = 0; m < 4; m++) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(.5 + rng() * .6, 0), cloudMat); b.position.set(m * .7 - 1, rng() * .3, rng() - .5); c.add(b); }

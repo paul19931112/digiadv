@@ -96,6 +96,7 @@ const WALL_PARTS = {
 function wallKind(theme, c) {
   const P = PALETTE[theme] || {};
   if (P.park) return c === 'T' ? ['card'] : ['carouB', 'carou'];
+  if (P.void) return c === 'T' ? ['dcube'] : ['dshard'];
   if (P.building) return c === 'T' ? ['bldg'] : ['car'];
   if (P.brick) return ['block'];
   if (P.crate) return ['crate'];
@@ -119,7 +120,7 @@ function a3WindowTex() {
 function a3Build(A) {
   if (A3.scene) A3.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && !o.isSprite) o.material.dispose(); });
   const th = ISL_THEME[A.theme] || ISL_THEME.grass, P = PALETTE[A.theme];
-  const scene = new THREE.Scene(), dark = ['tokyo', 'pyramid', 'factory', 'park'].includes(A.theme);
+  const scene = new THREE.Scene(), dark = ['tokyo', 'pyramid', 'factory', 'park', 'void'].includes(A.theme);
   scene.background = islSky(th.sky[0], th.sky[1]);
   scene.fog = new THREE.Fog(new THREE.Color(th.sky[1]), 26, 70);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445066, dark ? .65 : .8));
@@ -147,7 +148,7 @@ function a3Build(A) {
     const st = new THREE.Mesh(new THREE.DodecahedronGeometry(.5 + rng() * .9, 0), a3Lam(th.rock));
     st.position.set(COLS / 2 + (rng() - .5) * COLS * 1.1, -3 - rng() * 9, ROWS / 2 + (rng() - .5) * ROWS * 1.1); scene.add(st);
   }
-  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: dark ? .35 : .85, flatShading: true });
+  const cloudMat = new THREE.MeshLambertMaterial({ color: th.cloud || 0xffffff, transparent: true, opacity: dark ? .35 : .85, flatShading: true });
   A3.clouds = [];
   for (let k = 0; k < 14; k++) {
     const c = new THREE.Group();
@@ -212,6 +213,7 @@ function a3MakeObj(o) {
     if (o.role === 'elite' || o.role === 'boss') d.aura = add(a3Ring(.35 * big, .5 * big, o.role === 'boss' ? 0xdc003c : 0x8c00c8, .6));
     if (o.kind !== 'enemy') d.aura = add(a3Ring(.36, .5, o.kind === 'band' ? 0xfde047 : 0xffffff, .4));
     d.board = add(a3Board(big)); d.sp = sp;
+    if (o.kind === 'enemy' && RUN.chapter === 10 && o.role !== 'boss') d.board.material.color.set(0xa07aff);   // 最終章：殘影
     const tag = o.kind === 'shop' ? '🛒' : o.kind === 'npc' ? '💬' : o.kind === 'band' ? '🎵' : o.role === 'guard' ? '❗' : null;
     if (tag) { d.tag = add(a3Board(.4)); a3SetBoard(d.tag, a3EmojiTex(tag)); d.tag.position.set(.35, big + .05, 0); }
   } else if (o.kind === 'chest') {
@@ -231,8 +233,8 @@ function a3MakeObj(o) {
     d.aura = add(a3Ring(.15, .32, 0x22d3ee, .5));
     d.spin = add(new THREE.Mesh(new THREE.OctahedronGeometry(.17, 0), a3Lam(0x22d3ee, { emissive: 0x0e7490 }))); d.spin.position.y = .4;
   } else {   // 其他：用 emoji 看板
-    const e = { stone: '🗿', tp: '🌀', hack: '💻', trial: '🌟', clue: '🔎', crest: '✨', trap: '⚠️' }[o.kind] || '❓';
-    const col = { stone: 0xfde047, tp: 0x22d3ee, hack: 0x4ade80, trial: 0xfde047, clue: 0xf472b6, trap: 0xf87171 }[o.kind];
+    const e = o.mem ? '💠' : { stone: '🗿', tp: '🌀', hack: '💻', trial: '🌟', clue: '🔎', crest: '✨', trap: '⚠️' }[o.kind] || '❓';
+    const col = o.mem ? 0xa855f7 : { stone: 0xfde047, tp: 0x22d3ee, hack: 0x4ade80, trial: 0xfde047, clue: 0xf472b6, trap: 0xf87171 }[o.kind];
     if (col) d.aura = add(a3Ring(.3, .48, col, .55));
     d.tag = add(a3Board(o.kind === 'stone' || o.kind === 'hack' ? .8 : .6)); a3SetBoard(d.tag, a3EmojiTex(e)); d.tag.position.y = .05;
   }

@@ -791,11 +791,11 @@ function makeEnemy(id, lv, opt = {}) {
   if (opt.boss) { s.maxhp = Math.round(s.maxhp * 3.6); s.atk = Math.round(s.atk * 1.35); s.def = Math.round(s.def * 1.15); }
   // 難度旋鈕：敵人整體的血量與攻擊加成
   // 各章節的敵人強度：第一章手下留情，越後面越強 [血量, 攻擊]
-  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35], 5: [1.6, 1.42], 6: [1.7, 1.5], 7: [1.8, 1.58], 8: [1.9, 1.66], 9: [2.0, 1.74] };
+  const CH_SCALE = { 1: [1, .85], city: [1.15, 1.1], forest: [1.15, 1.1], 3: [1.3, 1.2], 4: [1.5, 1.35], 5: [1.6, 1.42], 6: [1.7, 1.5], 7: [1.8, 1.58], 8: [1.9, 1.66], 9: [2.0, 1.74], 10: [2.1, 1.82] };
   const [chHp, chAtk] = (typeof RUN !== 'undefined' && RUN && CH_SCALE[RUN.chapter]) || [1, 1];
   s.maxhp = Math.round(s.maxhp * ENEMY_HP * chHp); s.atk = Math.round(s.atk * ENEMY_ATK * chAtk);
   // 第二部的頭目再加強（第二部隊伍有完全體可以用；用電腦模擬調到勝率約六成）
-  const BOSS_EXTRA = { 4: [1.26, 1.1], 5: [1, .88], 6: [.71, .77], 7: [.37, .55], 8: [.51, 1.25], 9: [.46, .8] };   // v16.4：血量大幅降低（每隻頭目大約 40～50 張基本攻擊卡），攻擊用模擬重新調
+  const BOSS_EXTRA = { 4: [1.26, 1.1], 5: [1, .88], 6: [.71, .77], 7: [.37, .55], 8: [.51, 1.25], 9: [.46, .8], 10: [.5, .85] };   // v16.4：血量大幅降低（每隻頭目大約 40～50 張基本攻擊卡），攻擊用模擬重新調
   if (opt.boss && typeof RUN !== 'undefined' && RUN && BOSS_EXTRA[RUN.chapter]) { s.spd = +(s.spd * BOSS_SPD).toFixed(1);   // v16.4：第二、三部的頭目比較快，能力比較常出現
     s.maxhp = Math.round(s.maxhp * BOSS_EXTRA[RUN.chapter][0]); s.atk = Math.round(s.atk * BOSS_EXTRA[RUN.chapter][1]); }
   const name = (opt.elite ? '暗黑' : '') + sp.name;

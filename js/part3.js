@@ -149,9 +149,10 @@ function duoBroken(p) {
   }
 }
 // 敵人行動後：漲潮、操線
+BOSS_CLOCK.push({ on: e => e.key === 'sea' && B.partsAll && B.water < 2, every: 2, at: 0, icon: '🌊', name: '漲潮',
+  fire: () => { B.water++; floatText(B.p, `🌊 漲潮！水位 ${B.water}`, 'dot', 50); log(`🌊 漲潮了！水位 ${B.water}（手牌上限 -${B.water}）`); } });
 function duoAfterAct(e) {
   if (!B.parts || !B.partsAll) return;
-  if (e.key === 'sea' && ++B.tideN % 2 === 0 && B.water < 2) { B.water++; floatText(B.p, `🌊 漲潮！水位 ${B.water}`, 'dot', 50); log(`🌊 漲潮了！水位 ${B.water}（手牌上限 -${B.water}）`); }
   if (e.key === 'forest') { (B.pend = B.pend || {}).str = 1; floatText(e, '🎭 操線', 'info', 60); log(`🎭 ${e.name} 伸出了操線！你的下一手牌有 1 張會被操控`); }
 }
 // 打出防禦／回復卡：退潮
@@ -171,28 +172,6 @@ function puppetPlay(i, c, d) {
   renderBattle();
 }
 
-// ---------- 第九章結束（最終章製作中） ----------
-async function part3ChapterDone() {
-  G.mode = 'busy';
-  await cutscene([
-    { bg: 'stage', music: 'route', amb: null, chars: [['partner', 30, 76, 32, 'in-l']], lines: [['partner', '小丑皇被打倒了……！鑰匙圈全部變回來了！'], [null, '螺旋山開始崩塌。四天王都倒下了——但黑暗還沒有消失。']] },
-    { bg: 'void', music: null, amb: 'drone', chars: [], fx: '<div class="cutTitle"><b>最終章</b><strong>？？？</strong><small>製作中・敬請期待</small></div>',
-      lines: [['shadow', '……為什麼……只有我們……被刪除……'], ['shadow', '我要把這個世界……也一起……']] },
-  ]);
-  META.p3ch = Math.max(META.p3ch || 0, RUN.chapter); META.clears++;
-  recordDex(); saveMeta(); clearRun();
-  const o = $('#overlay');
-  o.innerHTML = `<div class="chapterCard"><div style="font-size:70px">🃏</div><h1>第九章 完成！</h1>
-    <p>最終章還在製作中，敬請期待</p>
-    <div class="endTeam">${RUN.team.map(m => spPic(m.sp, 's80')).join('')}</div>
-    <p>擊敗 ${RUN.stats.wins} 隻敵人　｜　學會第二究極技 ${(RUN.learned2 || []).length} 招</p>
-    <button class="btn primary big" id="p3Back">回到標題</button></div>`;
-  o.classList.remove('hidden');
-  await new Promise(r => o.querySelector('#p3Back').onclick = r);
-  o.classList.add('hidden');
-  showTitle();
-}
-
 // =========================================================
 //   第八章：機械邪龍獸（無限大砲）＋ 工廠地圖（輸送帶）
 // =========================================================
@@ -204,18 +183,15 @@ BOSS_INFO.mugen = [['💥 無限大砲', '機械邪龍獸每 4 次行動會開�
   ['🛑 打斷', `集氣出現後，在牠發射前打出牠<b>最大 HP ${Math.round(CANNON_PCT * 100)}%</b> 以上的傷害（燒傷、援護、反擊也算）就能打斷。敵人頭上會顯示還差多少。`],
   ['💡 小技巧', '集氣時可以先用防禦卡擋一下，或換一隻血多的夥伴上場；甲蟲獸的第二究極技「大力神衝擊」可以直接打斷。']];
 // 集氣：在敵人行動結束時決定下一招
+BOSS_CLOCK.push({ on: () => B.dom === 'mugen', every: CANNON_EVERY, at: 0, icon: '💥', name: '無限大砲', prep: e => cannonPrep(e) });
 function cannonPrep(e) {
-  if (B.dom !== 'mugen') return false;
-  e.cn = (e.cn || 0) + 1;
-  if (e.cn % CANNON_EVERY !== 0) return false;
   e.intent = 'infinitycannon'; B.cannonBroken = false; B.cannonHp = e.hp; B.cannonNeed = Math.round(e.maxhp * CANNON_PCT);
   floatText(e, '💥 集氣中！', 'super', 40); log(`💥 ${e.name} 開始為「無限大砲」集氣！在牠發射前打出 ${B.cannonNeed} 以上的傷害就能打斷！`);
-  return true;
 }
 // 打出卡片之後：傷害夠了就打斷
 function cannonCheck() {
   const e = B.e;
-  if (B.dom !== 'mugen' || e.intent !== 'infinitycannon' || B.cannonBroken || e.hp <= 0) return;
+  if ((B.dom !== 'mugen' && B.dom !== 'apoca') || e.intent !== 'infinitycannon' || B.cannonBroken || e.hp <= 0) return;
   if (B.cannonHp - e.hp >= B.cannonNeed) { B.cannonBroken = true; floatText(e, '🛑 大砲打斷！', 'super', 40); log('🛑 打斷了無限大砲的集氣！'); sfx('crit'); }
 }
 // 發射
@@ -266,13 +242,8 @@ BOSS_INFO.clown = [['🃏 鑰匙圈', '小丑皇每 3 次行動會施放一次�
   ['💡 小技巧', '後排沒有夥伴可以變的時候，小丑皇會改成直接攻擊。出戰夥伴倒下、又只剩鑰匙圈的話，鑰匙圈的夥伴會掙脫出來上場。']];
 const keychains = () => B.fighters.filter(f => f.keychain);
 // 敵人行動結束：每 3 次預告一次鑰匙圈
-function keyPrep(e) {
-  if (B.dom !== 'clown') return false;
-  e.kn = (e.kn || 0) + 1;
-  if (e.kn % KEY_EVERY !== KEY_EVERY - 1) return false;
-  e.intent = 'keychain'; log(`🃏 ${e.name} 拿出了一把鑰匙……下一次行動會把後排的夥伴變成鑰匙圈！`);
-  return true;
-}
+BOSS_CLOCK.push({ on: () => B.dom === 'clown', every: KEY_EVERY, at: KEY_EVERY - 1, icon: '🃏', name: '鑰匙圈',
+  prep: e => { e.intent = 'keychain'; log(`🃏 ${e.name} 拿出了一把鑰匙……下一次行動會把後排的夥伴變成鑰匙圈！`); } });
 function keyCast(e, p) {
   const cands = B.fighters.filter(f => f !== p && f.hp > 0 && !f.keychain);
   if (!cands.length) { log(`🃏 後排沒有夥伴可以變，${e.name} 改用撲克劍直接攻擊！`); applyHit(e, p, 18); return; }
@@ -283,7 +254,7 @@ function keyCast(e, p) {
 }
 // 打中小丑皇：累積傷害，夠了就救回 1 隻
 function keyDamage(tgt, d) {
-  if (B.dom !== 'clown' || tgt !== B.e || d <= 0 || !keychains().length) return;
+  if ((B.dom !== 'clown' && B.dom !== 'apoca') || tgt !== B.e || d <= 0 || !keychains().length) return;
   B.keyDmg = (B.keyDmg || 0) + d;
   const need = Math.round(B.e.maxhp * KEY_PCT);
   if (B.keyDmg >= need) { B.keyDmg -= need; keyFree(); }
