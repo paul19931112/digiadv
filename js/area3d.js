@@ -267,6 +267,7 @@ function a3Build(A) {
     scene.add(mesh);
     const ghost = new THREE.InstancedMesh(geo, mat.clone(), list.length);   // 半透明的那份：擋住主角的牆改用這個畫
     Object.assign(ghost.material, { transparent: true, opacity: .55, depthWrite: false });
+    ghost.setColorAt(0, new THREE.Color());   // 先在 count 還是全數時建好顏色表（r128 依 count 建，count=0 會變空的→全黑）
     ghost.count = 0; ghost.renderOrder = 2; scene.add(ghost);
     A3.walls.push({ mesh, list, ghost });
   }

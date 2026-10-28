@@ -284,37 +284,6 @@ function showRoute3D(box, floors, ch) {
     scene.add(c); S.clouds.push(c);
   }
 
-  // 選擇畫面：下一層的每座小島各一格直式畫面
-  const choices = RUN.pos ? RUN.route[RUN.pos.f][RUN.pos.i].next.map(j => floors[RUN.pos.f + 1][j]) : floors[0];
-  (S.panels || []).forEach(p => islDispose(p.scene));
-  S.panels = choices.slice().sort((a, b) => a.i - b.i).map((nd, k) => islPanel(nd, th, seedBase));
-  const ovPick = document.createElement('div'); ovPick.className = 'islPick'; box.appendChild(ovPick);
-  S.panels.forEach((p, k) => {
-    const nd = p.nd, info = NODE_INFO[nd.type], el = document.createElement('button');
-    el.className = `islPanel ${nd.type}`;
-    el.style.left = (k / S.panels.length * 100) + '%'; el.style.width = (100 / S.panels.length) + '%';
-    el.innerHTML = `<div class="islLabel">${nd.type === 'boss' ? spPic(ch.boss.id, 's64') : `<span class="ic">${info.icon}</span>`}<b>${nd.type === 'boss' ? SPECIES[ch.boss.id].name : info.name}</b><small>${ISL_HINT[nd.type] || ''}</small></div>`;
-    el.onmouseenter = () => { p.hover = true; }; el.onmouseleave = () => { p.hover = false; };
-    el.onclick = () => {
-      if (S.going) return;
-      S.going = true; p.zoom = true; sfx('click');
-      setTimeout(() => { S.going = false; enterNode(nd); }, 450);
-    };
-    ovPick.appendChild(el);
-  });
-  const tog = document.createElement('button'); tog.className = 'btn islToggle'; box.appendChild(tog);
-  S.setMode = mode => {
-    S.mode = S.panels.length ? mode : 'map';
-    ov.style.display = S.mode === 'map' ? '' : 'none';
-    ovPick.style.display = S.mode === 'pick' ? '' : 'none';
-    tog.style.display = S.panels.length ? '' : 'none';
-    tog.textContent = S.mode === 'pick' ? '🗺️ 看整條路線' : '↩ 回到選擇';
-    $('#routeScreen').classList.toggle('islPickMode', S.mode === 'pick');
-  };
-  tog.onclick = () => S.setMode(S.mode === 'pick' ? 'map' : 'pick');
-  S.going = false;
-  S.setMode('pick');
-
   // 鏡頭：從目前位置稍微後面滑進來
   const want = RUN.pos ? -(RUN.pos.f + .7) * ISL_SZ : ISL_SZ * .3;
   S.target = islClampFocus(want);
@@ -329,72 +298,10 @@ function showRoute3D(box, floors, ch) {
   return true;
 }
 
-// 選擇畫面的一格：一座小島 + 天空 + 雲
-const ISL_HINT = {
-  battle: '一般戰鬥', elite: '強敵出沒・獎勵比較好', event: '會發生什麼呢？', rest: '回復泉・可以休息或特訓',
-  shop: '玩偶獸的商店', egg: '可能撿到數碼蛋', treasure: '藏著寶箱', puzzle: '古代遺跡的謎題',
-  hack: '古代終端機', trial: '覺醒的試煉', boss: '這一章的頭目！',
-};
-const ISL_TYPE_SKY = {
-  elite: ['#3a1a5e', '#b07ad8'], boss: ['#2a0610', '#c23a3a'], rest: ['#38b8c8', '#e0fff4'], shop: ['#f0a050', '#ffe8c0'],
-  event: ['#4a5ab0', '#d0c8ff'], treasure: ['#e0a830', '#fff2b8'], egg: ['#8ad0ff', '#fffaf0'], puzzle: ['#6a7a8a', '#e8dcc0'],
-  trial: ['#f0c040', '#fff8d8'], hack: ['#0a2a4a', '#40c8e8'],
-};
-function islPanel(nd, th, seedBase) {
-  const rng = islRng(seedBase * 997 + nd.f * 131 + nd.i * 17 + 1);
-  const mix = (a, b) => '#' + new THREE.Color(a).lerp(new THREE.Color(b), .55).getHexString();
-  const ts = ISL_TYPE_SKY[nd.type], sky = ts ? [mix(th.sky[0], ts[0]), mix(th.sky[1], ts[1])] : th.sky;
-  const scene = new THREE.Scene();
-  scene.background = islSky(sky[0], sky[1]);
-  scene.fog = new THREE.Fog(new THREE.Color(sky[1]), 14, 40);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x445066, .8));
-  const sun = new THREE.DirectionalLight(0xfff2dd, .85); sun.position.set(5, 9, 7); scene.add(sun);
-  const big = nd.type === 'boss', isl = islBuildIsland(nd, th, rng, big);
-  isl.children[isl.children.length - 1].scale.setScalar(big ? 1 : 1.5);   // 中間的道具放大一點，比較看得清楚
-  scene.add(isl);
-  // 遠方的小浮島和雲，讓畫面有深度
-  for (let k = 0; k < 3; k++) {
-    const g = islBuildIsland({ type: '' }, th, rng, false); g.scale.setScalar(.35 + rng() * .25);
-    g.position.set((rng() - .5) * 10, rng() * 3 - .5, -8 - rng() * 10); scene.add(g);
-  }
-  const cloudMat = new THREE.MeshLambertMaterial({ color: th.cloud || 0xffffff, transparent: true, opacity: .85, flatShading: true }), clouds = [];
-  for (let k = 0; k < 7; k++) {
-    const c = new THREE.Group();
-    for (let m = 0; m < 4; m++) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(.5 + rng() * .6, 0), cloudMat); b.position.set(m * .7 - 1, rng() * .3, rng() - .5); c.add(b); }
-    c.position.set((rng() - .5) * 12, k < 2 ? 3 + rng() * 2 : -3.5 - rng() * 4, -5 - rng() * 9);   // 雲都在小島後面，不會擋住
-    scene.add(c); clouds.push(c);
-  }
-  return { nd, scene, isl, clouds, cam: new THREE.PerspectiveCamera(38, 1, .1, 100), phase: rng() * 6.28, r: isl.userData.r, zoomK: 0 };
-}
-
-function islFramePanels() {
-  const S = ISL, R = S.renderer, n = S.panels.length, pw = S.w / n;
-  R.setScissorTest(true);
-  S.panels.forEach((p, k) => {
-    const x = Math.round(k * pw), w = Math.round((k + 1) * pw) - x;
-    p.isl.rotation.y = S.t * (p.hover ? .7 : .25) + p.phase;
-    p.isl.position.y = Math.sin(S.t * 1.1 + p.phase) * .15;
-    p.clouds.forEach((c, j) => { c.position.x += .008 * (j % 2 ? 1 : -1); if (Math.abs(c.position.x) > 8) c.position.x *= -.95; });
-    // 鏡頭距離：讓整座小島剛好放進這一格
-    const cam = p.cam; cam.aspect = w / S.h; cam.updateProjectionMatrix();
-    const vf = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)), hf = vf * cam.aspect;
-    let D = Math.max((p.r * 1.12 + .3) / hf, (p.r * 1.35 + .9) / vf);
-    p.zoomK += ((p.zoom ? 1 : p.hover ? .12 : 0) - p.zoomK) * .12;
-    D *= 1 - p.zoomK * .45;
-    cam.position.set(0, D * .38 + .6, D);
-    cam.lookAt(0, -p.r * .55, 0);
-    R.setViewport(x, 0, w, S.h); R.setScissor(x, 0, w, S.h);
-    R.render(p.scene, cam);
-  });
-  R.setScissorTest(false);
-  R.setViewport(0, 0, S.w, S.h);
-}
-
 function islFrame() {
   const S = ISL, cam = S.camera;
   S.t += 1 / 60;
   if (S.box.clientWidth !== S.w || S.box.clientHeight !== S.h) islResize();
-  if (S.mode === 'pick') { islFramePanels(); return; }
   S.focus += (S.target - S.focus) * .1;
   const d = S.dist, sway = Math.sin(S.t * .3) * .4;
   cam.position.set(sway, d * .62, S.focus + d * .78);
