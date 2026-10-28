@@ -266,7 +266,7 @@ function a3Build(A) {
     });
     scene.add(mesh);
     const ghost = new THREE.InstancedMesh(geo, mat.clone(), list.length);   // 半透明的那份：擋住主角的牆改用這個畫
-    Object.assign(ghost.material, { transparent: true, opacity: .28, depthWrite: false });
+    Object.assign(ghost.material, { transparent: true, opacity: .55, depthWrite: false });
     ghost.count = 0; ghost.renderOrder = 2; scene.add(ghost);
     A3.walls.push({ mesh, list, ghost });
   }
