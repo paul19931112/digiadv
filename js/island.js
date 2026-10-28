@@ -44,7 +44,7 @@ function islInit(box) {
   const move = e => {
     if (!drag) return;
     const dy = e.clientY - drag.y; drag.moved = Math.max(drag.moved, Math.abs(dy) + Math.abs(e.clientX - drag.x));
-    ISL.target = islClampFocus(drag.f + dy * .045);
+    ISL.target = islClampFocus(drag.f - dy * .045);   // 手指往下拉 → 看更遠（上面）的小島
   };
   const up = e => {
     if (drag && drag.moved < 8 && e.target === cv) islPick(e);

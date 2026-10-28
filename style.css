@@ -254,6 +254,7 @@ button{font-family:inherit;cursor:pointer}
 .rnode.here{opacity:1;border-color:#4ade80;box-shadow:0 0 18px #4ade8088}
 @keyframes nodePulse{50%{box-shadow:0 0 30px #ffcc33cc}}
 .routeLegend{text-align:center;color:var(--muted);font-size:13px;padding:8px}
+.routeLegend span{white-space:nowrap;margin:0 .5em}
 /* 3D 浮空小島 */
 #routeScreen.isl3d #routeWrap{width:100%;overflow:hidden;touch-action:none}
 #routeScreen.isl3d #routeMap{height:100%}
@@ -485,7 +486,9 @@ body{touch-action:manipulation;-webkit-user-select:none;user-select:none}
   #routeScreen.isl3d .routeLegend{left:0}
   #area{width:min(calc(100vw - 12px),calc((100vh - 64px) * 1.5));border-radius:8px}
   .routeHead h2{font-size:20px}
-  .routeLegend{font-size:11px}
+  .routeLegend{font-size:12px;display:grid;grid-template-columns:repeat(5,auto);justify-content:center;gap:3px 12px}   /* 手機：分兩排 */
+  .routeLegend span{margin:0;text-align:left}
+  #routeScreen.isl3d .routeLegend{background:linear-gradient(transparent,#0008 35%);padding:14px 8px 10px}
 
   /* 共用畫面 */
   .screen{padding:12px;justify-content:flex-start}
