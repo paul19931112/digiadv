@@ -335,7 +335,8 @@ function flavor(kind, t) {
     case 'haste':  { const n = 2 + Math.floor(t / 2); return { desc: () => `加速 ${n} 回合`, fx: () => addStatus(B.p, 'haste', n) }; }
     case 'heal':   { const pc = [5, 10, 14, 18][t]; return { desc: () => `回復 ${pc}% HP`, fx: () => healF(B.p, Math.round(B.p.maxhp * pc / 100)) }; }
     case 'holy':   return { desc: () => t === 0 ? '淨化：解除敵人的攻擊↑' : `淨化：解除攻擊↑和護盾<br>受傷↑ ${t} 回合`,
-                            fx: () => { if (B.e.st.atkUp) delete B.e.st.atkUp; if (t) { B.e.block = 0; addStatus(B.e, 'expose', t); } floatText(B.e, '✨ 淨化', 'info', 60); } };
+                            pre: () => { if (t && B.e.block) { B.e.block = 0; floatText(B.e, '護盾粉碎！', 'info', 40); } },   // 先破盾再打傷害，不然傷害會被護盾吃掉
+                            fx: () => { if (B.e.st.atkUp) delete B.e.st.atkUp; if (t) addStatus(B.e, 'expose', t); floatText(B.e, '✨ 淨化', 'info', 60); } };
     case 'delay':  { const n = 30 + t * 12; return { desc: () => `敵人行動條 -${n}%`, fx: () => pushGauge(B.e, -n) }; }
     case 'poison': { const n = 3 + t; return { desc: () => `中毒 ${n} 回合`, fx: () => addStatus(B.e, 'poison', n) }; }
     case 'para':   { const c = t === 0 ? .35 : .5 + t * .15, n = t === 0 ? 1 : 2;
@@ -424,14 +425,14 @@ function sigDef(sp, u) {
   const fl = flavor(sp.flavor, 0), pw = Math.round(sp.sig.power * (u ? 1.4 : 1));
   return { name: sp.sig.name, cost: sp.sig.cost || 2, type: 'sig',
     desc: () => `造成 ${dmgTxt(pw)} 傷害<br>${fl.desc()}${B ? '' : '<br><small>（依出戰夥伴變化）</small>'}`,
-    fx: () => { hit(pw, 1, { pierce: fl.pierce }); fl.fx && fl.fx(); } };
+    fx: () => { fl.pre && fl.pre(); hit(pw, 1, { pierce: fl.pierce }); fl.fx && fl.fx(); } };
 }
 function ultDef(sp, tier) {
   const ev = sp.evo[tier - 1], hits = ev.hits || 1, fl = flavor(sp.flavor, tier);
   const per = Math.round(TIERS[tier].power / hits * (hits > 1 ? 1.1 : 1) * (RUN && has('ultboost') ? 1.25 : 1));
   return { name: ev.ult, cost: 2, type: 'ult',
     desc: () => `造成 ${dmgTxt(per, hits)} 傷害<br>${fl.desc()}`,
-    fx: () => { hit(per, hits, { pierce: fl.pierce }); fl.fx && fl.fx(); } };
+    fx: () => { fl.pre && fl.pre(); hit(per, hits, { pierce: fl.pierce }); fl.fx && fl.fx(); } };
 }
 function cardDef(id) {
   const u = id.endsWith('+'), base = u ? id.slice(0, -1) : id;

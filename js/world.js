@@ -28,6 +28,11 @@ function genRoute(chKey) {
     const row = floors[f], c = row.filter(nd => !['shop', 'rest'].includes(nd.type));
     if (!row.some(nd => nd.type === 'hack') && c.length) pick(c).type = 'hack';
   }
+  if (!floors.some(row => row.some(nd => nd.type === 'egg'))) {   // 每章保底一個數碼蛋
+    const mid = floors.slice(1, F - 2).flat(), soft = mid.filter(nd => ['battle', 'event', 'treasure', 'puzzle'].includes(nd.type));
+    const c = soft.length ? soft : mid.filter(nd => ['elite', 'trial'].includes(nd.type));   // 第三部精英、試煉多，沒有一般小島時換掉其中一座
+    if (c.length) pick(c).type = 'egg';
+  }
   // 連線：依位置比例連到下一層，並保證每個節點都走得到
   for (let f = 0; f < F - 1; f++) {
     const a = floors[f], b = floors[f + 1];
@@ -207,7 +212,7 @@ function genArea(nd) {
     }
     case 'rest':   place({ kind: 'spring' }, middle()); break;
     case 'shop':   place({ kind: 'shop', sp: 'monzaemon' }, middle()); break;
-    case 'egg':    place({ kind: 'egg', star: starterEggs().length > 0 && Math.random() < (P2() ? .4 : .25) }, middle()); place(enemy('roam', pick(ch.zone), lv - 1), free(6)); break;
+    case 'egg':    place({ kind: 'egg', star: starterEggs().length > 0 }, middle());   // v17.7：有還沒入隊的初始夥伴就一定是發光蛋 place(enemy('roam', pick(ch.zone), lv - 1), free(6)); break;
     case 'treasure':
       for (let k = 0; k < randInt(2, 3); k++) place({ kind: 'chest' }, free(4));
       place(enemy('roam', pick(ch.zone), lv), free(6));
@@ -569,7 +574,7 @@ async function hatchEgg(star) {
   const avg = Math.max(1, Math.round(RUN.team.reduce((a, m) => a + m.level, 0) / RUN.team.length) - 1);
   const stars = star ? starterEggs() : [];
   await say(null, stars.length ? '✨ 發光的數碼蛋開始搖晃…裡面傳來熟悉的聲音！' : '數碼蛋開始搖晃…裂開了！');
-  const opts = stars.length ? shuffle([pick(stars), pick(recruitables())]) : shuffle(recruitables()).slice(0, 2);
+  const opts = stars.length > 1 ? shuffle(stars).slice(0, 2) : stars.length ? shuffle([stars[0], pick(recruitables())]) : shuffle(recruitables()).slice(0, 2);   // 發光蛋：二選一都是初始夥伴（只剩 1 隻時另一個是一般夥伴）
   const id = await pickScreen({ title: '🥚 從數碼蛋裡誕生了！', sub: `選一隻加入隊伍（Lv.${avg}）`, items: opts, allowSkip: false,
     render: id => { const s = SPECIES[id], el = document.createElement('div'); el.className = 'pickMon';
       el.innerHTML = `${spPic(id, 's110')}<b>${s.starter ? '✨ ' : ''}${s.name}</b><span>${ATTR_ICON[s.attr]} ${ATTR_NAME[s.attr]}</span><small>${s.desc}</small><small>${evoNote(s)}</small>`; return el; } });
