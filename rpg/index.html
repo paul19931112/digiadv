@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>數碼冒險 RPG（第一章試玩）</title>
+<style>
+  :root { --accent: #ffcc33; --bg: #0e1124; --panel: #151a36ee; --line: #4b5394; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: #eef1ff; position: fixed; inset: 0;
+    font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; }
+  canvas { display: block; }
+  .hidden { display: none !important; }
+  b { color: #fde68a; }
+  /* ===== HUD ===== */
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #hudL { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 10px; width: min(300px, 56vw); text-shadow: 0 1px 3px #000; }
+  .row { display: flex; align-items: center; gap: 6px; }
+  #lvTxt { font-weight: 900; font-size: 15px; background: #0b0e20cc; padding: 2px 8px; border-radius: 8px; }
+  .bar { position: relative; height: 13px; background: #000a; border: 2px solid #fff5; border-radius: 8px; overflow: hidden; flex: 1; }
+  .bar i { display: block; height: 100%; width: 0; transition: width .12s; }
+  .bar span { position: absolute; inset: 0; font-size: 10px; font-weight: 900; text-align: center; line-height: 10px; }
+  #hpBar i { background: linear-gradient(90deg, #ef4444, #f87171); }
+  #expBar { height: 7px; margin-top: 3px; } #expBar i { background: linear-gradient(90deg, #22d3ee, #a5f3fc); }
+  #evoBar { height: 9px; margin-top: 3px; } #evoBar i { background: linear-gradient(90deg, #f97316, #fde047); }
+  #evoBar.full i { animation: evoGlow .6s infinite alternate; } @keyframes evoGlow { to { filter: brightness(1.6); } }
+  #partyTxt { font-size: 12px; margin-top: 3px; color: #c7cdf5; }
+  #track { margin-top: 8px; background: #0b0e20b8; border-left: 4px solid var(--accent); border-radius: 6px; padding: 5px 8px; font-size: 13px; line-height: 1.45; pointer-events: auto; cursor: pointer; }
+  #track small { color: #9aa3d6; display: block; font-size: 11px; }
+  #hudR { position: absolute; top: max(8px, env(safe-area-inset-top)); right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  #topBtns { display: flex; gap: 5px; pointer-events: auto; }
+  .ib { border: none; border-radius: 10px; background: #0b0e20cc; color: #fff; font-size: 17px; width: 38px; height: 34px; cursor: pointer; font-family: inherit; }
+  .ib:active { transform: scale(.94); }
+  .stat { font-size: 14px; font-weight: 800; background: #0b0e20cc; padding: 3px 9px; border-radius: 9px; text-shadow: 0 1px 2px #000; }
+  #mini { width: 120px; height: 120px; border-radius: 12px; border: 2px solid #fff5; background: #000a; pointer-events: auto; cursor: pointer; }
+  #bossBar { position: absolute; top: max(60px, calc(env(safe-area-inset-top) + 52px)); left: 50%; transform: translateX(-50%); width: min(420px, 60vw); text-align: center; }
+  #bossBar .bar { height: 15px; border-color: #ff8a8a88; } #bossBar .bar i { background: linear-gradient(90deg, #b91c1c, #f97316); }
+  #bossName { font-weight: 900; font-size: 14px; text-shadow: 0 1px 3px #000; margin-bottom: 2px; color: #fecaca; }
+  #banner { position: absolute; top: 28%; left: 0; right: 0; text-align: center; font-size: 34px; font-weight: 900; color: var(--accent);
+    text-shadow: 0 0 20px #f97316, 0 3px 0 #7c2d12; opacity: 0; transition: opacity .3s; padding: 0 12px; }
+  #banner.show { opacity: 1; }
+  #toasts { position: absolute; top: 34%; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; width: 92vw; }
+  .toast { background: #0b0e20e6; border: 1px solid #ffcc3377; padding: 6px 14px; border-radius: 10px; font-weight: 800; font-size: 14px; animation: toastIn .25s; text-align: center; }
+  @keyframes toastIn { from { transform: translateY(8px); opacity: 0; } }
+  #hurt { position: absolute; inset: 0; box-shadow: inset 0 0 90px #ef4444; opacity: 0; transition: opacity .25s; }
+  .dmg { position: absolute; font-weight: 900; font-size: 15px; color: #fff; text-shadow: 0 0 3px #000, 0 2px 0 #000; transform: translate(-50%, -50%); animation: dmgUp .6s ease-out forwards; pointer-events: none; }
+  .dmg.big { color: var(--accent); font-size: 21px; } .dmg.heal { color: #4ade80; } .dmg.hurt { color: #f87171; font-size: 18px; } .dmg.info { color: #a5f3fc; font-size: 14px; }
+  @keyframes dmgUp { to { transform: translate(-50%, -150%); opacity: 0; } }
+  /* 右下角的動作按鈕 */
+  #acts { position: absolute; right: 14px; bottom: max(16px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: auto; }
+  .ab { border: none; border-radius: 50%; width: 62px; height: 62px; font-size: 24px; font-weight: 900; background: #0b0e20d0; color: #fff; box-shadow: 0 3px 0 #000a; cursor: pointer; position: relative; font-family: inherit; }
+  .ab small { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 10px; color: #c7cdf5; }
+  .ab:active { transform: translateY(2px); }
+  #btnTalk { width: auto; min-width: 62px; border-radius: 31px; padding: 0 16px; font-size: 16px; background: linear-gradient(180deg, #ffd84d, #f5a300); color: #3a2000; }
+  #btnEvo.ready { background: radial-gradient(circle, #fde047, #f97316); color: #3a1000; animation: evoGlow .6s infinite alternate; }
+  #btnEvo.off, #btnDash.off { opacity: .35; }
+  .keyhint { position: absolute; left: 10px; bottom: max(6px, env(safe-area-inset-bottom)); font-size: 11px; color: #c7cdf5; opacity: .7; text-shadow: 0 1px 2px #000; }
+  /* 搖桿 */
+  #joy { position: fixed; width: 116px; height: 116px; margin: -58px 0 0 -58px; border-radius: 50%; pointer-events: none; opacity: .3;
+    background: radial-gradient(circle, #ffffff10, #ffffff22 70%, #ffcc3355 72%, transparent 74%); border: 2px solid #ffcc3366; transition: opacity .12s; }
+  #joy.on { opacity: 1; }
+  #joy i { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; border-radius: 50%; transform: translate(-50%, -50%);
+    background: radial-gradient(circle at 35% 30%, #fff6c4, #ffcc33 55%, #b8860b); box-shadow: 0 4px 12px #000a; }
+  /* ===== 對話 ===== */
+  #dlg { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(720px, 96vw); background: #10142ef2;
+    border: 3px solid var(--line); border-radius: 16px; padding: 12px 14px 12px 12px; display: flex; gap: 12px; z-index: 20; cursor: pointer; box-shadow: 0 8px 30px #000a; }
+  #dlgPic { width: 82px; height: 82px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 50px; background: #ffffff10; border-radius: 12px; }
+  #dlgPic img { max-width: 78px; max-height: 78px; filter: drop-shadow(0 3px 5px #000); }
+  #dlgName { font-weight: 900; color: var(--accent); font-size: 15px; margin-bottom: 4px; }
+  #dlgTxt { font-size: 16px; line-height: 1.65; min-height: 52px; }
+  #dlgMore { position: absolute; right: 14px; bottom: 6px; font-size: 12px; color: #9aa3d6; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .3; } }
+  #dlgOpts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .opt { border: 2px solid var(--line); background: #1a1f3d; color: #fff; border-radius: 10px; padding: 8px 14px; font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit; }
+  .opt:hover, .opt.sel { border-color: var(--accent); }
+  /* ===== 視窗 ===== */
+  .panel { position: fixed; inset: 0; background: #070914d8; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; text-align: center; z-index: 15; }
+  .panel h1 { margin: 0 0 6px; font-size: 34px; color: var(--accent); text-shadow: 0 0 18px #f97316; }
+  .panel h2 { margin: 0 0 10px; font-size: 24px; color: var(--accent); }
+  .panel p { margin: 6px 0; color: #c7cdf5; line-height: 1.6; max-width: 560px; }
+  .btn { border: none; border-radius: 12px; padding: 11px 24px; font-size: 17px; font-weight: 900; cursor: pointer; margin: 8px 5px 0;
+    background: linear-gradient(180deg, #ffd84d, #f5a300); color: #3a2000; box-shadow: 0 4px 0 #8a5a00; font-family: inherit; }
+  .btn.gray { background: linear-gradient(180deg, #8a93c8, #5a6398); color: #fff; box-shadow: 0 4px 0 #2a3060; }
+  .btn:active { transform: translateY(2px); }
+  .btn:disabled { opacity: .4; }
+  .choices { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  .choice { width: 190px; background: #1a1f3d; border: 3px solid var(--line); border-radius: 14px; padding: 14px 12px; cursor: pointer; text-align: center; transition: transform .1s, border-color .1s; }
+  .choice:hover { transform: translateY(-4px); border-color: var(--accent); }
+  .choice .ic { font-size: 36px; } .choice b { display: block; margin: 6px 0 4px; font-size: 16px; } .choice small { color: #c7cdf5; font-size: 13px; line-height: 1.5; }
+  .choice .lvl { display: block; margin-top: 6px; color: #6b74a8; font-size: 11px; }
+  .win { background: var(--panel); border: 3px solid var(--line); border-radius: 16px; width: min(640px, 96vw); max-height: 86vh; overflow: auto; padding: 14px; text-align: left; position: relative; touch-action: pan-y; }
+  .win h2 { text-align: center; }
+  .x { position: absolute; top: 8px; right: 10px; border: none; background: none; color: #fff; font-size: 24px; cursor: pointer; }
+  .sec { font-weight: 900; color: var(--accent); margin: 12px 0 6px; font-size: 15px; }
+  .q { background: #ffffff0c; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; line-height: 1.55; font-size: 14px; }
+  .q.done { opacity: .55; } .q b { font-size: 15px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 8px; }
+  .card { background: #1a1f3d; border: 2px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: 13px; line-height: 1.5; cursor: pointer; }
+  .card.on { border-color: var(--accent); background: #2a2a20; }
+  .card .t { font-weight: 900; font-size: 14px; } .card .d { color: #c7cdf5; }
+  .card .p { color: #ffd84d; font-weight: 900; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 13px; color: #c7cdf5; }
+  #bigMap { max-width: 100%; max-height: 66vh; image-rendering: pixelated; border-radius: 10px; border: 2px solid var(--line); display: block; margin: 0 auto; }
+  .credit { position: fixed; left: 8px; bottom: max(4px, env(safe-area-inset-bottom)); font-size: 10px; color: #9aa3d6; opacity: .6; pointer-events: none; z-index: 16; }
+  .portrait { display: flex; gap: 10px; justify-content: center; margin: 8px 0; align-items: flex-end; }
+  .portrait img { height: 86px; filter: drop-shadow(0 4px 8px #000); }
+  @media (max-width: 600px) {
+    .choice { width: 100%; max-width: 340px; display: flex; gap: 12px; align-items: center; text-align: left; } .choice .ic { font-size: 30px; }
+    .panel h1 { font-size: 26px; } #dlgPic { width: 60px; height: 60px; font-size: 36px; } #dlgPic img { max-width: 56px; max-height: 56px; } #dlgTxt { font-size: 15px; }
+    #mini { width: 92px; height: 92px; } .ib { width: 34px; height: 32px; font-size: 15px; } #banner { font-size: 26px; }
+    .ab { width: 56px; height: 56px; font-size: 22px; } .keyhint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="hud" class="hidden">
+  <div id="hudL">
+    <div class="row"><span id="lvTxt">Lv.1</span><div class="bar" id="hpBar"><i></i><span id="hpTxt"></span></div></div>
+    <div class="bar" id="expBar"><i></i></div>
+    <div class="bar hidden" id="evoBar" title="勇氣：滿了就能進化"><i></i></div>
+    <div id="partyTxt"></div>
+    <div id="track"></div>
+  </div>
+  <div id="hudR">
+    <div id="topBtns">
+      <button class="ib" id="bQuest" title="任務（J）">📜</button><button class="ib" id="bBag" title="背包（B）">🎒</button>
+      <button class="ib" id="bMap" title="地圖（M）">🗺️</button><button class="ib muteBtn" title="音效開關">🔊</button>
+    </div>
+    <div class="row"><span class="stat" id="clockTxt">☀️</span><span class="stat" id="coinTxt">💰 0</span></div>
+    <canvas id="mini" width="120" height="120" title="地圖（M）"></canvas>
+  </div>
+  <div id="bossBar" class="hidden"><div id="bossName"></div><div class="bar"><i></i></div></div>
+  <div id="banner"></div>
+  <div id="toasts"></div>
+  <div id="hurt"></div>
+  <div id="acts">
+    <button class="ab hidden" id="btnTalk">💬</button>
+    <button class="ab off hidden" id="btnEvo">⚡<small>Q 進化</small></button>
+    <div class="row" style="gap:10px"><button class="ab" id="btnMeat">🍖<small id="meatN">R ×0</small></button><button class="ab" id="btnDash">💨<small>空白 閃避</small></button></div>
+  </div>
+  <div class="keyhint">WASD 移動　空白鍵 閃避　E 對話／調查　Q 進化　R 吃肉　J 任務　B 背包　M 地圖</div>
+</div>
+<div id="dmgLayer" style="position:fixed;inset:0;pointer-events:none;overflow:hidden"></div>
+<div id="joy"><i></i></div>
+
+<div id="dlg" class="hidden"><div id="dlgPic"></div><div style="flex:1;min-width:0"><div id="dlgName"></div><div id="dlgTxt"></div><div id="dlgOpts"></div></div><div id="dlgMore">▼</div></div>
+
+<div class="panel" id="titlePanel">
+  <h1>數碼冒險 RPG</h1>
+  <p style="color:var(--accent);font-weight:800">第一章　檔案島的異變（試玩版）</p>
+  <div class="portrait" id="titlePics"></div>
+  <p>在檔案島上自由探險！和村民對話、接下<b>主線和支線任務</b>，<br>尋找<b>隱藏的地方</b>、解開<b>神秘事件</b>。<br>夥伴會自動攻擊，你負責走位，用<b>空白鍵閃避</b>躲開頭目的<b style="color:#f87171">紅色預警</b>。</p>
+  <p style="font-size:13px">電腦：WASD／方向鍵移動　｜　手機：按住畫面任何地方拖曳<br>這是另外做的試玩版，存檔和正式版分開。</p>
+  <div><button class="btn hidden" id="btnCont">繼續冒險</button><button class="btn" id="btnNew">新的冒險</button></div>
+  <button class="ib muteBtn" style="margin-top:14px" title="音效開關">🔊</button>
+</div>
+<div class="panel hidden" id="levelPanel">
+  <h2 id="levelTitle">升級！</h2>
+  <p>選一個強化（電腦可以按 1～3）</p>
+  <div class="choices" id="choices"></div>
+</div>
+<div class="panel hidden" id="winPanel"><div class="win" id="winBox"></div></div>
+<div class="panel hidden" id="deadPanel"><h1>全滅了……</h1><p id="deadTxt"></p></div>
+<div class="credit">非官方粉絲試作・數碼寶貝相關權利屬於原權利方</div>
+
+<script src="three.min.js?v=rpg0.1"></script>
+<script src="sprites.js?v=rpg0.1"></script>
+<script src="js/map.js?v=rpg0.1"></script>
+<script src="js/data.js?v=rpg0.1"></script>
+<script src="js/engine.js?v=rpg0.1"></script>
+<script src="js/ui.js?v=rpg0.1"></script>
+</body>
+</html>
